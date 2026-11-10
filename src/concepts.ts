@@ -1,3 +1,5 @@
+import type { ResearchLog, ValidationPlan } from './designWork.ts'
+
 export const conceptCounts = [3, 4, 5, 6] as const
 export type ConceptCount = typeof conceptCounts[number]
 
@@ -40,6 +42,8 @@ export type Concept = {
   sentences: Record<keyof typeof sentenceLabels, string>
   scores: Scores
   notes: string
+  validation?: ValidationPlan
+  research?: ResearchLog
 }
 
 export type ConceptBatch = {

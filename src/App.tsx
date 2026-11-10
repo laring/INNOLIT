@@ -215,7 +215,12 @@ function App() {
         {saveFailed && <p className="workspace-save-error" role="alert">当前浏览器无法保存项目，刷新可能丢失本次更改。</p>}
 
         {view === 'studio' ? (
-          <ConceptStudio key={activeProject.id} state={getProjectStudio(activeProject)} onChange={updateStudio} />
+          <ConceptStudio
+            key={activeProject.id}
+            projectName={activeProject.name}
+            state={getProjectStudio(activeProject)}
+            onChange={updateStudio}
+          />
         ) : (
           <div className="chat-workspace">
             <div className="conversation">
@@ -330,7 +335,7 @@ function App() {
               <div>01 · 问题与场景</div>
               <div>02 · 创意方向</div>
               <div>03 · 产品概念</div>
-              <div>04 · 可行性验证</div>
+              <div>04 · 可行性验证与原创性检索</div>
               <div>05 · 设计报告</div>
             </div>
           </div>

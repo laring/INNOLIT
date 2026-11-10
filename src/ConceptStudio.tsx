@@ -8,9 +8,11 @@ import {
 import type {
   Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
 } from './concepts'
+import { RefinementWorkspace } from './RefinementWorkspace'
 import './ConceptStudio.css'
 
 type StudioProps = {
+  projectName: string
   state: ConceptStudioState
   onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
 }
@@ -36,7 +38,7 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ state, onChange }: StudioProps) {
+export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const conceptHeading = useRef<HTMLHeadingElement>(null)
   const comparisonHeading = useRef<HTMLHeadingElement>(null)
@@ -94,7 +96,7 @@ export function ConceptStudio({ state, onChange }: StudioProps) {
     updateRound(round => ({ ...round, selectedId: id }))
   }
 
-  if (refining && selected) {
+  if (refining && batch && selected) {
     return (
       <section className="studio-scroll" key="refinement" aria-labelledby="refinement-heading">
         <div className="studio-content">
@@ -108,32 +110,20 @@ export function ConceptStudio({ state, onChange }: StudioProps) {
           <header className="studio-intro">
             <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.format}</p>
             <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.title}</h1>
-            <p>用现有概念确定首轮原型和验证计划。笔记会保存到当前项目。</p>
+            <p>记录验证与检索证据，并整理本轮的设计报告。</p>
           </header>
-          <div className="studio-surface studio-refinement">
-            <div>
-              <h2>首轮验证</h2>
-              <p><strong>关键风险</strong>　{selected.sentences.risk}</p>
-              <p><strong>验证方式</strong>　{selected.sentences.test}</p>
-            </div>
-            <label className="studio-field">
-              深化笔记
-              <textarea
-                rows={5}
-                maxLength={4000}
-                value={selected.notes}
-                onChange={event => {
-                  const notes = event.target.value
-                  editConcept(selected.id, concept => ({ ...concept, notes }))
-                }}
-                placeholder="记录原型材料、验证步骤和观察结果"
-              />
-            </label>
+          <RefinementWorkspace
+            projectName={projectName}
+            round={batch}
+            roundNumber={activeRound + 1}
+            concept={selected}
+            onChange={update => editConcept(selected.id, update)}
+          >
             <details>
               <summary>查看完整九句话</summary>
               <ConceptFramework concept={selected} />
             </details>
-          </div>
+          </RefinementWorkspace>
         </div>
       </section>
     )
