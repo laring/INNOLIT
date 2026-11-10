@@ -145,6 +145,48 @@ button {
 .breadcrumb {
   color: #666b67;
   font-size: 12px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-nav {
+  display: flex;
+  gap: 6px;
+  padding: 8px clamp(12px, 3vw, 32px);
+  border-bottom: 1px solid #f0f0ee;
+}
+
+.workspace-nav button {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #58615a;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.workspace-nav button:hover,
+.workspace-nav button[aria-pressed="true"] {
+  background: #eef2ec;
+  color: #304634;
+}
+
+.workspace-save-error {
+  margin: 0;
+  padding: 10px 16px;
+  background: #fff5ea;
+  color: #783c17;
+  font-size: 13px;
+}
+
+.chat-workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .breadcrumb span {

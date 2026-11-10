@@ -4,31 +4,11 @@ import {
   ArrowUp, Lightbulb, Plus, PanelRightClose,
   PanelRightOpen, FolderOpen, Sparkles, Trash2
 } from 'lucide-react'
+import { ConceptStudio } from './ConceptStudio'
+import type { ConceptStudioState } from './concepts'
+import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
+import type { Message } from './projects'
 import './App.css'
-
-type Message = {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-}
-
-type Project = {
-  id: string
-  name: string
-  messages: Message[]
-  updatedAt: number
-}
-
-const STORAGE_KEY = 'inno-lit-v0.1-projects'
-
-function createProject(): Project {
-  return {
-    id: crypto.randomUUID(),
-    name: '未命名设计项目',
-    messages: [],
-    updatedAt: Date.now()
-  }
-}
 
 function generateGuidance(input: string): string {
   return `已记录你的设计想法：${input}
@@ -48,37 +28,37 @@ function generateGuidance(input: string): string {
 }
 
 function App() {
-  const [projects, setProjects] = useState<Project[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed: unknown = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed as Project[]
-        }
-      }
-    } catch {
-      // Ignore invalid local data.
-    }
-    return [createProject()]
-  })
-
+  const [projects, setProjects] = useState(loadProjects)
   const [activeId, setActiveId] = useState(
     () => projects[0].id
   )
   const [input, setInput] = useState('')
   const [showResults, setShowResults] = useState(true)
+  const [view, setView] = useState<'workspace' | 'studio'>('workspace')
+  const [saveFailed, setSaveFailed] = useState(false)
 
   const activeProject =
     projects.find(project => project.id === activeId)
     ?? projects[0]
 
   useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(projects)
-    )
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+      // Report the outcome of writing to browser storage.
+      // oxlint-disable-next-line react/set-state-in-effect
+      setSaveFailed(false)
+    } catch {
+      // oxlint-disable-next-line react/set-state-in-effect
+      setSaveFailed(true)
+    }
   }, [projects])
+
+  function updateStudio(update: (current: ConceptStudioState) => ConceptStudioState) {
+    const updatedAt = Date.now()
+    setProjects(current => current.map(project => project.id === activeProject.id
+      ? { ...project, conceptStudio: update(getProjectStudio(project)), updatedAt }
+      : project))
+  }
 
   function addProject() {
     const project = createProject()
@@ -155,6 +135,7 @@ function App() {
         <button
           className="new-project"
           onClick={addProject}
+          aria-label="新建设计项目"
         >
           <Plus size={17} />
           新建设计项目
@@ -173,6 +154,7 @@ function App() {
             >
               <button
                 className="project-select"
+                aria-label={project.name}
                 onClick={() => {
                   setActiveId(project.id)
                   setInput('')
@@ -201,7 +183,7 @@ function App() {
         </div>
 
         <div className="sidebar-footer">
-          V0.1 · Local Workspace
+          V0.2 · Local Workspace
         </div>
       </aside>
 
@@ -211,96 +193,111 @@ function App() {
             工作台 <span>/</span> {activeProject.name}
           </div>
 
-          <button
-            className="icon-button"
-            title="切换成果面板"
-            aria-label="切换成果面板"
-            onClick={() => setShowResults(value => !value)}
-          >
-            {showResults
-              ? <PanelRightClose size={19} />
-              : <PanelRightOpen size={19} />}
-          </button>
+          {view === 'workspace' && (
+            <button
+              className="icon-button"
+              title="切换成果面板"
+              aria-label="切换成果面板"
+              aria-expanded={showResults}
+              onClick={() => setShowResults(value => !value)}
+            >
+              {showResults
+                ? <PanelRightClose size={19} />
+                : <PanelRightOpen size={19} />}
+            </button>
+          )}
         </header>
 
-        <div className="conversation">
-          {activeProject.messages.length === 0 ? (
-            <div className="welcome">
-              <div className="welcome-icon">
-                <Sparkles size={25} />
-              </div>
-              <h1>今天想创造什么？</h1>
-              <p>
-                从一个问题、一段灵感，或一个尚未成形的想法开始。
-              </p>
-              <div className="suggestions">
-                {[
-                  '设计一款帮助学生短暂放松的桌面产品',
-                  '探索更环保的一次性水杯',
-                  '为儿童设计自然声音启蒙玩具'
-                ].map(suggestion => (
-                  <button
-                    key={suggestion}
-                    onClick={() => setInput(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="messages">
-              {activeProject.messages.map(message => (
-                <div
-                  className={`message ${message.role}`}
-                  key={message.id}
-                >
-                  {message.role === 'assistant' && (
-                    <div className="assistant-avatar">
-                      <Lightbulb size={16} />
-                    </div>
-                  )}
-                  <div className="message-content">
-                    {message.content}
+        <nav className="workspace-nav" aria-label="项目工作区">
+          <button type="button" aria-pressed={view === 'workspace'} onClick={() => setView('workspace')}>创意对话</button>
+          <button type="button" aria-pressed={view === 'studio'} onClick={() => setView('studio')}>Concept Studio</button>
+        </nav>
+        {saveFailed && <p className="workspace-save-error" role="alert">当前浏览器无法保存项目，刷新可能丢失本次更改。</p>}
+
+        {view === 'studio' ? (
+          <ConceptStudio key={activeProject.id} state={getProjectStudio(activeProject)} onChange={updateStudio} />
+        ) : (
+          <div className="chat-workspace">
+            <div className="conversation">
+              {activeProject.messages.length === 0 ? (
+                <div className="welcome">
+                  <div className="welcome-icon">
+                    <Sparkles size={25} />
+                  </div>
+                  <h1>今天想创造什么？</h1>
+                  <p>
+                    从一个问题、一段灵感，或一个尚未成形的想法开始。
+                  </p>
+                  <div className="suggestions">
+                    {[
+                      '设计一款帮助学生短暂放松的桌面产品',
+                      '探索更环保的一次性水杯',
+                      '为儿童设计自然声音启蒙玩具'
+                    ].map(suggestion => (
+                      <button
+                        key={suggestion}
+                        onClick={() => setInput(suggestion)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
+              ) : (
+                <div className="messages">
+                  {activeProject.messages.map(message => (
+                    <div
+                      className={`message ${message.role}`}
+                      key={message.id}
+                    >
+                      {message.role === 'assistant' && (
+                        <div className="assistant-avatar">
+                          <Lightbulb size={16} />
+                        </div>
+                      )}
+                      <div className="message-content">
+                        {message.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <div className="composer-area">
-          <div className="composer">
-            <textarea
-              value={input}
-              onChange={event => setInput(event.target.value)}
-              placeholder="描述你的设计问题或创意想法..."
-              rows={3}
-              onKeyDown={event => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  sendMessage()
-                }
-              }}
-            />
-            <div className="composer-bottom">
-              <span>Shift + Enter 换行</span>
-              <button
-                onClick={sendMessage}
-                disabled={!input.trim()}
-                aria-label="发送想法"
-              >
-                <ArrowUp size={19} />
-              </button>
+            <div className="composer-area">
+              <div className="composer">
+                <textarea
+                  value={input}
+                  onChange={event => setInput(event.target.value)}
+                  placeholder="描述你的设计问题或创意想法..."
+                  rows={3}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault()
+                      sendMessage()
+                    }
+                  }}
+                />
+                <div className="composer-bottom">
+                  <span>Shift + Enter 换行</span>
+                  <button
+                    onClick={sendMessage}
+                    disabled={!input.trim()}
+                    aria-label="发送想法"
+                  >
+                    <ArrowUp size={19} />
+                  </button>
+                </div>
+              </div>
+              <p className="composer-note">
+                当前为本地规则式创意引导，尚未连接 AI 模型。
+              </p>
             </div>
           </div>
-          <p className="composer-note">
-            当前为本地规则式创意引导，尚未连接 AI 模型。
-          </p>
-        </div>
+        )}
       </main>
 
-      {showResults && (
+      {view === 'workspace' && showResults && (
         <aside className="results-panel">
           <div className="results-header">
             <h2>设计成果</h2>
