@@ -1,4 +1,4 @@
-import { averageScore, scoreDimensions, sentenceLabels } from './concepts.ts'
+import { averageScore, conceptSourceLabel, scoreDimensions, sentenceLabels } from './concepts.ts'
 import type { Concept, ConceptBatch, ScoreDimension } from './concepts.ts'
 
 export const validationFields = {
@@ -83,7 +83,7 @@ export function buildDesignReport(
           { label: '项目', value: projectName },
           { label: '概念轮次', value: `第 ${roundNumber} 轮` },
           { label: '选定方案', value: `${concept.title} · ${concept.format}` },
-          { label: '概念来源', value: '本地规则生成 · 非 AI' },
+          { label: '概念来源', value: conceptSourceLabel(round) },
           { label: '设计问题', value: round.brief.problem },
           { label: '目标用户', value: round.brief.audience },
           { label: '使用场景', value: round.brief.scenario },

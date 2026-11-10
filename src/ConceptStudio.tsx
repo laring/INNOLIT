@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import {
-  appendConceptRound, averageScore, conceptCounts, normalizeDraft,
+  appendConceptRound, averageScore, conceptCounts, conceptSourceLabel, normalizeDraft,
   scoreDimensions, scoreOptions, sentenceLabels,
 } from './concepts'
 import type {
   Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
 } from './concepts'
 import { RefinementWorkspace } from './RefinementWorkspace'
+import { generateWithModel } from './modelGeneration'
+import type { ModelSettings } from './modelGeneration'
 import './ConceptStudio.css'
 
 type StudioProps = {
@@ -40,6 +42,11 @@ function focusHeading(heading: HTMLHeadingElement | null) {
 
 export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
   const [refining, setRefining] = useState(false)
+  const [customModel, setCustomModel] = useState(false)
+  const [settings, setSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
+  const [generating, setGenerating] = useState(false)
+  const [notice, setNotice] = useState('')
+  const request = useRef<AbortController | null>(null)
   const conceptHeading = useRef<HTMLHeadingElement>(null)
   const comparisonHeading = useRef<HTMLHeadingElement>(null)
   const pendingFocus = useRef<'concepts' | 'comparison' | null>(null)
@@ -49,7 +56,9 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
   const selected = batch?.concepts.find(concept => concept.id === batch.selectedId)
   const normalized = normalizeDraft(draft)
   const ready = normalized.problem && normalized.audience && normalized.scenario
-  const unchanged = latest && (
+  const localPage = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  const configured = settings.baseUrl.trim() && settings.model.trim() && settings.apiKey.trim()
+  const unchanged = latest && !latest.generation && !customModel && (
     latest.brief.problem === normalized.problem &&
     latest.brief.audience === normalized.audience &&
     latest.brief.scenario === normalized.scenario &&
@@ -63,15 +72,62 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
     focusHeading(heading.current)
   }, [rounds.length, refining])
 
+  useEffect(() => () => request.current?.abort(), [])
+
   function editDraft(fields: Partial<ConceptDraft>) {
     onChange(current => ({ ...current, draft: { ...current.draft, ...fields } }))
   }
 
-  function generate(event: FormEvent<HTMLFormElement>) {
+  function editSettings(change: Partial<ModelSettings>) {
+    setNotice('')
+    setSettings(current => {
+      const next = { ...current, ...change }
+      if (next.baseUrl.trim() !== current.baseUrl.trim()) next.apiKey = ''
+      return next
+    })
+  }
+
+  async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!ready || unchanged) return
-    pendingFocus.current = 'concepts'
-    onChange(appendConceptRound)
+    if (!ready || unchanged || request.current) return
+    setNotice('')
+    if (!customModel) {
+      pendingFocus.current = 'concepts'
+      onChange(appendConceptRound)
+      return
+    }
+    if (!localPage || !configured) return
+
+    const controller = new AbortController()
+    request.current = controller
+    setGenerating(true)
+    try {
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(150000)])
+      const result = await generateWithModel(draft, settings, signal)
+      if (controller.signal.aborted) return
+      pendingFocus.current = 'concepts'
+      onChange(current => appendConceptRound(current, result))
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setNotice(error instanceof DOMException && error.name === 'TimeoutError'
+          ? '等待模型服务超时。可减少概念数量后重试。'
+          : error instanceof Error && !(error instanceof TypeError)
+            ? error.message
+            : '无法连接模型服务。请检查配置，或选择本地规则。')
+      }
+    } finally {
+      if (request.current === controller) {
+        request.current = null
+        if (!controller.signal.aborted) setGenerating(false)
+      }
+    }
+  }
+
+  function cancelGeneration() {
+    request.current?.abort()
+    request.current = null
+    setGenerating(false)
+    setNotice('已取消本轮生成。')
   }
 
   function updateRound(update: (round: ConceptBatch) => ConceptBatch) {
@@ -111,6 +167,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
             <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.format}</p>
             <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.title}</h1>
             <p>记录验证与检索证据，并整理本轮的设计报告。</p>
+            <span className="studio-badge">{conceptSourceLabel(batch)}</span>
           </header>
           <RefinementWorkspace
             projectName={projectName}
@@ -136,7 +193,6 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
           <p className="studio-kicker"><Layers size={15} aria-hidden="true" /> V0.2 · 创意方案</p>
           <h1 id="studio-heading">Concept Studio</h1>
           <p>从同一设计问题探索 3–6 个方向，再比较、评分并选定一个进行深化。</p>
-          <span className="studio-badge">本地规则生成 · 非 AI</span>
         </header>
 
         <form className="studio-surface studio-brief" onSubmit={generate}>
@@ -148,6 +204,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
               value={draft.problem}
               onChange={event => editDraft({ problem: event.target.value })}
               placeholder="例如，如何帮助学生在课间快速放松？"
+              disabled={generating}
               required
             />
           </label>
@@ -157,6 +214,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
               value={draft.audience}
               onChange={event => editDraft({ audience: event.target.value })}
               placeholder="例如，备考的高中生"
+              disabled={generating}
               required
             />
           </label>
@@ -166,27 +224,73 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
               value={draft.scenario}
               onChange={event => editDraft({ scenario: event.target.value })}
               placeholder="例如，两节课之间的教室桌面"
+              disabled={generating}
               required
             />
           </label>
+          <div className="studio-model">
+            <label className="studio-field studio-model-select">
+              生成方式
+              <select value={customModel ? 'api' : 'rules'} disabled={generating} onChange={event => {
+                setCustomModel(event.target.value === 'api')
+                setNotice('')
+              }}>
+                <option value="rules">本地规则（非 AI）</option>
+                <option value="api" disabled={!localPage}>自配 API 模型</option>
+              </select>
+            </label>
+            {customModel && (
+              <div className="studio-model-settings">
+                <label className="studio-field">
+                  API 地址
+                  <input type="url" maxLength={1000} value={settings.baseUrl} disabled={generating} required
+                    onChange={event => editSettings({ baseUrl: event.target.value })} placeholder="https://api.deepseek.com" />
+                </label>
+                <label className="studio-field">
+                  模型 ID
+                  <input maxLength={200} value={settings.model} disabled={generating} required
+                    onChange={event => editSettings({ model: event.target.value })} placeholder="deepseek-flash" />
+                </label>
+                <label className="studio-field">
+                  API 密钥
+                  <input type="password" autoComplete="off" maxLength={2048} value={settings.apiKey} disabled={generating} required
+                    onChange={event => editSettings({ apiKey: event.target.value })} />
+                </label>
+                <div>
+                  <button type="button" className="studio-button" disabled={generating} onClick={() => editSettings({
+                    baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash',
+                  })}>
+                    填入 DeepSeek 示例
+                  </button>
+                </div>
+                <p className="studio-hint">
+                  生成时会把简报发送至该服务，可能产生 API 费用。密钥仅在当前工作区会话中使用。
+                </p>
+              </div>
+            )}
+            {!localPage && <p className="studio-hint">请通过 localhost 打开工作台以使用自配 API 模型。</p>}
+          </div>
           <div className="studio-actions">
             <label className="studio-field">
               生成数量
-              <select value={draft.count} onChange={event => editDraft({ count: Number(event.target.value) as ConceptCount })}>
+              <select value={draft.count} disabled={generating} onChange={event => editDraft({ count: Number(event.target.value) as ConceptCount })}>
                 {conceptCounts.map(count => <option key={count} value={count}>{count} 个</option>)}
               </select>
             </label>
-            <button type="submit" className="studio-button primary" disabled={!ready || Boolean(unchanged)}>
-              {latest ? '生成新一轮' : '生成概念'}
+            <button type="submit" className="studio-button primary" disabled={!ready || Boolean(unchanged) || generating || (customModel && !configured)}>
+              {generating ? '正在生成…' : latest ? '生成新一轮' : '生成概念'}
               <ArrowRight size={16} aria-hidden="true" />
             </button>
+            {generating && <button type="button" className="studio-button" onClick={cancelGeneration}>取消生成</button>}
           </div>
           <p className="studio-hint" role="status">
-            {latest
+            {generating
+              ? `正在使用 ${settings.model.trim()} 生成概念…`
+              : notice || (latest
               ? unchanged
-                ? `最新的第 ${rounds.length} 轮有 ${latest.concepts.length} 个概念。修改简报或数量可生成新一轮。`
-                : '草稿已有变更。生成新一轮会保留已有轮次及其评分和深化笔记。'
-              : '填写三个字段后即可生成概念。'}
+                ? `最新的第 ${rounds.length} 轮有 ${latest.concepts.length} 个概念。可修改简报、数量或选择模型生成新一轮。`
+                : '生成新一轮会保留已有轮次及其评分和深化笔记。'
+              : '填写三个字段后即可生成概念。')}
           </p>
         </form>
 
@@ -194,6 +298,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
           <>
             <section className="studio-section" aria-labelledby="concept-heading">
               <h2 id="concept-heading" tabIndex={-1} ref={conceptHeading}>概念方向 <span>{batch.concepts.length} 个</span></h2>
+              <p className="studio-hint">{conceptSourceLabel(batch)}</p>
               <div className="studio-round-bar">
                 <label className="studio-field">
                   概念轮次
@@ -213,7 +318,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
                     查看比较 <ArrowRight size={16} aria-hidden="true" />
                   </button>
                   {selected && (
-                    <button type="button" className="studio-button primary" onClick={() => setRefining(true)}>继续深化</button>
+                    <button type="button" className="studio-button primary" disabled={generating} onClick={() => setRefining(true)}>继续深化</button>
                   )}
                 </div>
               </div>
@@ -306,7 +411,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
               </div>
               <div className="studio-next">
                 <p aria-live="polite">{selected ? `已选方案 · ${selected.title}` : '请选择一个方案继续。'}</p>
-                <button type="button" className="studio-button primary" disabled={!selected} onClick={() => setRefining(true)}>
+                <button type="button" className="studio-button primary" disabled={!selected || generating} onClick={() => setRefining(true)}>
                   进入深化 <ArrowRight size={16} aria-hidden="true" />
                 </button>
               </div>

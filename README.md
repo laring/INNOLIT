@@ -1,4 +1,14 @@
-# React + TypeScript + Vite
+# INNO LIT
+
+运行 `npm ci` 和 `npm run dev`，打开终端显示的本地地址。Concept Studio 默认使用本地规则生成。
+
+## 自配模型
+
+在本地开发服务或构建预览中，打开 Concept Studio，选择「自配 API 模型」，填写服务的 HTTPS API 地址、模型 ID 和自己的密钥。服务需支持 Chat Completions 及 JSON 输出。例如 [DeepSeek](https://api-docs.deepseek.com/guides/json_mode/) 使用 `https://api.deepseek.com`，可填入 `deepseek-flash`。
+
+点击生成时，简报由本地服务转发至所填的模型服务。密钥只用于当前工作区会话。轮次与报告会记录模型 ID 和服务域名。
+
+## React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

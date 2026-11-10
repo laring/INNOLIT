@@ -295,7 +295,7 @@ function App() {
                 </div>
               </div>
               <p className="composer-note">
-                当前为本地规则式创意引导，尚未连接 AI 模型。
+                  创意对话使用本地规则。可在 Concept Studio 选择概念生成模型。
               </p>
             </div>
           </div>

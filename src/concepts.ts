@@ -36,7 +36,7 @@ export type Scores = Record<ScoreDimension, Score | null>
 type Direction = 'tool' | 'cue' | 'guide' | 'kit' | 'service' | 'feedback'
 
 export type Concept = {
-  id: Direction
+  id: string
   title: string
   format: string
   sentences: Record<keyof typeof sentenceLabels, string>
@@ -50,7 +50,10 @@ export type ConceptBatch = {
   brief: ConceptDraft
   concepts: Concept[]
   selectedId: Concept['id'] | null
+  generation?: { model: string; provider: string }
 }
+
+type ConceptCandidate = Pick<Concept, 'id' | 'title' | 'format' | 'sentences'>
 
 export type ConceptStudioState = {
   draft: ConceptDraft
@@ -189,7 +192,7 @@ export function normalizeDraft(draft: ConceptDraft): ConceptDraft {
   }
 }
 
-export function generateConceptBatch(draft: ConceptDraft): ConceptBatch {
+export function requireConceptBrief(draft: ConceptDraft): ConceptDraft {
   const brief = normalizeDraft(draft)
   if (!brief.problem || !brief.audience || !brief.scenario) {
     throw new Error('请填写设计问题、目标用户和使用场景。')
@@ -197,29 +200,48 @@ export function generateConceptBatch(draft: ConceptDraft): ConceptBatch {
   if (!conceptCounts.includes(brief.count)) {
     throw new Error('请选择生成 3 到 6 个概念。')
   }
+  return brief
+}
 
-  const context = contexts.find(rule => rule.match.test(brief.problem))?.context ?? defaultContext
+export function briefSentences(brief: ConceptDraft): Pick<Concept['sentences'], 'problem' | 'audience' | 'scenario'> {
+  return {
+    problem: `本概念回应的设计问题是「${brief.problem}」。`,
+    audience: `概念面向「${brief.audience}」。`,
+    scenario: `概念用于「${brief.scenario}」这一情境。`,
+  }
+}
+
+export function createConceptBatch(brief: ConceptDraft, candidates: ConceptCandidate[], generation?: ConceptBatch['generation']): ConceptBatch {
   return {
     brief,
     selectedId: null,
-    concepts: strategies.slice(0, brief.count).map(strategy => ({
-      id: strategy.id,
-      title: strategy.title,
-      format: strategy.format,
-      sentences: {
-        problem: `本概念回应的设计问题是「${brief.problem}」。`,
-        audience: `概念面向「${brief.audience}」。`,
-        scenario: `概念用于「${brief.scenario}」这一情境。`,
-        ...strategy.describe(context),
-      },
+    ...(generation ? { generation } : {}),
+    concepts: candidates.map(candidate => ({
+      ...candidate,
       scores: { novelty: null, feasibility: null, value: null },
       notes: '',
     })),
   }
 }
 
-export function appendConceptRound(state: ConceptStudioState): ConceptStudioState {
-  const batch = generateConceptBatch(state.draft)
+export function generateConceptBatch(draft: ConceptDraft): ConceptBatch {
+  const brief = requireConceptBrief(draft)
+  const context = contexts.find(rule => rule.match.test(brief.problem))?.context ?? defaultContext
+  return createConceptBatch(brief, strategies.slice(0, brief.count).map(({ id, title, format, describe }) => ({
+    id,
+    title,
+    format,
+    sentences: { ...briefSentences(brief), ...describe(context) },
+  })))
+}
+
+export function conceptSourceLabel(batch: ConceptBatch): string {
+  return batch.generation
+    ? `AI · ${batch.generation.model}（${batch.generation.provider}）`
+    : '本地规则生成 · 非 AI'
+}
+
+export function appendConceptRound(state: ConceptStudioState, batch = generateConceptBatch(state.draft)): ConceptStudioState {
   return {
     draft: batch.brief,
     rounds: [...state.rounds, batch],
