@@ -1,12 +1,12 @@
 # INNO LIT
 
-运行 `npm ci` 和 `npm run dev`，打开终端显示的本地地址。Concept Studio 默认使用本地规则生成。
+运行 `npm ci` 和 `npm run dev`，打开终端显示的本地地址。创意对话和 Concept Studio 默认使用本地规则。
 
 ## 自配模型
 
-在本地开发服务或构建预览中，打开 Concept Studio，选择「自配 API 模型」，填写服务的 HTTPS API 地址、模型 ID 和自己的密钥。服务需支持 Chat Completions 及 JSON 输出。例如 [DeepSeek](https://api-docs.deepseek.com/guides/json_mode/) 使用 `https://api.deepseek.com`，可填入 `deepseek-flash`。
+在本地开发服务或构建预览中，从创意对话或 Concept Studio 选择「自配 API 模型」，填写服务的 HTTPS API 地址、模型 ID 和自己的密钥。创意对话使用 Chat Completions，Concept Studio 另需 JSON 输出支持。DeepSeek 示例使用 `https://api.deepseek.com` 和 `deepseek-flash`。
 
-点击生成时，简报由本地服务转发至所填的模型服务。密钥只用于当前工作区会话。轮次与报告会记录模型 ID 和服务域名。
+模型设置在两个入口间共用，刷新后清除。创意对话发送本轮消息和当前项目的近期对话，Concept Studio 发送当前设计简报。AI 回复、概念轮次与报告会标注模型 ID 和服务域名。
 
 ## React + TypeScript + Vite
 

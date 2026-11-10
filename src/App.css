@@ -286,6 +286,14 @@ button {
   line-height: 1.85;
   font-size: 13px;
   max-width: 85%;
+  overflow-wrap: anywhere;
+}
+
+.message-source {
+  margin-bottom: 4px;
+  color: #526a56;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .message.user .message-content {
@@ -330,6 +338,12 @@ button {
   line-height: 1.6;
 }
 
+.composer-model {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eef0ec;
+}
+
 .composer-bottom {
   display: flex;
   align-items: center;
@@ -356,9 +370,13 @@ button {
 
 .composer-note {
   text-align: center;
-  color: #adb0ac;
-  font-size: 10px;
+  color: #58655b;
+  font-size: 12px;
   margin: 12px 0 0;
+}
+
+.composer-note:empty {
+  margin: 0;
 }
 
 .results-panel {

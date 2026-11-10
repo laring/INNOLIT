@@ -2,8 +2,17 @@ import { briefSentences, createConceptBatch, requireConceptBrief, sentenceLabels
 import type { ConceptBatch, ConceptDraft } from './concepts.ts'
 
 export const modelGenerationPath = '/api/inno-lit/generate'
+export const modelChatPath = '/api/inno-lit/chat'
 
 export type ModelSettings = { baseUrl: string; model: string; apiKey: string }
+
+export function canUseCustomModel(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1'
+}
+
+export function hasModelSettings(settings: ModelSettings): boolean {
+  return Boolean(settings.baseUrl.trim() && settings.model.trim() && settings.apiKey.trim())
+}
 
 const contentFields = ['idea', 'interaction', 'difference', 'value', 'risk', 'test'] as const
 const modelFields = ['title', 'format', ...contentFields] as const
@@ -93,17 +102,17 @@ export function parseModelConcepts(brief: ConceptDraft, generation: NonNullable<
   return createConceptBatch(brief, candidates, generation)
 }
 
-export async function generateWithModel(draft: ConceptDraft, settings: ModelSettings, signal: AbortSignal): Promise<ConceptBatch> {
-  const brief = requireConceptBrief(draft)
-  const provider = chatCompletionUrl(settings.baseUrl).hostname
-  const model = settings.model.trim()
-  const response = await fetch(modelGenerationPath, {
+export async function requestModel(
+  path: typeof modelGenerationPath | typeof modelChatPath, input: Record<string, unknown>,
+  settings: ModelSettings, signal: AbortSignal,
+): Promise<string> {
+  const response = await fetch(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${settings.apiKey.trim()}`,
     },
-    body: JSON.stringify({ brief, baseUrl: settings.baseUrl.trim(), model }),
+    body: JSON.stringify({ ...input, baseUrl: settings.baseUrl.trim(), model: settings.model.trim() }),
     credentials: 'omit',
     redirect: 'error',
     cache: 'no-store',
@@ -113,5 +122,12 @@ export async function generateWithModel(draft: ConceptDraft, settings: ModelSett
   if (!response.ok || typeof result.content !== 'string') {
     throw new Error(typeof result.error === 'string' ? result.error : '自配模型服务不可用。请通过本地开发服务或预览打开工作台。')
   }
-  return parseModelConcepts(brief, { model, provider }, result.content)
+  return result.content
+}
+
+export async function generateWithModel(draft: ConceptDraft, settings: ModelSettings, signal: AbortSignal): Promise<ConceptBatch> {
+  const brief = requireConceptBrief(draft)
+  const provider = chatCompletionUrl(settings.baseUrl).hostname
+  const content = await requestModel(modelGenerationPath, { brief }, settings, signal)
+  return parseModelConcepts(brief, { model: settings.model.trim(), provider }, content)
 }

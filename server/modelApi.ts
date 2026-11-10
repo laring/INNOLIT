@@ -5,10 +5,13 @@ import { BlockList } from 'node:net'
 import type { Plugin } from 'vite'
 import { requireConceptBrief } from '../src/concepts.ts'
 import type { ConceptDraft } from '../src/concepts.ts'
-import { chatCompletionUrl, modelGenerationPath, modelPrompt, objectRecord } from '../src/modelGeneration.ts'
+import { chatCompletionUrl, modelChatPath, modelGenerationPath, modelPrompt, objectRecord } from '../src/modelGeneration.ts'
+import { chatPrompt } from '../src/modelChat.ts'
+
+type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt>
 
 type ModelTransport = (
-  url: URL, key: string, payload: ReturnType<typeof modelPrompt>, signal: AbortSignal,
+  url: URL, key: string, payload: ModelPayload, signal: AbortSignal,
 ) => Promise<{ status: number; data?: unknown }>
 
 const privateIPv4 = new BlockList()
@@ -92,7 +95,7 @@ function providerError(status: number): string {
   if (status === 401 || status === 403) return '服务商拒绝了请求。请检查 API 密钥和模型权限。'
   if (status === 402) return '服务商提示账户余额不足。请检查该账户。'
   if (status === 429) return '服务商暂时限制了请求频率。请稍后重试。'
-  return `服务商请求失败（${status}）。请检查 API 地址、模型 ID，以及是否支持 JSON 输出。`
+  return `服务商请求失败（${status}）。请检查 API 地址、模型 ID 和服务商设置。`
 }
 
 export function modelApi(transport: ModelTransport = requestProvider): Plugin {
@@ -112,20 +115,24 @@ export function modelApi(transport: ModelTransport = requestProvider): Plugin {
     }
 
     let url: URL
-    let payload: ReturnType<typeof modelPrompt>
+    let payload: ModelPayload
     try {
-      const { baseUrl, model, brief } = objectRecord(await readJson(request, 48 * 1024))
+      const { baseUrl, model, brief, messages } = objectRecord(await readJson(request, 64 * 1024))
       if (typeof baseUrl !== 'string' || baseUrl.length > 1000 || typeof model !== 'string' || !model.trim() || model.length > 200) {
         throw new Error('请填写 API 地址和模型 ID。')
       }
-      const input = objectRecord(brief)
-      if (typeof input.problem !== 'string' || typeof input.audience !== 'string' || typeof input.scenario !== 'string') {
-        throw new Error('请填写完整的设计简报。')
-      }
       url = chatCompletionUrl(baseUrl)
-      payload = modelPrompt(requireConceptBrief(input as ConceptDraft), model.trim())
+      if (request.url === modelChatPath) {
+        payload = chatPrompt(messages, model.trim())
+      } else {
+        const input = objectRecord(brief)
+        if (typeof input.problem !== 'string' || typeof input.audience !== 'string' || typeof input.scenario !== 'string') {
+          throw new Error('请填写完整的设计简报。')
+        }
+        payload = modelPrompt(requireConceptBrief(input as ConceptDraft), model.trim())
+      }
     } catch (error) {
-      const message = error instanceof Error && !(error instanceof SyntaxError) ? error.message : '无法读取设计简报。'
+      const message = error instanceof Error && !(error instanceof SyntaxError) ? error.message : '无法读取模型请求。'
       send(response, 400, { error: message })
       return
     }
@@ -143,17 +150,17 @@ export function modelApi(transport: ModelTransport = requestProvider): Plugin {
       const choice = objectRecord(Array.isArray(choices) ? choices[0] : null)
       const { content } = objectRecord(choice.message)
       if (choice.finish_reason !== 'stop' || typeof content !== 'string' || !content.trim()) {
-        send(response, 502, { error: '模型未返回完整结果。请减少生成数量后重试，或更换模型。' })
+        send(response, 502, { error: '模型未返回完整结果。可缩短输入或更换模型后重试。' })
         return
       }
       send(response, 200, { content })
     } catch {
-      send(response, 502, { error: deadline.aborted ? '模型服务响应超时。可减少生成数量后重试。' : '无法连接模型服务。请检查 API 地址或网络。' })
+      send(response, 502, { error: deadline.aborted ? '模型服务响应超时。请稍后重试。' : '无法连接模型服务。请检查 API 地址或网络。' })
     }
   }
 
   function middleware(request: IncomingMessage, response: ServerResponse, next: () => void) {
-    if (request.url !== modelGenerationPath) return next()
+    if (request.url !== modelGenerationPath && request.url !== modelChatPath) return next()
     void handle(request, response)
   }
 

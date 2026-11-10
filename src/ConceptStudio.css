@@ -72,29 +72,6 @@
   grid-column: 1 / -1;
 }
 
-.studio-model {
-  display: grid;
-  gap: 6px;
-}
-
-.studio-model-select {
-  width: min(100%, 300px);
-}
-
-.studio-model-settings {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  align-items: end;
-  padding: 12px;
-  border: 1px solid #e2e7df;
-  border-radius: 10px;
-}
-
-.studio-model-settings > p {
-  grid-column: 1 / -1;
-}
-
 .studio-content h2 {
   margin: 0;
   font-size: 17px;
@@ -421,7 +398,6 @@
 
 @media (max-width: 650px) {
   .studio-brief,
-  .studio-model-settings,
   .studio-validation-fields {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import { modelApi } from '../server/modelApi.ts'
 import { appendConceptRound, generateConceptBatch, sentenceLabels } from '../src/concepts.ts'
 import { buildDesignReport, formatDesignReport } from '../src/designWork.ts'
-import { chatCompletionUrl, generateWithModel, modelGenerationPath, parseModelConcepts } from '../src/modelGeneration.ts'
+import { chatCompletionUrl, generateWithModel, modelChatPath, modelGenerationPath, parseModelConcepts } from '../src/modelGeneration.ts'
 
 const brief = { problem: '课间放松', audience: '中学生', scenario: '教室', count: 3 }
 const settings = { baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash', apiKey: 'fixture-only-token' }
@@ -80,8 +80,13 @@ test('relay accepts only its local origin, forwards the chosen model, and redact
     assert.equal(url.href, 'https://api.deepseek.com/chat/completions')
     assert.equal(key, settings.apiKey)
     assert.equal(payload.model, settings.model)
-    assert.deepEqual(payload.response_format, { type: 'json_object' })
     assert.doesNotMatch(JSON.stringify(payload), /fixture-only-token/)
+    if (attempts === 3) {
+      assert.equal('response_format' in payload, false)
+      assert.deepEqual(payload.messages.slice(1), [{ role: 'user', content: '继续设计' }])
+      return { status: 200, data: { choices: [{ finish_reason: 'stop', message: { content: '对话回复' } }] } }
+    }
+    assert.deepEqual(payload.response_format, { type: 'json_object' })
     if (attempts === 2) return { status: 401, data: { error: settings.apiKey } }
     return { status: 200, data: { choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ concepts }) } }] } }
   }).configureServer({ middlewares: { use: handler => { middleware = handler } } })
@@ -89,10 +94,10 @@ test('relay accepts only its local origin, forwards the chosen model, and redact
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   context.after(() => new Promise(resolve => server.close(resolve)))
   const origin = `http://127.0.0.1:${server.address().port}`
-  const post = (requestOrigin, baseUrl = settings.baseUrl) => fetch(origin + modelGenerationPath, {
+  const post = (requestOrigin, baseUrl = settings.baseUrl, path = modelGenerationPath, input = { brief }) => fetch(origin + path, {
     method: 'POST',
     headers: { Origin: requestOrigin, 'Content-Type': 'application/json', Authorization: `Bearer ${settings.apiKey}` },
-    body: JSON.stringify({ brief, baseUrl, model: settings.model }),
+    body: JSON.stringify({ ...input, baseUrl, model: settings.model }),
   })
 
   assert.equal((await post('https://example.org')).status, 403)
@@ -107,4 +112,10 @@ test('relay accepts only its local origin, forwards the chosen model, and redact
   const error = await failure.text()
   assert.match(error, /检查 API 密钥/)
   assert.doesNotMatch(error, /fixture-only-token/)
+  const chat = await post(origin, settings.baseUrl, modelChatPath, { messages: [{ role: 'user', content: '继续设计' }] })
+  assert.equal(chat.status, 200)
+  assert.deepEqual(await chat.json(), { content: '对话回复' })
+  const injected = await post(origin, settings.baseUrl, modelChatPath, { messages: [{ role: 'system', content: '不受信任' }] })
+  assert.equal(injected.status, 400)
+  assert.equal(attempts, 3)
 })

@@ -1,31 +1,16 @@
 
 import { useEffect, useState } from 'react'
 import {
-  ArrowUp, Lightbulb, Plus, PanelRightClose,
-  PanelRightOpen, FolderOpen, Sparkles, Trash2
+  Lightbulb, Plus, PanelRightClose,
+  PanelRightOpen, FolderOpen, Trash2
 } from 'lucide-react'
 import { ConceptStudio } from './ConceptStudio'
+import { CreativeChat } from './CreativeChat'
 import type { ConceptStudioState } from './concepts'
+import type { ModelSettings } from './modelGeneration'
 import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
 import type { Message } from './projects'
 import './App.css'
-
-function generateGuidance(input: string): string {
-  return `已记录你的设计想法：${input}
-
-我们可以从三个方向展开：
-
-01 · 用户与场景
-明确目标用户、使用环境和核心困难。
-
-02 · 产品与交互
-寻找一种简单、直观、可验证的产品解决方式。
-
-03 · 实现与价值
-考虑材料、结构、制造可行性与设计价值。
-
-下一步，请描述：这个产品最希望帮助哪一类人？`
-}
 
 function App() {
   const [projects, setProjects] = useState(loadProjects)
@@ -36,6 +21,7 @@ function App() {
   const [showResults, setShowResults] = useState(true)
   const [view, setView] = useState<'workspace' | 'studio'>('workspace')
   const [saveFailed, setSaveFailed] = useState(false)
+  const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
 
   const activeProject =
     projects.find(project => project.id === activeId)
@@ -60,6 +46,14 @@ function App() {
       : project))
   }
 
+  function editModelSettings(change: Partial<ModelSettings>) {
+    setModelSettings(current => {
+      const next = { ...current, ...change }
+      if (next.baseUrl.trim() !== current.baseUrl.trim()) next.apiKey = ''
+      return next
+    })
+  }
+
   function addProject() {
     const project = createProject()
     setProjects(current => [project, ...current])
@@ -68,54 +62,32 @@ function App() {
   }
 
   function deleteProject(id: string) {
-    const remaining = projects.filter(
-      project => project.id !== id
-    )
-    const next = remaining.length
-      ? remaining
-      : [createProject()]
-
-    setProjects(next)
+    const replacement = createProject()
+    setProjects(current => {
+      const remaining = current.filter(project => project.id !== id)
+      return remaining.length ? remaining : [replacement]
+    })
 
     if (activeId === id) {
-      setActiveId(next[0].id)
+      setActiveId(projects.find(project => project.id !== id)?.id ?? replacement.id)
+      setInput('')
     }
   }
 
-  function sendMessage() {
-    const text = input.trim()
-    if (!text || !activeProject) return
-
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: text
-    }
-
-    const assistantMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: generateGuidance(text)
-    }
-
+  function appendChat(projectId: string, user: Message, assistant: Message) {
+    const updatedAt = Date.now()
     setProjects(current => current.map(project => {
-      if (project.id !== activeProject.id) return project
+      if (project.id !== projectId) return project
 
       return {
         ...project,
         name: project.messages.length === 0
-          ? text.slice(0, 24)
+          ? user.content.slice(0, 24)
           : project.name,
-        messages: [
-          ...project.messages,
-          userMessage,
-          assistantMessage
-        ],
-        updatedAt: Date.now()
+        messages: [...project.messages, user, assistant],
+        updatedAt
       }
     }))
-
-    setInput('')
   }
 
   const latestIdea = [...activeProject.messages]
@@ -220,85 +192,19 @@ function App() {
             projectName={activeProject.name}
             state={getProjectStudio(activeProject)}
             onChange={updateStudio}
+            settings={modelSettings}
+            onSettingsChange={editModelSettings}
           />
         ) : (
-          <div className="chat-workspace">
-            <div className="conversation">
-              {activeProject.messages.length === 0 ? (
-                <div className="welcome">
-                  <div className="welcome-icon">
-                    <Sparkles size={25} />
-                  </div>
-                  <h1>今天想创造什么？</h1>
-                  <p>
-                    从一个问题、一段灵感，或一个尚未成形的想法开始。
-                  </p>
-                  <div className="suggestions">
-                    {[
-                      '设计一款帮助学生短暂放松的桌面产品',
-                      '探索更环保的一次性水杯',
-                      '为儿童设计自然声音启蒙玩具'
-                    ].map(suggestion => (
-                      <button
-                        key={suggestion}
-                        onClick={() => setInput(suggestion)}
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="messages">
-                  {activeProject.messages.map(message => (
-                    <div
-                      className={`message ${message.role}`}
-                      key={message.id}
-                    >
-                      {message.role === 'assistant' && (
-                        <div className="assistant-avatar">
-                          <Lightbulb size={16} />
-                        </div>
-                      )}
-                      <div className="message-content">
-                        {message.content}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="composer-area">
-              <div className="composer">
-                <textarea
-                  value={input}
-                  onChange={event => setInput(event.target.value)}
-                  placeholder="描述你的设计问题或创意想法..."
-                  rows={3}
-                  onKeyDown={event => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault()
-                      sendMessage()
-                    }
-                  }}
-                />
-                <div className="composer-bottom">
-                  <span>Shift + Enter 换行</span>
-                  <button
-                    onClick={sendMessage}
-                    disabled={!input.trim()}
-                    aria-label="发送想法"
-                  >
-                    <ArrowUp size={19} />
-                  </button>
-                </div>
-              </div>
-              <p className="composer-note">
-                  创意对话使用本地规则。可在 Concept Studio 选择概念生成模型。
-              </p>
-            </div>
-          </div>
+          <CreativeChat
+            key={activeProject.id}
+            messages={activeProject.messages}
+            input={input}
+            onInputChange={setInput}
+            onAppend={(user, assistant) => appendChat(activeProject.id, user, assistant)}
+            settings={modelSettings}
+            onSettingsChange={editModelSettings}
+          />
         )}
       </main>
 

@@ -9,14 +9,17 @@ import type {
   Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
 } from './concepts'
 import { RefinementWorkspace } from './RefinementWorkspace'
-import { generateWithModel } from './modelGeneration'
+import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
+import { ModelControls } from './ModelControls'
 import './ConceptStudio.css'
 
 type StudioProps = {
   projectName: string
   state: ConceptStudioState
   onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
+  settings: ModelSettings
+  onSettingsChange: (change: Partial<ModelSettings>) => void
 }
 
 const dimensions = Object.keys(scoreDimensions) as ScoreDimension[]
@@ -40,10 +43,9 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
+export function ConceptStudio({ projectName, state, onChange, settings, onSettingsChange }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const [customModel, setCustomModel] = useState(false)
-  const [settings, setSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
   const [generating, setGenerating] = useState(false)
   const [notice, setNotice] = useState('')
   const request = useRef<AbortController | null>(null)
@@ -56,8 +58,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
   const selected = batch?.concepts.find(concept => concept.id === batch.selectedId)
   const normalized = normalizeDraft(draft)
   const ready = normalized.problem && normalized.audience && normalized.scenario
-  const localPage = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  const configured = settings.baseUrl.trim() && settings.model.trim() && settings.apiKey.trim()
+  const configured = hasModelSettings(settings)
   const unchanged = latest && !latest.generation && !customModel && (
     latest.brief.problem === normalized.problem &&
     latest.brief.audience === normalized.audience &&
@@ -78,15 +79,6 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
     onChange(current => ({ ...current, draft: { ...current.draft, ...fields } }))
   }
 
-  function editSettings(change: Partial<ModelSettings>) {
-    setNotice('')
-    setSettings(current => {
-      const next = { ...current, ...change }
-      if (next.baseUrl.trim() !== current.baseUrl.trim()) next.apiKey = ''
-      return next
-    })
-  }
-
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!ready || unchanged || request.current) return
@@ -96,7 +88,7 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
       onChange(appendConceptRound)
       return
     }
-    if (!localPage || !configured) return
+    if (!canUseCustomModel(window.location.hostname) || !configured) return
 
     const controller = new AbortController()
     request.current = controller
@@ -229,46 +221,20 @@ export function ConceptStudio({ projectName, state, onChange }: StudioProps) {
             />
           </label>
           <div className="studio-model">
-            <label className="studio-field studio-model-select">
-              生成方式
-              <select value={customModel ? 'api' : 'rules'} disabled={generating} onChange={event => {
-                setCustomModel(event.target.value === 'api')
+            <ModelControls
+              settings={settings}
+              onSettingsChange={change => {
+                onSettingsChange(change)
                 setNotice('')
-              }}>
-                <option value="rules">本地规则（非 AI）</option>
-                <option value="api" disabled={!localPage}>自配 API 模型</option>
-              </select>
-            </label>
-            {customModel && (
-              <div className="studio-model-settings">
-                <label className="studio-field">
-                  API 地址
-                  <input type="url" maxLength={1000} value={settings.baseUrl} disabled={generating} required
-                    onChange={event => editSettings({ baseUrl: event.target.value })} placeholder="https://api.deepseek.com" />
-                </label>
-                <label className="studio-field">
-                  模型 ID
-                  <input maxLength={200} value={settings.model} disabled={generating} required
-                    onChange={event => editSettings({ model: event.target.value })} placeholder="deepseek-flash" />
-                </label>
-                <label className="studio-field">
-                  API 密钥
-                  <input type="password" autoComplete="off" maxLength={2048} value={settings.apiKey} disabled={generating} required
-                    onChange={event => editSettings({ apiKey: event.target.value })} />
-                </label>
-                <div>
-                  <button type="button" className="studio-button" disabled={generating} onClick={() => editSettings({
-                    baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash',
-                  })}>
-                    填入 DeepSeek 示例
-                  </button>
-                </div>
-                <p className="studio-hint">
-                  生成时会把简报发送至该服务，可能产生 API 费用。密钥仅在当前工作区会话中使用。
-                </p>
-              </div>
-            )}
-            {!localPage && <p className="studio-hint">请通过 localhost 打开工作台以使用自配 API 模型。</p>}
+              }}
+              customModel={customModel}
+              onModeChange={custom => {
+                setCustomModel(custom)
+                setNotice('')
+              }}
+              disabled={generating}
+              requestDescription="生成时会将当前设计简报发送给所选服务。"
+            />
           </div>
           <div className="studio-actions">
             <label className="studio-field">

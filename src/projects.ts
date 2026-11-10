@@ -1,9 +1,10 @@
-import type { ConceptBatch, ConceptStudioState } from './concepts.ts'
+import type { ConceptBatch, ConceptStudioState, ModelSource } from './concepts.ts'
 
 export type Message = {
   id: string
   role: 'user' | 'assistant'
   content: string
+  source?: ModelSource
 }
 
 export type Project = {

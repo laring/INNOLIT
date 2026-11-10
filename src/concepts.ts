@@ -50,8 +50,10 @@ export type ConceptBatch = {
   brief: ConceptDraft
   concepts: Concept[]
   selectedId: Concept['id'] | null
-  generation?: { model: string; provider: string }
+  generation?: ModelSource
 }
+
+export type ModelSource = { model: string; provider: string }
 
 type ConceptCandidate = Pick<Concept, 'id' | 'title' | 'format' | 'sentences'>
 
@@ -236,9 +238,11 @@ export function generateConceptBatch(draft: ConceptDraft): ConceptBatch {
 }
 
 export function conceptSourceLabel(batch: ConceptBatch): string {
-  return batch.generation
-    ? `AI · ${batch.generation.model}（${batch.generation.provider}）`
-    : '本地规则生成 · 非 AI'
+  return modelSourceLabel(batch.generation)
+}
+
+export function modelSourceLabel(source?: ModelSource): string {
+  return source ? `AI · ${source.model}（${source.provider}）` : '本地规则生成 · 非 AI'
 }
 
 export function appendConceptRound(state: ConceptStudioState, batch = generateConceptBatch(state.draft)): ConceptStudioState {

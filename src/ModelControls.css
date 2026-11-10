@@ -1,0 +1,76 @@
+.model-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.model-controls label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: #344139;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.model-controls input,
+.model-controls select,
+.model-controls button {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #d5ded4;
+  border-radius: 8px;
+  background: #fff;
+  color: #25342a;
+  font: inherit;
+  font-size: 13px;
+}
+
+.model-controls input {
+  width: 100%;
+  min-width: 0;
+}
+
+.model-controls p,
+.model-active {
+  margin: 6px 0 0;
+  color: #58655b;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.model-active {
+  align-self: center;
+  margin: 0;
+}
+
+.model-dialog {
+  width: min(440px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border: 1px solid #d5ded4;
+  border-radius: 14px;
+  color: #25342a;
+}
+
+.model-dialog::backdrop {
+  background: #14201555;
+}
+
+.model-dialog h2 {
+  margin: 0 0 14px;
+  font-size: 17px;
+}
+
+.model-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.model-controls .model-done {
+  border-color: #314c35;
+  background: #314c35;
+  color: #fff;
+}
