@@ -1,4 +1,4 @@
-import { averageScore, conceptSourceLabel, scoreDimensions, sentenceLabels } from './concepts.ts'
+import { averageModelScore, averageScore, conceptSourceLabel, modelSourceLabel, scoreDimensions, sentenceLabels } from './concepts.ts'
 import type { Concept, ConceptBatch, ScoreDimension } from './concepts.ts'
 
 export const validationFields = {
@@ -74,6 +74,8 @@ export function buildDesignReport(
 ): DesignReport {
   const validation = concept.validation ?? emptyValidation
   const research = concept.research
+  const origin = concept.chatOrigin
+  const review = concept.modelReview
   return {
     title: 'INNO LIT 设计报告',
     sections: [
@@ -83,7 +85,8 @@ export function buildDesignReport(
           { label: '项目', value: projectName },
           { label: '概念轮次', value: `第 ${roundNumber} 轮` },
           { label: '选定方案', value: `${concept.title} · ${concept.format}` },
-          { label: '概念来源', value: conceptSourceLabel(round) },
+          { label: '概念来源', value: origin ? `来自创意对话 · ${modelSourceLabel(origin.source)}` : conceptSourceLabel(round) },
+          ...(origin?.organizedBy ? [{ label: '整理模型', value: modelSourceLabel(origin.organizedBy) }] : []),
           { label: '设计问题', value: round.brief.problem },
           { label: '目标用户', value: round.brief.audience },
           { label: '使用场景', value: round.brief.scenario },
@@ -105,6 +108,17 @@ export function buildDesignReport(
           { label: '深化笔记', value: concept.notes },
         ],
       },
+      ...(review ? [{
+        heading: '模型评分与理由',
+        entries: [
+          ...Object.entries(scoreDimensions).map(([key, label]) => {
+            const rating = review.ratings[key as ScoreDimension]
+            return { label, value: `${rating.score} / 5 · ${rating.reason}` }
+          }),
+          { label: '模型平均分', value: averageModelScore(review).toFixed(1) },
+          { label: '评分模型', value: modelSourceLabel(review.source) },
+        ],
+      }] : []),
       {
         heading: '可行性验证',
         entries: [

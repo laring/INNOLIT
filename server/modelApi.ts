@@ -5,8 +5,11 @@ import { BlockList } from 'node:net'
 import type { Plugin } from 'vite'
 import { requireConceptBrief } from '../src/concepts.ts'
 import type { ConceptDraft } from '../src/concepts.ts'
-import { chatCompletionUrl, modelChatPath, modelGenerationPath, modelPrompt, objectRecord } from '../src/modelGeneration.ts'
+import {
+  chatCompletionUrl, modelChatPath, modelExtractPath, modelGenerationPath, modelPrompt, modelReviewPath, objectRecord,
+} from '../src/modelGeneration.ts'
 import { chatPrompt } from '../src/modelChat.ts'
+import { extractPrompt, reviewPrompt } from '../src/modelStudio.ts'
 
 type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt>
 
@@ -117,13 +120,18 @@ export function modelApi(transport: ModelTransport = requestProvider): Plugin {
     let url: URL
     let payload: ModelPayload
     try {
-      const { baseUrl, model, brief, messages } = objectRecord(await readJson(request, 64 * 1024))
+      const input = objectRecord(await readJson(request, request.url === modelReviewPath ? 128 * 1024 : 64 * 1024))
+      const { baseUrl, model, brief, messages } = input
       if (typeof baseUrl !== 'string' || baseUrl.length > 1000 || typeof model !== 'string' || !model.trim() || model.length > 200) {
         throw new Error('请填写 API 地址和模型 ID。')
       }
       url = chatCompletionUrl(baseUrl)
       if (request.url === modelChatPath) {
         payload = chatPrompt(messages, model.trim())
+      } else if (request.url === modelReviewPath) {
+        payload = reviewPrompt(input, model.trim())
+      } else if (request.url === modelExtractPath) {
+        payload = extractPrompt(input, model.trim())
       } else {
         const input = objectRecord(brief)
         if (typeof input.problem !== 'string' || typeof input.audience !== 'string' || typeof input.scenario !== 'string') {
@@ -160,7 +168,8 @@ export function modelApi(transport: ModelTransport = requestProvider): Plugin {
   }
 
   function middleware(request: IncomingMessage, response: ServerResponse, next: () => void) {
-    if (request.url !== modelGenerationPath && request.url !== modelChatPath) return next()
+    if (request.url !== modelGenerationPath && request.url !== modelChatPath
+      && request.url !== modelReviewPath && request.url !== modelExtractPath) return next()
     void handle(request, response)
   }
 

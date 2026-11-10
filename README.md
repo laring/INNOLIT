@@ -8,6 +8,8 @@
 
 模型设置在两个入口间共用，刷新后清除。创意对话发送本轮消息和当前项目的近期对话，Concept Studio 发送当前设计简报。AI 回复、概念轮次与报告会标注模型 ID 和服务域名。
 
+从一条对话回复点击「转为概念」，手动填写或让模型整理，核对后加入已有轮次或新建轮次。概念比较中的「让模型评分」会按创新性、可行性和用户价值给出独立评分与理由，人工评分仍可单独编辑。
+
 ## React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.

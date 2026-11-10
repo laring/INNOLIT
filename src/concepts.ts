@@ -32,6 +32,17 @@ export type ScoreDimension = keyof typeof scoreDimensions
 export type Score = 1 | 2 | 3 | 4 | 5
 export const scoreOptions: Score[] = [1, 2, 3, 4, 5]
 export type Scores = Record<ScoreDimension, Score | null>
+export type ModelReview = {
+  source: ModelSource
+  ratings: Record<ScoreDimension, { score: Score; reason: string }>
+}
+
+export type ChatIdea = {
+  messageId: string
+  question: string
+  reply: string
+  source?: ModelSource
+}
 
 type Direction = 'tool' | 'cue' | 'guide' | 'kit' | 'service' | 'feedback'
 
@@ -42,6 +53,8 @@ export type Concept = {
   sentences: Record<keyof typeof sentenceLabels, string>
   scores: Scores
   notes: string
+  modelReview?: ModelReview
+  chatOrigin?: { messageId: string; source?: ModelSource; organizedBy?: ModelSource }
   validation?: ValidationPlan
   research?: ResearchLog
 }
@@ -51,11 +64,13 @@ export type ConceptBatch = {
   concepts: Concept[]
   selectedId: Concept['id'] | null
   generation?: ModelSource
+  origin?: 'chat'
 }
 
 export type ModelSource = { model: string; provider: string }
 
-type ConceptCandidate = Pick<Concept, 'id' | 'title' | 'format' | 'sentences'>
+export type ConceptCandidate = Pick<Concept, 'id' | 'title' | 'format' | 'sentences' | 'chatOrigin'>
+export const maxRoundConcepts = 12
 
 export type ConceptStudioState = {
   draft: ConceptDraft
@@ -238,6 +253,7 @@ export function generateConceptBatch(draft: ConceptDraft): ConceptBatch {
 }
 
 export function conceptSourceLabel(batch: ConceptBatch): string {
+  if (batch.origin === 'chat') return '来自创意对话'
   return modelSourceLabel(batch.generation)
 }
 
@@ -256,4 +272,30 @@ export function appendConceptRound(state: ConceptStudioState, batch = generateCo
 export function averageScore({ novelty, feasibility, value }: Scores): number | null {
   if (novelty === null || feasibility === null || value === null) return null
   return (novelty + feasibility + value) / 3
+}
+
+export function averageModelScore({ ratings }: ModelReview): number {
+  return (ratings.novelty.score + ratings.feasibility.score + ratings.value.score) / 3
+}
+
+export function addChatConcept(
+  state: ConceptStudioState, destination: number | null, brief: ConceptDraft, candidate: ConceptCandidate,
+): ConceptStudioState {
+  const target = destination === null ? undefined : state.rounds[destination]
+  if (destination !== null && (!target || target.concepts.length >= maxRoundConcepts)) return state
+  const context = target?.brief ?? brief
+  const batch = createConceptBatch(context, [{
+    ...candidate,
+    sentences: { ...candidate.sentences, ...briefSentences(context) },
+  }])
+  if (destination === null) {
+    return { ...state, rounds: [...state.rounds, { ...batch, origin: 'chat' }], activeRound: state.rounds.length }
+  }
+  return {
+    ...state,
+    activeRound: destination,
+    rounds: state.rounds.map((round, index) => index === destination
+      ? { ...round, concepts: [...round.concepts, ...batch.concepts] }
+      : round),
+  }
 }

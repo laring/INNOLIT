@@ -296,6 +296,17 @@ button {
   font-weight: 600;
 }
 
+.message-transfer {
+  display: block;
+  margin-top: 8px;
+  padding: 4px 9px;
+  border: 1px solid #d5ded4;
+  border-radius: 7px;
+  background: #f8fbf8;
+  color: #36563a;
+  font-size: 12px;
+}
+
 .message.user .message-content {
   background: #f3f4f1;
   padding: 12px 17px;

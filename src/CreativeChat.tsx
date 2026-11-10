@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUp, Lightbulb, Sparkles, Square } from 'lucide-react'
 import { modelSourceLabel } from './concepts'
+import type { ChatIdea } from './concepts'
 import { ModelControls } from './ModelControls'
 import { replyWithModel } from './modelChat'
 import { canUseCustomModel, hasModelSettings } from './modelGeneration'
@@ -12,6 +13,7 @@ type ChatProps = {
   input: string
   onInputChange: (value: string) => void
   onAppend: (user: Message, assistant: Message) => void
+  onTransfer: (idea: ChatIdea) => void
   settings: ModelSettings
   onSettingsChange: (change: Partial<ModelSettings>) => void
 }
@@ -33,7 +35,7 @@ function generateGuidance(input: string): string {
 下一步，请描述：这个产品最希望帮助哪一类人？`
 }
 
-export function CreativeChat({ messages, input, onInputChange, onAppend, settings, onSettingsChange }: ChatProps) {
+export function CreativeChat({ messages, input, onInputChange, onAppend, onTransfer, settings, onSettingsChange }: ChatProps) {
   const [customModel, setCustomModel] = useState(false)
   const [pending, setPending] = useState(false)
   const [notice, setNotice] = useState('')
@@ -118,7 +120,7 @@ export function CreativeChat({ messages, input, onInputChange, onAppend, setting
           </div>
         ) : (
           <div className="messages">
-            {messages.map(message => (
+            {messages.map((message, index) => (
               <div className={`message ${message.role}`} key={message.id}>
                 {message.role === 'assistant' && (
                   <div className="assistant-avatar"><Lightbulb size={16} /></div>
@@ -126,6 +128,21 @@ export function CreativeChat({ messages, input, onInputChange, onAppend, setting
                 <div className="message-content">
                   {message.role === 'assistant' && <div className="message-source">{modelSourceLabel(message.source)}</div>}
                   {message.content}
+                  {message.role === 'assistant' && (
+                    <button
+                      type="button"
+                      className="message-transfer"
+                      disabled={pending}
+                      onClick={() => onTransfer({
+                        messageId: message.id,
+                        question: messages[index - 1]?.role === 'user' ? messages[index - 1].content : '',
+                        reply: message.content,
+                        source: message.source,
+                      })}
+                    >
+                      转为概念
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

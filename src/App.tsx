@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { ConceptStudio } from './ConceptStudio'
 import { CreativeChat } from './CreativeChat'
-import type { ConceptStudioState } from './concepts'
+import type { ChatIdea, ConceptStudioState } from './concepts'
 import type { ModelSettings } from './modelGeneration'
 import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
 import type { Message } from './projects'
@@ -22,6 +22,7 @@ function App() {
   const [view, setView] = useState<'workspace' | 'studio'>('workspace')
   const [saveFailed, setSaveFailed] = useState(false)
   const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
+  const [transfer, setTransfer] = useState<{ projectId: string; idea: ChatIdea } | null>(null)
 
   const activeProject =
     projects.find(project => project.id === activeId)
@@ -194,6 +195,8 @@ function App() {
             onChange={updateStudio}
             settings={modelSettings}
             onSettingsChange={editModelSettings}
+            idea={transfer?.projectId === activeProject.id ? transfer.idea : undefined}
+            onDismissIdea={() => setTransfer(null)}
           />
         ) : (
           <CreativeChat
@@ -202,6 +205,10 @@ function App() {
             input={input}
             onInputChange={setInput}
             onAppend={(user, assistant) => appendChat(activeProject.id, user, assistant)}
+            onTransfer={idea => {
+              setTransfer({ projectId: activeProject.id, idea })
+              setView('studio')
+            }}
             settings={modelSettings}
             onSettingsChange={editModelSettings}
           />

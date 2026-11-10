@@ -2,16 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import {
-  appendConceptRound, averageScore, conceptCounts, conceptSourceLabel, normalizeDraft,
-  scoreDimensions, scoreOptions, sentenceLabels,
+  addChatConcept, appendConceptRound, conceptCounts, conceptSourceLabel, normalizeDraft, sentenceLabels,
 } from './concepts'
 import type {
-  Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
+  ChatIdea, Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
 } from './concepts'
 import { RefinementWorkspace } from './RefinementWorkspace'
 import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
 import { ModelControls } from './ModelControls'
+import { ChatConceptImport } from './ChatConceptImport'
+import { ConceptComparison } from './ConceptComparison'
 import './ConceptStudio.css'
 
 type StudioProps = {
@@ -20,9 +21,10 @@ type StudioProps = {
   onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
   settings: ModelSettings
   onSettingsChange: (change: Partial<ModelSettings>) => void
+  idea?: ChatIdea
+  onDismissIdea: () => void
 }
 
-const dimensions = Object.keys(scoreDimensions) as ScoreDimension[]
 const sentences = Object.keys(sentenceLabels) as (keyof typeof sentenceLabels)[]
 
 function ConceptFramework({ concept }: { concept: Concept }) {
@@ -43,7 +45,7 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ projectName, state, onChange, settings, onSettingsChange }: StudioProps) {
+export function ConceptStudio({ projectName, state, onChange, settings, onSettingsChange, idea, onDismissIdea }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const [customModel, setCustomModel] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -59,7 +61,7 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
   const normalized = normalizeDraft(draft)
   const ready = normalized.problem && normalized.audience && normalized.scenario
   const configured = hasModelSettings(settings)
-  const unchanged = latest && !latest.generation && !customModel && (
+  const unchanged = latest && !latest.origin && !latest.generation && !customModel && (
     latest.brief.problem === normalized.problem &&
     latest.brief.audience === normalized.audience &&
     latest.brief.scenario === normalized.scenario &&
@@ -71,7 +73,7 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
     const heading = pendingFocus.current === 'concepts' ? conceptHeading : comparisonHeading
     pendingFocus.current = null
     focusHeading(heading.current)
-  }, [rounds.length, refining])
+  }, [rounds.length, batch?.concepts.length, activeRound, refining])
 
   useEffect(() => () => request.current?.abort(), [])
 
@@ -186,6 +188,21 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
           <h1 id="studio-heading">Concept Studio</h1>
           <p>从同一设计问题探索 3–6 个方向，再比较、评分并选定一个进行深化。</p>
         </header>
+
+        {idea && (
+          <ChatConceptImport
+            key={idea.messageId}
+            idea={idea}
+            state={state}
+            settings={settings}
+            onDismiss={onDismissIdea}
+            onSave={(destination, brief, candidate) => {
+              pendingFocus.current = 'concepts'
+              onChange(current => addChatConcept(current, destination, brief, candidate))
+              onDismissIdea()
+            }}
+          />
+        )}
 
         <form className="studio-surface studio-brief" onSubmit={generate}>
           <h2>设计简报草稿</h2>
@@ -302,6 +319,7 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
                   <article className="studio-surface studio-card" key={concept.id} data-selected={selected?.id === concept.id}>
                     <p className="studio-kicker">{String(index + 1).padStart(2, '0')} · {concept.format}</p>
                     <h3>{concept.title}</h3>
+                    {concept.chatOrigin && <span className="studio-badge">来自创意对话</span>}
                     <p>{concept.sentences.idea}</p>
                     <details>
                       <summary>查看九句话</summary>
@@ -314,73 +332,22 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
 
             <section className="studio-section" aria-labelledby="comparison-heading">
               <h2 id="comparison-heading" tabIndex={-1} ref={comparisonHeading}>概念比较</h2>
-              <p className="studio-hint" id="score-help">由你填写 1–5 分，1 为最低，5 为最高。三项填满后显示等权平均分。</p>
-              <div className="studio-table-scroll" role="region" aria-label="概念比较表" tabIndex={0}>
-                <table className="studio-table" aria-describedby="score-help">
-                  <thead>
-                    <tr>
-                      <th scope="col">比较维度</th>
-                      {batch.concepts.map(concept => (
-                        <th scope="col" key={concept.id}>{concept.title}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <th scope="row">差异点</th>
-                      {batch.concepts.map(concept => <td key={concept.id}>{concept.sentences.difference}</td>)}
-                    </tr>
-                    {dimensions.map(dimension => (
-                      <tr key={dimension}>
-                        <th scope="row">{scoreDimensions[dimension]}</th>
-                        {batch.concepts.map(concept => (
-                          <td key={concept.id}>
-                            <select
-                              aria-label={`${concept.title} ${scoreDimensions[dimension]}`}
-                              value={concept.scores[dimension] ?? ''}
-                              onChange={event => setScore(
-                                concept.id, dimension, scoreOptions.find(score => String(score) === event.target.value) ?? null
-                              )}
-                            >
-                              <option value="">未评分</option>
-                              {scoreOptions.map(score => <option key={score} value={score}>{score} 分</option>)}
-                            </select>
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                    <tr>
-                      <th scope="row">平均分</th>
-                      {batch.concepts.map(concept => (
-                        <td key={concept.id}>{averageScore(concept.scores)?.toFixed(1) ?? '—'}</td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <th scope="row">选择方案</th>
-                      {batch.concepts.map(concept => (
-                        <td key={concept.id}>
-                          <label className="studio-choice">
-                            <input
-                              type="radio"
-                              name="selected-concept"
-                              aria-label={`选择 ${concept.title}`}
-                              checked={selected?.id === concept.id}
-                              onChange={() => selectConcept(concept.id)}
-                            />
-                            {selected?.id === concept.id ? '已选' : '选择'}
-                          </label>
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="studio-next">
-                <p aria-live="polite">{selected ? `已选方案 · ${selected.title}` : '请选择一个方案继续。'}</p>
-                <button type="button" className="studio-button primary" disabled={!selected || generating} onClick={() => setRefining(true)}>
-                  进入深化 <ArrowRight size={16} aria-hidden="true" />
-                </button>
-              </div>
+              <ConceptComparison
+                key={activeRound}
+                batch={batch}
+                settings={settings}
+                onScore={setScore}
+                onSelect={selectConcept}
+                onReviews={reviews => updateRound(round => ({
+                  ...round,
+                  concepts: round.concepts.map(concept => {
+                    const modelReview = reviews.get(concept.id)
+                    return modelReview ? { ...concept, modelReview } : concept
+                  }),
+                }))}
+                onRefine={() => setRefining(true)}
+                generating={generating}
+              />
             </section>
           </>
         )}
