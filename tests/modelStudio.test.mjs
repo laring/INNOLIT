@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addChatConcept, generateConceptBatch, maxRoundConcepts } from '../src/concepts.ts'
+import { addChatConcept, draftFromConcept, generateConceptBatch, maxRoundConcepts } from '../src/concepts.ts'
 import { buildDesignReport, formatDesignReport } from '../src/designWork.ts'
-import { modelExtractPath, modelReviewPath } from '../src/modelGeneration.ts'
-import { extractWithModel, reviewPrompt, reviewWithModel } from '../src/modelStudio.ts'
+import { generateWithModel, modelExtractPath, modelGenerationPath, modelPrompt, modelReviewPath } from '../src/modelGeneration.ts'
+import { extractPrompt, extractWithModel, reviewPrompt, reviewWithModel } from '../src/modelStudio.ts'
 
 const brief = { problem: '设计课间放松工具', audience: '中学生', scenario: '课间教室', count: 3 }
 const settings = { baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash', apiKey: 'fixture-only-token' }
@@ -100,4 +100,72 @@ test('chat imports preserve prior selections and scores and include source and s
   assert.match(formatDesignReport(buildDesignReport('项目', separate.rounds[1], 2, separate.rounds[1].concepts[0])), /来自创意对话/)
   const full = { ...state, rounds: [{ ...round, concepts: Array(maxRoundConcepts).fill(round.concepts[0]) }] }
   assert.equal(addChatConcept(full, 0, brief, candidate), full)
+})
+
+test('the model can organize a concept and a brief before the user has supplied every brief field', async context => {
+  const original = { ...brief, audience: '', scenario: '课间教室' }
+  context.mock.method(globalThis, 'fetch', async (path, options) => {
+    assert.equal(path, modelExtractPath)
+    const input = JSON.parse(options.body)
+    assert.equal(input.brief.audience, '')
+    assert.match(extractPrompt(input, settings.model).messages[1].content, /同时整理一份可编辑的设计简报/)
+    return Response.json({ content: JSON.stringify({
+      brief: { problem: '让备考学生快速进入休息', audience: '备考学生', scenario: '图书馆' },
+      concept: {
+        title: '计时小牌', format: '桌面工具', idea: '翻面启动计时。',
+        interaction: '翻面休息。', difference: '使用朝向。', value: '简化启动。',
+        risk: '待验证误触。', test: '试用纸板原型。',
+      },
+    }) })
+  })
+  const organized = await extractWithModel(original, '为备考学生做一块翻面计时小牌。', '', settings, new AbortController().signal)
+  assert.deepEqual(organized.brief, { ...original, problem: '让备考学生快速进入休息', audience: '备考学生' })
+  assert.match(organized.candidate.sentences.audience, /备考学生/)
+})
+
+test('saving a chat concept can fill an incomplete brief without replacing its comparison round', () => {
+  const existing = generateConceptBatch(brief)
+  const current = { ...brief, count: 5 }
+  const state = { draft: current, rounds: [existing], activeRound: 0 }
+  const incomplete = { ...brief, problem: '保留对话中的翻面动作', audience: '' }
+  const candidate = { ...existing.concepts[0], id: 'source-card', title: '翻面卡片' }
+  const saved = addChatConcept(state, 0, incomplete, candidate, true)
+  assert.equal(saved.rounds[0].brief, existing.brief)
+  assert.equal(saved.rounds[0].concepts.length, 4)
+  assert.equal(saved.draft.problem, incomplete.problem)
+  assert.equal(saved.draft.audience, '')
+  assert.equal(saved.draft.count, 5)
+  assert.deepEqual(saved.draft.startingPoint, {
+    text: candidate.sentences.idea,
+    source: { conceptId: 'source-card', title: '翻面卡片' },
+  })
+  assert.throws(() => generateConceptBatch(saved.draft), /目标用户/)
+
+  const reused = draftFromConcept(current, brief, candidate)
+  const generated = generateConceptBatch(reused)
+  assert.equal(generated.concepts.length, 5)
+  assert.equal(new Set(generated.concepts.map(concept => concept.sentences.idea)).size, 5)
+  assert.ok(generated.concepts.every(concept => concept.sentences.idea.includes(candidate.sentences.idea)))
+  assert.match(formatDesignReport(buildDesignReport('演示', generated, 2, generated.concepts[0])), /起点概念\*\* 翻面卡片/)
+})
+
+test('model generation receives the edited starting point and records it in the generated round', async context => {
+  const startingPoint = { text: '把翻面动作改成触感明确的滑动。', source: { conceptId: 'local-card-id', title: '原翻面牌' } }
+  context.mock.method(globalThis, 'fetch', async (path, options) => {
+    assert.equal(path, modelGenerationPath)
+    const input = JSON.parse(options.body)
+    assert.deepEqual(input.brief.startingPoint, startingPoint)
+    const prompt = modelPrompt(input.brief, settings.model).messages[1].content
+    assert.match(prompt, /把翻面动作改成触感明确的滑动/)
+    assert.match(prompt, /每个方案都要明确继承其中一个关键要素/)
+    assert.doesNotMatch(prompt, /local-card-id/)
+    return Response.json({ content: JSON.stringify({ concepts: Array.from({ length: 3 }, (_, index) => ({
+      title: `变体 ${index + 1}`, format: '原型', idea: `使用滑动机制 ${index + 1}。`,
+      interaction: '移动滑块。', difference: '滑块反馈。', value: '降低误触。',
+      risk: '待验证。', test: '观察滑块操作。',
+    })) }) })
+  })
+  const batch = await generateWithModel({ ...brief, startingPoint }, settings, new AbortController().signal)
+  assert.deepEqual(batch.brief.startingPoint, startingPoint)
+  assert.equal(batch.concepts.length, 3)
 })

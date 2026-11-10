@@ -11,7 +11,7 @@ type ImportProps = {
   idea: ChatIdea
   state: ConceptStudioState
   settings: ModelSettings
-  onSave: (destination: number | null, brief: ConceptDraft, candidate: ConceptCandidate) => void
+  onSave: (destination: number | null, brief: ConceptDraft, candidate: ConceptCandidate, useAsDraft: boolean) => void
   onDismiss: () => void
 }
 
@@ -25,18 +25,25 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
     const round = state.rounds[state.activeRound]
     return round && round.concepts.length < maxRoundConcepts ? state.activeRound : null
   })
-  const [draft, setDraft] = useState({ ...state.draft, problem: idea.question || state.draft.problem })
+  const [draft, setDraft] = useState<ConceptDraft>(() => ({
+    problem: idea.question || state.draft.problem,
+    audience: state.draft.audience,
+    scenario: state.draft.scenario,
+    count: state.draft.count,
+  }))
   const [fields, setFields] = useState(empty)
   const [organizedBy, setOrganizedBy] = useState<ModelSource>()
   const target = destination === null ? undefined : state.rounds[destination]
-  const brief = normalizeDraft(target?.brief ?? draft)
-  const ready = Boolean(brief.problem && brief.audience && brief.scenario)
+  const brief = normalizeDraft(draft)
+  const complete = Boolean(brief.problem && brief.audience && brief.scenario)
   const room = destination === null || Boolean(target && target.concepts.length < maxRoundConcepts)
   const canExtract = canUseCustomModel(window.location.hostname) && hasModelSettings(settings)
+  const canSave = Boolean(brief.problem && fields.title.trim() && fields.idea.trim() && room && !pending)
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!ready || !room || !fields.title.trim() || !fields.idea.trim() || pending) return
+    const useAsDraft = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') !== 'add-only'
+    if (!canSave || (!useAsDraft && !complete && !target)) return
     const details = Object.fromEntries(
       conceptContentFields.map(key => [key, fields[key].trim() || '待补充。']),
     ) as Pick<ConceptCandidate['sentences'], typeof conceptContentFields[number]>
@@ -46,19 +53,20 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
       format: fields.format.trim() || '对话构想',
       sentences: { ...briefSentences(brief), ...details },
       chatOrigin: { messageId: idea.messageId, source: idea.source, organizedBy },
-    })
+    }, useAsDraft)
   }
 
   function extract() {
-    if (!canExtract || !ready) return
+    if (!canExtract) return
     void run(
       signal => extractWithModel(brief, idea.reply, fields.idea, settings, signal),
-      ({ candidate, source }) => {
+      ({ brief: organizedBrief, candidate, source }) => {
         const { title, format, sentences: { idea, interaction, difference, value, risk, test } } = candidate
         setFields({ title, format, idea, interaction, difference, value, risk, test })
+        setDraft(organizedBrief)
         setOrganizedBy(source)
       },
-      '已整理一张概念卡。请核对后再加入轮次。',
+      '已整理概念卡和简报。请核对已填写的内容，并补充缺失信息。',
     )
   }
 
@@ -82,7 +90,9 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
           ))}
         </select>
       </label>
-      <p className="studio-hint">加入已有轮次会沿用该轮简报，最多可放 {maxRoundConcepts} 张卡片。</p>
+      <p className="studio-hint">
+        加入已有轮次会沿用该轮简报，最多可放 {maxRoundConcepts} 张卡片。下方字段可另存为下一轮的简报草稿。
+      </p>
       {([
         ['problem', '设计问题'], ['audience', '目标用户'], ['scenario', '使用场景'],
       ] as const).map(([key, label]) => (
@@ -90,15 +100,15 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
           {label}
           <input
             maxLength={key === 'problem' ? 1000 : 500}
-            value={target ? target.brief[key] : draft[key]}
-            disabled={Boolean(target) || pending}
-            required
+            value={draft[key]}
+            disabled={pending}
+            required={key === 'problem'}
             onChange={event => setDraft(current => ({ ...current, [key]: event.target.value }))}
           />
         </label>
       ))}
       <div className="studio-actions">
-        <button type="button" className="studio-button" disabled={!canExtract || !ready || pending} onClick={extract}>
+        <button type="button" className="studio-button" disabled={!canExtract || pending} onClick={extract}>
           {pending ? '正在整理…' : '用模型整理'}
         </button>
         {pending && <button type="button" className="studio-button" onClick={cancel}>取消整理</button>}
@@ -126,7 +136,10 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
         </label>
       ))}
       <div className="studio-actions">
-        <button type="submit" className="studio-button primary" disabled={!ready || !room || !fields.title.trim() || !fields.idea.trim() || pending}>
+        <button type="submit" value="draft" className="studio-button primary" disabled={!canSave}>
+          加入并填入简报草稿
+        </button>
+        <button type="submit" value="add-only" className="studio-button" disabled={!canSave || (!complete && !target)}>
           加入 Concept Studio
         </button>
         <button type="button" className="studio-button" onClick={onDismiss}>返回工作室</button>

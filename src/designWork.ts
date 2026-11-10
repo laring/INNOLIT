@@ -90,6 +90,10 @@ export function buildDesignReport(
           { label: '设计问题', value: round.brief.problem },
           { label: '目标用户', value: round.brief.audience },
           { label: '使用场景', value: round.brief.scenario },
+          ...(round.brief.startingPoint ? [
+            { label: '设计起点', value: round.brief.startingPoint.text },
+            ...(round.brief.startingPoint.source ? [{ label: '起点概念', value: round.brief.startingPoint.source.title }] : []),
+          ] : []),
         ],
       },
       {

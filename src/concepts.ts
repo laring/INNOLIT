@@ -8,7 +8,10 @@ export type ConceptDraft = {
   audience: string
   scenario: string
   count: ConceptCount
+  startingPoint?: { text: string; source?: { conceptId: string; title: string } }
 }
+
+export const startingPointLimit = 1000
 
 export const sentenceLabels = {
   problem: '设计问题',
@@ -200,12 +203,31 @@ const strategies: Strategy[] = [
   },
 ]
 
+const startingPointVariants: Record<Direction, string> = {
+  tool: '把核心动作集中到一件可随手取用的工具上，拿起后即可完成关键步骤',
+  cue: '把触发点放进用户原本会经过的环境，用现场线索引出同一个核心动作',
+  guide: '把核心动作拆成准备、尝试与自查三步，为容易卡住的一步设计提示',
+  kit: '保留通用基础件，将原构想中最影响体验的部分做成可换模块',
+  service: '把个人使用改成就近借用与交接，让同伴示范原构想中的关键动作',
+  feedback: '让每次使用的结果可见，并把上一次的反馈作为下一次尝试的提示',
+}
+
 export function normalizeDraft(draft: ConceptDraft): ConceptDraft {
+  const text = typeof draft.startingPoint?.text === 'string'
+    ? draft.startingPoint.text.trim().slice(0, startingPointLimit)
+    : ''
+  const source = draft.startingPoint?.source
+  const validSource = typeof source?.conceptId === 'string' && typeof source?.title === 'string'
+  const startingPoint = text ? {
+    text,
+    ...(validSource ? { source: { conceptId: source.conceptId.slice(0, 100), title: source.title.slice(0, 60) } } : {}),
+  } : undefined
   return {
     problem: draft.problem.trim(),
     audience: draft.audience.trim(),
     scenario: draft.scenario.trim(),
     count: draft.count,
+    ...(startingPoint ? { startingPoint } : {}),
   }
 }
 
@@ -223,8 +245,8 @@ export function requireConceptBrief(draft: ConceptDraft): ConceptDraft {
 export function briefSentences(brief: ConceptDraft): Pick<Concept['sentences'], 'problem' | 'audience' | 'scenario'> {
   return {
     problem: `本概念回应的设计问题是「${brief.problem}」。`,
-    audience: `概念面向「${brief.audience}」。`,
-    scenario: `概念用于「${brief.scenario}」这一情境。`,
+    audience: brief.audience ? `概念面向「${brief.audience}」。` : '目标用户待确认。',
+    scenario: brief.scenario ? `概念用于「${brief.scenario}」这一情境。` : '使用场景待确认。',
   }
 }
 
@@ -243,13 +265,18 @@ export function createConceptBatch(brief: ConceptDraft, candidates: ConceptCandi
 
 export function generateConceptBatch(draft: ConceptDraft): ConceptBatch {
   const brief = requireConceptBrief(draft)
-  const context = contexts.find(rule => rule.match.test(brief.problem))?.context ?? defaultContext
-  return createConceptBatch(brief, strategies.slice(0, brief.count).map(({ id, title, format, describe }) => ({
-    id,
-    title,
-    format,
-    sentences: { ...briefSentences(brief), ...describe(context) },
-  })))
+  const startingIdea = brief.startingPoint?.text
+  const context = contexts.find(rule => rule.match.test(brief.problem))?.context
+    ?? (startingIdea ? contexts.find(rule => rule.match.test(startingIdea))?.context : undefined)
+    ?? defaultContext
+  return createConceptBatch(brief, strategies.slice(0, brief.count).map(({ id, title, format, describe }) => {
+    const details = describe(context)
+    if (startingIdea) {
+      details.idea = `以「${startingIdea}」为起点，${startingPointVariants[id]}。`
+      details.test = `将原构想作为对照，${details.test}`
+    }
+    return { id, title, format, sentences: { ...briefSentences(brief), ...details } }
+  }))
 }
 
 export function conceptSourceLabel(batch: ConceptBatch): string {
@@ -278,21 +305,33 @@ export function averageModelScore({ ratings }: ModelReview): number {
   return (ratings.novelty.score + ratings.feasibility.score + ratings.value.score) / 3
 }
 
+export function draftFromConcept(
+  current: ConceptDraft, brief: ConceptDraft, concept: Pick<Concept, 'id' | 'title' | 'sentences'>,
+): ConceptDraft {
+  return normalizeDraft({
+    ...brief,
+    count: current.count,
+    startingPoint: { text: concept.sentences.idea, source: { conceptId: concept.id, title: concept.title } },
+  })
+}
+
 export function addChatConcept(
   state: ConceptStudioState, destination: number | null, brief: ConceptDraft, candidate: ConceptCandidate,
+  useAsDraft = false,
 ): ConceptStudioState {
   const target = destination === null ? undefined : state.rounds[destination]
   if (destination !== null && (!target || target.concepts.length >= maxRoundConcepts)) return state
   const context = target?.brief ?? brief
+  const draft = useAsDraft ? draftFromConcept(state.draft, brief, candidate) : state.draft
   const batch = createConceptBatch(context, [{
     ...candidate,
     sentences: { ...candidate.sentences, ...briefSentences(context) },
   }])
   if (destination === null) {
-    return { ...state, rounds: [...state.rounds, { ...batch, origin: 'chat' }], activeRound: state.rounds.length }
+    return { draft, rounds: [...state.rounds, { ...batch, origin: 'chat' }], activeRound: state.rounds.length }
   }
   return {
-    ...state,
+    draft,
     activeRound: destination,
     rounds: state.rounds.map((round, index) => index === destination
       ? { ...round, concepts: [...round.concepts, ...batch.concepts] }

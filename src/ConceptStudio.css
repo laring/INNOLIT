@@ -66,10 +66,16 @@
 
 .studio-brief > h2,
 .studio-problem,
+.studio-starting-point,
 .studio-model,
 .studio-actions,
 .studio-brief > .studio-hint {
   grid-column: 1 / -1;
+}
+
+.studio-starting-point > p,
+.studio-use-starting-point {
+  margin-top: 8px;
 }
 
 .studio-content h2 {

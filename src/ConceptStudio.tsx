@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import {
-  addChatConcept, appendConceptRound, conceptCounts, conceptSourceLabel, normalizeDraft, sentenceLabels,
+  addChatConcept, appendConceptRound, conceptCounts, conceptSourceLabel, draftFromConcept, normalizeDraft, sentenceLabels,
+  startingPointLimit,
 } from './concepts'
 import type {
   ChatIdea, Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
@@ -51,9 +52,10 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
   const [generating, setGenerating] = useState(false)
   const [notice, setNotice] = useState('')
   const request = useRef<AbortController | null>(null)
+  const briefHeading = useRef<HTMLHeadingElement>(null)
   const conceptHeading = useRef<HTMLHeadingElement>(null)
   const comparisonHeading = useRef<HTMLHeadingElement>(null)
-  const pendingFocus = useRef<'concepts' | 'comparison' | null>(null)
+  const pendingFocus = useRef<'brief' | 'concepts' | 'comparison' | null>(null)
   const { draft, rounds, activeRound } = state
   const batch = rounds[activeRound]
   const latest = rounds.at(-1)
@@ -65,19 +67,23 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
     latest.brief.problem === normalized.problem &&
     latest.brief.audience === normalized.audience &&
     latest.brief.scenario === normalized.scenario &&
-    latest.brief.count === normalized.count
+    latest.brief.count === normalized.count &&
+    latest.brief.startingPoint?.text === normalized.startingPoint?.text &&
+    latest.brief.startingPoint?.source?.conceptId === normalized.startingPoint?.source?.conceptId
   )
 
   useEffect(() => {
     if (!pendingFocus.current) return
-    const heading = pendingFocus.current === 'concepts' ? conceptHeading : comparisonHeading
+    const heading = pendingFocus.current === 'brief' ? briefHeading
+      : pendingFocus.current === 'concepts' ? conceptHeading : comparisonHeading
     pendingFocus.current = null
     focusHeading(heading.current)
-  }, [rounds.length, batch?.concepts.length, activeRound, refining])
+  }, [rounds.length, batch?.concepts.length, activeRound, draft, refining, idea])
 
   useEffect(() => () => request.current?.abort(), [])
 
   function editDraft(fields: Partial<ConceptDraft>) {
+    setNotice('')
     onChange(current => ({ ...current, draft: { ...current.draft, ...fields } }))
   }
 
@@ -196,16 +202,19 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
             state={state}
             settings={settings}
             onDismiss={onDismissIdea}
-            onSave={(destination, brief, candidate) => {
-              pendingFocus.current = 'concepts'
-              onChange(current => addChatConcept(current, destination, brief, candidate))
+            onSave={(destination, brief, candidate, useAsDraft) => {
+              pendingFocus.current = useAsDraft ? 'brief' : 'concepts'
+              onChange(current => addChatConcept(current, destination, brief, candidate, useAsDraft))
+              if (useAsDraft) {
+                setNotice('已加入概念并填入简报草稿。核对设计起点、目标用户和使用场景后即可生成。')
+              }
               onDismissIdea()
             }}
           />
         )}
 
         <form className="studio-surface studio-brief" onSubmit={generate}>
-          <h2>设计简报草稿</h2>
+          <h2 ref={briefHeading} tabIndex={-1}>设计简报草稿</h2>
           <label className="studio-field studio-problem">
             设计问题
             <textarea
@@ -227,6 +236,26 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
               required
             />
           </label>
+          <div className="studio-starting-point">
+            <label className="studio-field">
+              设计起点（可选）
+              <textarea
+                rows={3}
+                maxLength={startingPointLimit}
+                value={draft.startingPoint?.text ?? ''}
+                placeholder="填写希望延伸的创意、机制或原型方向"
+                disabled={generating}
+                aria-describedby={draft.startingPoint?.source ? 'starting-point-source' : undefined}
+                onChange={event => {
+                  const text = event.target.value
+                  editDraft({ startingPoint: text ? { text, source: draft.startingPoint?.source } : undefined })
+                }}
+              />
+            </label>
+            {draft.startingPoint?.source && (
+              <p className="studio-hint" id="starting-point-source">整理自「{draft.startingPoint.source.title}」</p>
+            )}
+          </div>
           <label className="studio-field">
             使用场景
             <input
@@ -261,7 +290,7 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
               </select>
             </label>
             <button type="submit" className="studio-button primary" disabled={!ready || Boolean(unchanged) || generating || (customModel && !configured)}>
-              {generating ? '正在生成…' : latest ? '生成新一轮' : '生成概念'}
+              {generating ? '正在生成…' : normalized.startingPoint ? '基于简报生成概念' : latest ? '生成新一轮' : '生成概念'}
               <ArrowRight size={16} aria-hidden="true" />
             </button>
             {generating && <button type="button" className="studio-button" onClick={cancelGeneration}>取消生成</button>}
@@ -311,6 +340,12 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
                   <dt>设计问题</dt><dd>{batch.brief.problem}</dd>
                   <dt>目标用户</dt><dd>{batch.brief.audience}</dd>
                   <dt>使用场景</dt><dd>{batch.brief.scenario}</dd>
+                  {batch.brief.startingPoint && (
+                    <>
+                      <dt>设计起点</dt><dd>{batch.brief.startingPoint.text}</dd>
+                      {batch.brief.startingPoint.source && <><dt>起点概念</dt><dd>{batch.brief.startingPoint.source.title}</dd></>}
+                    </>
+                  )}
                 </dl>
               </details>
               <p className="studio-hint">展开卡片查看每个方向的完整九句话。</p>
@@ -325,6 +360,15 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
                       <summary>查看九句话</summary>
                       <ConceptFramework concept={concept} />
                     </details>
+                    {concept.chatOrigin && (
+                      <button type="button" className="studio-button studio-use-starting-point" disabled={generating} onClick={() => {
+                        pendingFocus.current = 'brief'
+                        onChange(current => ({ ...current, draft: draftFromConcept(current.draft, batch.brief, concept) }))
+                        setNotice('已用这张对话概念卡填入简报草稿。核对后可生成新的变体。')
+                      }}>
+                        填入简报草稿
+                      </button>
+                    )}
                   </article>
                 ))}
               </div>
