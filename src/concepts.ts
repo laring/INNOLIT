@@ -50,7 +50,8 @@ export type ConceptBatch = {
 
 export type ConceptStudioState = {
   draft: ConceptDraft
-  batch: ConceptBatch | null
+  rounds: ConceptBatch[]
+  activeRound: number
 }
 
 type DesignContext = {
@@ -210,6 +211,15 @@ export function generateConceptBatch(draft: ConceptDraft): ConceptBatch {
       scores: { novelty: null, feasibility: null, value: null },
       notes: '',
     })),
+  }
+}
+
+export function appendConceptRound(state: ConceptStudioState): ConceptStudioState {
+  const batch = generateConceptBatch(state.draft)
+  return {
+    draft: batch.brief,
+    rounds: [...state.rounds, batch],
+    activeRound: state.rounds.length,
   }
 }
 

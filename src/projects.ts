@@ -1,4 +1,4 @@
-import type { ConceptStudioState } from './concepts.ts'
+import type { ConceptBatch, ConceptStudioState } from './concepts.ts'
 
 export type Message = {
   id: string
@@ -11,7 +11,10 @@ export type Project = {
   name: string
   messages: Message[]
   updatedAt: number
-  conceptStudio?: ConceptStudioState
+  conceptStudio?: ConceptStudioState | {
+    draft: ConceptStudioState['draft']
+    batch: ConceptBatch | null
+  }
 }
 
 // Keep the original key so existing V0.1 projects open in V0.2.
@@ -40,13 +43,19 @@ export function loadProjects(storage?: Pick<Storage, 'getItem'>): Project[] {
 }
 
 export function getProjectStudio(project: Project): ConceptStudioState {
-  return project.conceptStudio ?? {
-    draft: {
+  const saved = project.conceptStudio
+  if (saved && 'rounds' in saved) return saved
+
+  // A project saved before round history was added has one batch at most.
+  const rounds = saved?.batch ? [saved.batch] : []
+  return {
+    draft: saved?.draft ?? {
       problem: project.messages.findLast(message => message.role === 'user')?.content ?? '',
       audience: '',
       scenario: '',
       count: 3,
     },
-    batch: null,
+    rounds,
+    activeRound: rounds.length - 1,
   }
 }

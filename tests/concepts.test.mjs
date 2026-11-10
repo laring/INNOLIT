@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { averageScore, generateConceptBatch, sentenceLabels } from '../src/concepts.ts'
+import { appendConceptRound, averageScore, generateConceptBatch, sentenceLabels } from '../src/concepts.ts'
 import { getProjectStudio, loadProjects, STORAGE_KEY } from '../src/projects.ts'
 
 const brief = {
@@ -84,7 +84,8 @@ test('loads V0.1 conversations and keeps studio state with its owning project', 
   assert.deepEqual(loaded, legacyProject)
   assert.deepEqual(getProjectStudio(loaded), {
     draft: { problem: brief.problem.trim(), audience: '', scenario: '', count: 3 },
-    batch: null,
+    rounds: [],
+    activeRound: -1,
   })
 
   const batch = generateConceptBatch(brief)
@@ -97,7 +98,33 @@ test('loads V0.1 conversations and keeps studio state with its owning project', 
   saved = JSON.stringify([upgraded, other])
   const [reopened, reopenedOther] = loadProjects(storage)
   assert.deepEqual(reopened.messages, legacyProject.messages)
-  assert.deepEqual(getProjectStudio(reopened), studio)
-  assert.equal(getProjectStudio(reopenedOther).batch, null)
+  const migrated = getProjectStudio(reopened)
+  assert.deepEqual(migrated, { draft: studio.draft, rounds: [batch], activeRound: 0 })
+  assert.deepEqual(getProjectStudio(reopenedOther).rounds, [])
   assert.equal(getProjectStudio(reopenedOther).draft.problem, '')
+
+  const updated = appendConceptRound(migrated)
+  assert.equal(updated.activeRound, 1)
+  assert.equal(updated.rounds[1].concepts.length, 6)
+  assert.equal(updated.rounds[1].selectedId, null)
+  assert.equal(updated.rounds[1].concepts[1].scores.value, null)
+  assert.equal(updated.rounds[1].concepts[1].notes, '')
+  assert.deepEqual(updated.rounds[0], batch)
+  assert.equal(updated.rounds[0].brief.count, 3)
+
+  // Opening an older round must persist without changing the draft for the next round.
+  const browsingHistory = { ...updated, activeRound: 0 }
+  saved = JSON.stringify([{ ...upgraded, conceptStudio: browsingHistory }, other])
+  const [savedHistory, savedOther] = loadProjects(storage)
+  assert.deepEqual(getProjectStudio(savedHistory), browsingHistory)
+  assert.deepEqual(getProjectStudio(savedOther).rounds, [])
+})
+
+test('appends a new round when viewing an older one without replacing any saved round', () => {
+  const first = appendConceptRound({ draft: brief, rounds: [], activeRound: -1 })
+  const second = appendConceptRound({ ...first, draft: { ...brief, count: 4 } })
+  const third = appendConceptRound({ ...second, activeRound: 0, draft: { ...brief, count: 5 } })
+  assert.equal(third.activeRound, 2)
+  assert.deepEqual(third.rounds.map(round => round.concepts.length), [3, 4, 5])
+  assert.deepEqual(third.rounds.slice(0, 2), second.rounds)
 })

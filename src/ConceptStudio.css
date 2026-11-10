@@ -67,7 +67,6 @@
 .studio-brief > h2,
 .studio-problem,
 .studio-actions,
-.studio-replace,
 .studio-brief > .studio-hint {
   grid-column: 1 / -1;
 }
@@ -113,6 +112,7 @@
 }
 
 .studio-actions,
+.studio-round-bar,
 .studio-next {
   display: flex;
   flex-wrap: wrap;
@@ -163,22 +163,31 @@
   margin-top: 28px;
 }
 
-.studio-replace {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid #eadbc6;
-  border-radius: 8px;
-  background: #fdf7ee;
+.studio-round-bar {
+  justify-content: space-between;
+  margin: 12px 0;
 }
 
-.studio-replace p {
-  flex-basis: 100%;
-  margin: 0;
-  color: #633f1a;
+.studio-round-brief {
+  margin-bottom: 12px;
+}
+
+.studio-round-brief dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 8px 0 0;
+  color: #425045;
   font-size: 13px;
+  line-height: 1.6;
+}
+
+.studio-round-brief dt {
+  font-weight: 600;
+}
+
+.studio-round-brief dd {
+  margin: 0;
 }
 
 .studio-section > .studio-hint {
@@ -195,6 +204,11 @@
 .studio-card h3 {
   margin: 7px 0;
   font-size: 16px;
+}
+
+.studio-card[data-selected="true"] {
+  border-color: #95af97;
+  background: #f2f7f1;
 }
 
 .studio-content summary {
