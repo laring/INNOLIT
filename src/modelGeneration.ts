@@ -5,6 +5,7 @@ export const modelGenerationPath = '/api/inno-lit/generate'
 export const modelChatPath = '/api/inno-lit/chat'
 export const modelExtractPath = '/api/inno-lit/extract'
 export const modelReviewPath = '/api/inno-lit/review'
+export const modelDevelopmentPath = '/api/inno-lit/develop'
 
 export type ModelSettings = { baseUrl: string; model: string; apiKey: string }
 
@@ -114,7 +115,7 @@ export function parseModelConcepts(brief: ConceptDraft, generation: NonNullable<
 }
 
 export async function requestModel(
-  path: typeof modelGenerationPath | typeof modelChatPath | typeof modelExtractPath | typeof modelReviewPath,
+  path: typeof modelGenerationPath | typeof modelChatPath | typeof modelExtractPath | typeof modelReviewPath | typeof modelDevelopmentPath,
   input: Record<string, unknown>,
   settings: ModelSettings, signal: AbortSignal,
 ): Promise<string> {

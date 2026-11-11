@@ -9,11 +9,17 @@ import type { ResearchLog, ValidationOutcome, ValidationPlan } from './designWor
 import { EvidencePanel } from './EvidencePanel'
 import type { ImageSettings } from './imageGeneration'
 import { VisualStudio } from './VisualStudio'
+import { DevelopmentAssistant } from './DevelopmentAssistant'
+import { ConceptFreezePanel } from './ConceptFreezePanel'
+import { developmentOf } from './conceptDevelopment'
+import { ModelControls } from './ModelControls'
+import type { ModelSettings } from './modelGeneration'
 
 const stages = {
   notes: '深化笔记',
   validation: '可行性验证',
   research: '原创性检索',
+  optimize: '完善与冻结',
   visuals: '概念图与展板',
   report: '设计报告',
 } as const
@@ -33,6 +39,8 @@ type RefinementProps = {
   children: ReactNode
   imageSettings: ImageSettings
   onImageSettingsChange: (change: Partial<ImageSettings>) => void
+  settings: ModelSettings
+  onSettingsChange: (change: Partial<ModelSettings>) => void
 }
 
 function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' | 'onChange'>) {
@@ -81,6 +89,14 @@ function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' 
       <p id="validation-help" className="studio-hint">
         {ready ? '对照通过标准和实测记录，由你填写验证结果。' : '填写通过标准与实测记录后，可给出验证结果。'}
       </p>
+      <label className="studio-field">人工可行性分析结论
+        <textarea rows={4} maxLength={4000} value={developmentOf(concept).feasibilityConclusion} placeholder="修正 AI 分析，区分可行条件、剩余风险与未实测事项。"
+          onChange={event => {
+            const feasibilityConclusion = event.target.value
+            onChange(current => ({ ...current, development: { ...developmentOf(current), feasibilityConclusion } }))
+          }} />
+      </label>
+      <p className="studio-hint">AI 只提出分析和测试方案，不会填写实测记录或替你判定达到标准。概念冻结不代表实测通过。</p>
     </section>
   )
 }
@@ -129,11 +145,21 @@ function ReportPanel({ projectName, round, roundNumber, concept }: Pick<Refineme
   )
 }
 
-export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, onImageSettingsChange }: RefinementProps) {
+export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, onImageSettingsChange, settings, onSettingsChange }: RefinementProps) {
   const [stage, setStage] = useState<Stage>('notes')
+  const locked = Boolean(developmentOf(concept).frozen)
+  function edit(update: (current: Concept) => Concept) {
+    onChange(current => developmentOf(current).frozen ? current : update(current))
+  }
 
   return (
     <>
+      <details className="studio-surface development-model-settings">
+        <summary>深化 AI 模型设置</summary>
+        <ModelControls settings={settings} onSettingsChange={onSettingsChange} settingsOnly customModel onModeChange={() => {}} disabled={false}
+          requestDescription="深化分析、检索比较和完善总结共用此文字模型。模型建议由你修正与确认。" />
+      </details>
+      {locked && <p className="studio-badge">冻结 V{developmentOf(concept).frozen!.revision} · 设计内容已锁定，展示制作引用此版本</p>}
       <nav className="studio-refinement-nav" aria-label="深化工作区">
         {stageNames.map(key => (
           <button
@@ -148,6 +174,7 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         ))}
       </nav>
       {stage === 'notes' && (
+        <DevelopmentAssistant step="notes" concept={concept} settings={settings} onChange={edit}>
         <section className="studio-surface studio-refinement" aria-labelledby="notes-heading">
           <div>
             <h2 id="notes-heading">首轮验证建议</h2>
@@ -162,21 +189,31 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
               value={concept.notes}
               onChange={event => {
                 const notes = event.target.value
-                onChange(current => ({ ...current, notes }))
+                edit(current => ({ ...current, notes }))
               }}
               placeholder="记录方案调整、待解决的问题与下一步"
             />
           </label>
           {children}
         </section>
+        </DevelopmentAssistant>
       )}
-      {stage === 'validation' && <ValidationPanel concept={concept} onChange={onChange} />}
+      {stage === 'validation' && <DevelopmentAssistant step="validation" concept={concept} settings={settings} onChange={edit}>
+        <ValidationPanel concept={concept} onChange={edit} />
+      </DevelopmentAssistant>}
       {stage === 'research' && (
+        <DevelopmentAssistant step="research" concept={concept} settings={settings} onChange={edit}>
         <EvidencePanel
           research={concept.research ?? emptyResearch}
-          onChange={update => onChange(current => ({ ...current, research: update(current.research ?? emptyResearch) }))}
+          onChange={update => edit(current => ({ ...current, research: update(current.research ?? emptyResearch) }))}
         />
+        <section className="studio-surface studio-refinement"><label className="studio-field">人工检索比较结论
+          <textarea rows={4} maxLength={4000} value={developmentOf(concept).researchConclusion} placeholder="阅读来源后修正相似与差异、检索范围和仍需调查的部分。"
+            onChange={event => { const researchConclusion = event.target.value; edit(current => ({ ...current, development: { ...developmentOf(current), researchConclusion } })) }} />
+        </label></section>
+        </DevelopmentAssistant>
       )}
+      {stage === 'optimize' && <ConceptFreezePanel concept={concept} settings={settings} onChange={onChange} onFrozen={() => setStage('visuals')} />}
       {stage === 'report' && <ReportPanel projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} />}
       {stage === 'visuals' && <VisualStudio key={`${roundNumber}:${concept.id}`} projectId={projectId}
         projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}

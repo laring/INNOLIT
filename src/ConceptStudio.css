@@ -473,6 +473,41 @@
   margin-top: 18px;
 }
 
+.development-step {
+  display: grid;
+  gap: 18px;
+}
+
+.development-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.development-advice {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #d5ded4;
+  border-radius: 10px;
+  background: #f4f8f2;
+}
+
+.development-advice p,
+.development-advice dd {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.development-model-settings {
+  margin-bottom: 16px;
+}
+
+.development-model-settings .model-controls {
+  margin-top: 12px;
+}
+
 @media (max-width: 650px) {
   .studio-comparison th:first-child {
     position: static;

@@ -38,7 +38,12 @@ export function imageApi(
     if (!key) return send(response, 400, { error: '请填写图片服务的 API 密钥。' })
     let spec: ReturnType<typeof imageRequest>
     try {
-      spec = imageRequest(await readJson(request, 32 * 1024))
+      const input = objectRecord(await readJson(request, 12 * 1024 * 1024))
+      spec = imageRequest(input)
+      if (typeof input.reference === 'string') {
+        const reference = Buffer.from(input.reference.split(',')[1] ?? '', 'base64')
+        if (reference.length > imageByteLimit || !imageMime(reference)) throw new Error('产品母版参考图不可用。')
+      }
     } catch (error) {
       return send(response, 400, { error: error instanceof Error && !(error instanceof SyntaxError) ? error.message : '图片请求无效。' })
     }

@@ -3,10 +3,11 @@ import type { Plugin } from 'vite'
 import { requireConceptBrief } from '../src/concepts.ts'
 import type { ConceptDraft } from '../src/concepts.ts'
 import {
-  chatCompletionUrl, modelChatPath, modelExtractPath, modelGenerationPath, modelPrompt, modelReviewPath, objectRecord,
+  chatCompletionUrl, modelChatPath, modelExtractPath, modelGenerationPath, modelPrompt, modelReviewPath, modelDevelopmentPath, objectRecord,
 } from '../src/modelGeneration.ts'
 import { chatPrompt } from '../src/modelChat.ts'
 import { extractPrompt, reviewPrompt } from '../src/modelStudio.ts'
+import { developmentPrompt } from '../src/developmentModel.ts'
 import { readJson, requestProviderJson } from './providerHttp.ts'
 
 type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt>
@@ -56,7 +57,7 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
     let url: URL
     let payload: ModelPayload
     try {
-      const input = objectRecord(await readJson(request, request.url === modelReviewPath ? 128 * 1024 : 64 * 1024))
+      const input = objectRecord(await readJson(request, request.url === modelDevelopmentPath ? 192 * 1024 : request.url === modelReviewPath ? 128 * 1024 : 64 * 1024))
       const { baseUrl, model, brief, messages } = input
       if (typeof baseUrl !== 'string' || baseUrl.length > 1000 || typeof model !== 'string' || !model.trim() || model.length > 200) {
         throw new Error('请填写 API 地址和模型 ID。')
@@ -68,6 +69,8 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
         payload = reviewPrompt(input, model.trim())
       } else if (request.url === modelExtractPath) {
         payload = extractPrompt(input, model.trim())
+      } else if (request.url === modelDevelopmentPath) {
+        payload = developmentPrompt(input, model.trim())
       } else {
         const input = objectRecord(brief)
         if (typeof input.problem !== 'string' || typeof input.audience !== 'string' || typeof input.scenario !== 'string') {
@@ -105,7 +108,7 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
 
   function middleware(request: IncomingMessage, response: ServerResponse, next: () => void) {
     if (request.url !== modelGenerationPath && request.url !== modelChatPath
-      && request.url !== modelReviewPath && request.url !== modelExtractPath) return next()
+      && request.url !== modelReviewPath && request.url !== modelExtractPath && request.url !== modelDevelopmentPath) return next()
     void handle(request, response)
   }
 

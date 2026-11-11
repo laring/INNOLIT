@@ -1,12 +1,5 @@
-import type { VisualSource } from './imageGeneration.ts'
-
-export type SavedVisual = {
-  id: string
-  projectId: string
-  blob: Blob
-  source: VisualSource
-  prompt: string
-}
+import type { SavedVisual } from './visualTypes.ts'
+export type { SavedVisual } from './visualTypes.ts'
 
 function openVisuals(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

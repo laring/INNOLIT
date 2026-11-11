@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import {
   addChatConcept, appendConceptRound, conceptCounts, conceptSourceLabel, draftFromConcept, normalizeDraft, sentenceLabels,
   startingPointLimit,
+  modelSourceLabel,
 } from './concepts'
 import type {
   ChatIdea, Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
@@ -168,12 +169,14 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             返回概念比较
           </button>
           <header className="studio-intro">
-            <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.format}</p>
-            <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.title}</h1>
-            <p>记录验证与检索证据，并整理本轮的设计报告。</p>
-            <span className="studio-badge">{conceptSourceLabel(batch)}</span>
+            <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.development?.frozen?.design.format ?? selected.format}</p>
+            <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.development?.frozen?.design.title ?? selected.title}</h1>
+            <p>AI 协助深化、验证与检索，经你修正后完善概念并冻结，再制作一致的三张展示图。</p>
+            <span className="studio-badge">初始概念：{conceptSourceLabel(batch)}</span>
+            {selected.development?.frozen && <span className="studio-badge">完善模型：{modelSourceLabel(selected.development.frozen.source)}</span>}
           </header>
           <RefinementWorkspace
+            key={`${activeRound}:${selected.id}`}
             projectId={projectId}
             projectName={projectName}
             round={batch}
@@ -182,6 +185,8 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             onChange={update => editConcept(selected.id, update)}
             imageSettings={imageSettings}
             onImageSettingsChange={onImageSettingsChange}
+            settings={settings}
+            onSettingsChange={onSettingsChange}
           >
             <details>
               <summary>查看完整九句话</summary>

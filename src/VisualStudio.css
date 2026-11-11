@@ -44,3 +44,32 @@
   border: 1px solid #d5ded4;
   border-radius: 8px;
 }
+
+.visual-checks {
+  display: grid;
+  gap: 12px;
+}
+
+.visual-reference {
+  display: grid;
+  grid-template-columns: minmax(80px, 180px) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #d5ded4;
+  border-radius: 10px;
+  background: #f4f8f2;
+}
+
+.visual-reference img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.visual-prompt-text {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+}

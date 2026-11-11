@@ -31,7 +31,7 @@ test('image request supports both interface formats and full endpoints without e
   assert.equal(compatible.url.pathname, '/custom/images/generations')
   assert.deepEqual(compatible.payload, { model: input.model, prompt: input.prompt, size: '1536x1024', n: 1 })
   assert.doesNotMatch(JSON.stringify([silicon, compatible]), /fixture-image-key/)
-  for (const change of [{ baseUrl: 'https://localhost' }, { baseUrl: 'https://127.0.0.1' }, { baseUrl: 'http://images.example.com' }, { prompt: ' ' }, { prompt: 'x'.repeat(3001) }, { model: '' }, { size: 'unknown' }, { protocol: 'unknown' }]) {
+  for (const change of [{ baseUrl: 'https://localhost' }, { baseUrl: 'https://127.0.0.1' }, { baseUrl: 'http://images.example.com' }, { prompt: ' ' }, { prompt: 'x'.repeat(14001) }, { model: '' }, { size: 'unknown' }, { protocol: 'unknown' }]) {
     assert.throws(() => imageRequest({ ...input, ...change }))
   }
 })
@@ -117,4 +117,22 @@ test('public image download blocks insecure or private addresses before making a
   assert.equal(imageMime(new Uint8Array([255, 216, 255])), 'image/jpeg')
   assert.equal(imageMime(new Uint8Array(Buffer.from('RIFFxxxxWEBP'))), 'image/webp')
   assert.equal(imageMime(new Uint8Array(Buffer.from('<svg/>'))), null)
+})
+
+test('reference image relay validates local media and forwards the mother image without size parameters', async context => {
+  let attempts = 0
+  const post = await relay(context, async (_url, key, payload) => {
+    attempts++
+    assert.equal(key, settings.apiKey)
+    assert.equal(payload.image, `data:image/png;base64,${png.toString('base64')}`)
+    assert.equal('image_size' in payload, false)
+    assert.equal('size' in payload, false)
+    assert.doesNotMatch(JSON.stringify(payload), /fixture-image-key/)
+    return { status: 200, data: { data: [{ b64_json: png.toString('base64') }] } }
+  })
+  const edited = { ...input, model: 'Qwen/Qwen-Image-Edit-2509', purpose: 'poster', reference: `data:image/png;base64,${png.toString('base64')}` }
+  assert.equal((await post({ ...edited, reference: 'data:image/png;base64,aGVsbG8=' })).status, 400)
+  assert.equal(attempts, 0)
+  assert.equal((await post(edited)).status, 200)
+  assert.equal(attempts, 1)
 })

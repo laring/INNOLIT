@@ -12,6 +12,10 @@ export type ImageSettings = ModelSettings & {
 export type VisualLayout = 'diagram' | 'landscape' | 'portrait'
 export type VisualSource = { kind: 'upload' } | { kind: 'model'; model: string; provider: string }
 
+export function supportsImageReference(settings: Pick<ImageSettings, 'protocol' | 'model'>) {
+  return settings.protocol === 'siliconflow' && /^Qwen\/Qwen-Image-Edit(?:-\d{4})?$/u.test(settings.model.trim())
+}
+
 export function imageMime(bytes: Uint8Array): string | null {
   if (bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return 'image/png'
   if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return 'image/jpeg'
@@ -35,31 +39,41 @@ export function imageRequest(input: unknown) {
   const data = objectRecord(input)
   if (typeof data.baseUrl !== 'string' || data.baseUrl.length > 1000
     || typeof data.model !== 'string' || !data.model.trim() || data.model.length > 200
-    || typeof data.prompt !== 'string' || !data.prompt.trim() || data.prompt.length > 3000
+    || typeof data.prompt !== 'string' || !data.prompt.trim() || data.prompt.length > 14000
     || !imageSizes.includes(data.size as ImageSettings['size'])
     || (data.protocol !== 'siliconflow' && data.protocol !== 'images')) {
     throw new Error('请填写图片 API 地址、模型、提示词和支持的图片尺寸。')
   }
   const url = providerUrl(data.baseUrl, '/images/generations')
   const size = data.size as string
+  const purpose = data.purpose ?? 'master'
+  if (!['master', 'landscape', 'portrait', 'poster'].includes(purpose as string)) throw new Error('未知的展示入口。')
+  const reference = data.reference
+  if (purpose !== 'master' && !reference) throw new Error('三张展示入口必须携带产品母版参考图。')
+  if (reference !== undefined && (typeof reference !== 'string' || reference.length > imageByteLimit * 1.4
+    || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/u.test(reference))) throw new Error('产品母版参考图格式无效。')
+  if (reference && !supportsImageReference({ protocol: data.protocol as ImageSettings['protocol'], model: data.model })) {
+    throw new Error('延展图片需使用支持母版参考的 Qwen Image Edit 接口；Kolors 可用于制作产品母版。')
+  }
+  if (!reference && supportsImageReference({ protocol: data.protocol as ImageSettings['protocol'], model: data.model })) throw new Error('参考图编辑模型需要母版图片；请先用文生图模型或上传图片建立母版。')
   return {
     url,
     payload: {
       model: data.model.trim(),
       prompt: data.prompt.trim(),
-      ...(data.protocol === 'siliconflow' ? { image_size: size } : { size, n: 1 }),
+      ...(reference ? { image: reference } : data.protocol === 'siliconflow' ? { image_size: size } : { size, n: 1 }),
     },
   }
 }
 
-export async function generateConceptImage(settings: ImageSettings, prompt: string, signal: AbortSignal): Promise<Blob> {
-  imageRequest({ ...settings, prompt })
+export async function generateConceptImage(settings: ImageSettings, prompt: string, signal: AbortSignal, options: { reference?: string; purpose?: string } = {}): Promise<Blob> {
+  imageRequest({ ...settings, prompt, ...options })
   const { apiKey, ...publicSettings } = settings
   const response = await fetch(imageGenerationPath, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey.trim()}` },
     credentials: 'omit', redirect: 'error', cache: 'no-store', signal,
-    body: JSON.stringify({ ...publicSettings, prompt }),
+    body: JSON.stringify({ ...publicSettings, prompt, ...options }),
   })
   if (!response.ok) {
     const data = objectRecord(await response.json().catch(() => null))

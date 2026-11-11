@@ -10,10 +10,11 @@ type ModelControlsProps = {
   onModeChange: (custom: boolean) => void
   disabled: boolean
   requestDescription: string
+  settingsOnly?: boolean
 }
 
 export function ModelControls({
-  settings, onSettingsChange, customModel, onModeChange, disabled, requestDescription,
+  settings, onSettingsChange, customModel, onModeChange, disabled, requestDescription, settingsOnly = false,
 }: ModelControlsProps) {
   const dialog = useRef<HTMLDialogElement>(null)
   const available = canUseCustomModel(window.location.hostname)
@@ -22,7 +23,7 @@ export function ModelControls({
   return (
     <div className="model-controls">
       <div className="model-controls-row">
-        <label>
+        {!settingsOnly && <label>
           生成方式
           <select value={customModel ? 'api' : 'rules'} disabled={disabled} onChange={event => {
             const custom = event.target.value === 'api'
@@ -32,8 +33,8 @@ export function ModelControls({
             <option value="rules">本地规则（非 AI）</option>
             <option value="api" disabled={!available}>自配 API 模型</option>
           </select>
-        </label>
-        {customModel && (
+        </label>}
+        {(customModel || settingsOnly) && (
           <button type="button" disabled={disabled} onClick={() => dialog.current?.showModal()}>API 设置</button>
         )}
         {customModel && configured && <span className="model-active">{settings.model.trim()}</span>}
