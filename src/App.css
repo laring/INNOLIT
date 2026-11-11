@@ -3,7 +3,7 @@
   box-sizing: border-box;
 }
 
-button, textarea {
+button, textarea, input, select {
   font: inherit;
 }
 
@@ -35,7 +35,7 @@ button {
   align-items: center;
   gap: 10px;
   padding: 0 12px 30px;
-  font-size: 16px;
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: .04em;
 }
@@ -60,13 +60,13 @@ button {
   border: 1px solid #deded9;
   background: white;
   border-radius: 11px;
-  font-size: 13px;
+  font-size: 1.0625rem;
   font-weight: 600;
 }
 
 .section-label {
-  color: #90938f;
-  font-size: 11px;
+  color: #646d64;
+  font-size: .875rem;
   font-weight: 600;
   letter-spacing: .05em;
   margin: 28px 12px 12px;
@@ -99,7 +99,7 @@ button {
   background: transparent;
   text-align: left;
   color: #454945;
-  font-size: 12px;
+  font-size: .9375rem;
 }
 
 .project-select span {
@@ -120,8 +120,8 @@ button {
 }
 
 .sidebar-footer {
-  color: #a0a29e;
-  font-size: 11px;
+  color: #6b746b;
+  font-size: .875rem;
   padding: 12px;
 }
 
@@ -144,7 +144,7 @@ button {
 
 .breadcrumb {
   color: #666b67;
-  font-size: 12px;
+  font-size: .9375rem;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -163,7 +163,7 @@ button {
   border-radius: 8px;
   background: transparent;
   color: #58615a;
-  font-size: 12px;
+  font-size: 1rem;
   font-weight: 600;
   padding: 8px 12px;
 }
@@ -179,7 +179,7 @@ button {
   padding: 10px 16px;
   background: #fff5ea;
   color: #783c17;
-  font-size: 13px;
+  font-size: 1.0625rem;
 }
 
 .chat-workspace {
@@ -238,9 +238,9 @@ button {
 }
 
 .welcome p {
-  font-size: 13px;
-  color: #8b8f8b;
-  line-height: 1.8;
+  font-size: 1.0625rem;
+  color: #626d63;
+  line-height: 1.85;
 }
 
 .suggestions {
@@ -257,7 +257,7 @@ button {
   color: #626761;
   padding: 11px 14px;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: .9375rem;
 }
 
 .suggestions button:hover {
@@ -266,7 +266,7 @@ button {
 
 .messages {
   width: 100%;
-  max-width: 760px;
+  max-width: 840px;
   margin: 0 auto;
   padding: 36px 24px;
 }
@@ -284,15 +284,15 @@ button {
 .message-content {
   white-space: pre-wrap;
   line-height: 1.85;
-  font-size: 13px;
-  max-width: 85%;
+  font-size: 1.0625rem;
+  max-width: 90%;
   overflow-wrap: anywhere;
 }
 
 .message-source {
   margin-bottom: 4px;
   color: #526a56;
-  font-size: 11px;
+  font-size: .875rem;
   font-weight: 600;
 }
 
@@ -304,7 +304,7 @@ button {
   border-radius: 7px;
   background: #f8fbf8;
   color: #36563a;
-  font-size: 12px;
+  font-size: .9375rem;
 }
 
 .message.user .message-content {
@@ -330,7 +330,7 @@ button {
 }
 
 .composer {
-  max-width: 760px;
+  max-width: 840px;
   margin: 0 auto;
   border: 1px solid #e2e5e0;
   border-radius: 17px;
@@ -345,8 +345,8 @@ button {
   resize: none;
   background: transparent;
   color: #24272b;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 1.0625rem;
+  line-height: 1.8;
 }
 
 .composer-model {
@@ -359,15 +359,15 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #adb0ac;
-  font-size: 10px;
+  color: #697369;
+  font-size: .8125rem;
 }
 
 .composer-bottom button {
   display: grid;
   place-items: center;
-  width: 31px;
-  height: 31px;
+  width: 40px;
+  height: 40px;
   border: 0;
   border-radius: 10px;
   background: #303c33;
@@ -382,7 +382,7 @@ button {
 .composer-note {
   text-align: center;
   color: #58655b;
-  font-size: 12px;
+  font-size: .9375rem;
   margin: 12px 0 0;
 }
 
@@ -407,13 +407,13 @@ button {
 }
 
 .results-header h2 {
-  font-size: 14px;
+  font-size: 1.125rem;
   margin: 0;
 }
 
 .results-header span {
-  font-size: 10px;
-  color: #aaa;
+  font-size: .8125rem;
+  color: #697369;
 }
 
 .results-panel .section-label {
@@ -432,14 +432,14 @@ button {
 }
 
 .concept-card h3 {
-  font-size: 13px;
+  font-size: 1.0625rem;
   margin: 12px 0;
 }
 
 .concept-card p {
   color: #777d77;
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: .9375rem;
+  line-height: 1.8;
   overflow-wrap: anywhere;
 }
 
@@ -450,30 +450,30 @@ button {
   background: #eff3ed;
   border-radius: 6px;
   color: #617563;
-  font-size: 10px;
+  font-size: .8125rem;
 }
 
 .empty-result {
-  color: #9a9f99;
+  color: #687268;
   border: 1px dashed #dfe2dd;
   border-radius: 12px;
   padding: 24px 14px;
-  font-size: 12px;
-  line-height: 1.8;
+  font-size: .9375rem;
+  line-height: 1.85;
 }
 
 .process-list {
   display: grid;
   gap: 15px;
   color: #777d77;
-  font-size: 12px;
+  font-size: .9375rem;
   padding: 8px 2px;
 }
 
 .results-footer {
   margin-top: 50px;
-  color: #a8aba6;
-  font-size: 10px;
+  color: #697369;
+  font-size: .8125rem;
 }
 
 @media (max-width: 1100px) {

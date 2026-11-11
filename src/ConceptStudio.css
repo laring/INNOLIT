@@ -28,8 +28,8 @@
 .studio-card > p,
 .studio-refinement p {
   color: #546057;
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 1.0625rem;
+  line-height: 1.8;
 }
 
 .studio-content .studio-kicker {
@@ -38,7 +38,7 @@
   gap: 7px;
   margin: 0;
   color: #4b684e;
-  font-size: 12px;
+  font-size: .9375rem;
   font-weight: 650;
 }
 
@@ -48,7 +48,7 @@
   border-radius: 6px;
   background: #e7eee4;
   color: #3b583e;
-  font-size: 11px;
+  font-size: .875rem;
 }
 
 .studio-surface {
@@ -80,13 +80,13 @@
 
 .studio-content h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: 1.375rem;
 }
 
 .studio-content h2 span {
   margin-left: 6px;
   color: #57675a;
-  font-size: 12px;
+  font-size: .9375rem;
   font-weight: 500;
 }
 
@@ -95,7 +95,7 @@
   display: grid;
   gap: 6px;
   color: #344139;
-  font-size: 13px;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -104,8 +104,8 @@
 .studio-content select {
   width: 100%;
   min-width: 0;
-  min-height: 36px;
-  padding: 7px 9px;
+  min-height: 44px;
+  padding: 9px 12px;
   border: 1px solid #d5ded4;
   border-radius: 8px;
   background: #fff;
@@ -132,13 +132,13 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 7px 11px;
+  min-height: 44px;
+  padding: 9px 13px;
   border: 1px solid #d5ded4;
   border-radius: 8px;
   background: #fff;
   color: #304634;
-  font-size: 13px;
+  font-size: 1rem;
   font-weight: 600;
   text-decoration: none;
 }
@@ -163,8 +163,8 @@
 .studio-hint {
   margin: 0;
   color: #58655b;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: .9375rem;
+  line-height: 1.75;
 }
 
 .studio-section {
@@ -186,8 +186,8 @@
   gap: 6px 12px;
   margin: 8px 0 0;
   color: #425045;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 1.0625rem;
+  line-height: 1.75;
 }
 
 .studio-round-brief dt {
@@ -204,14 +204,14 @@
 
 .studio-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 12px;
   align-items: start;
 }
 
 .studio-card h3 {
   margin: 7px 0;
-  font-size: 16px;
+  font-size: 1.25rem;
 }
 
 .studio-card[data-selected="true"] {
@@ -222,7 +222,7 @@
 .studio-content summary {
   color: #3f6244;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 1.0625rem;
   font-weight: 600;
 }
 
@@ -230,8 +230,8 @@
   margin: 12px 0 0;
   padding-left: 22px;
   color: #425045;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 1.0625rem;
+  line-height: 1.75;
 }
 
 .concept-framework li + li {
@@ -240,7 +240,7 @@
 
 .concept-framework strong {
   display: block;
-  font-size: 12px;
+  font-size: .9375rem;
 }
 
 .studio-table-scroll {
@@ -254,14 +254,14 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 1.0625rem;
+  line-height: 1.65;
 }
 
 .studio-table th,
 .studio-table td {
   min-width: 140px;
-  padding: 9px 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid #edf0eb;
 }
 
@@ -303,8 +303,8 @@
 .studio-review-rubric ul {
   padding-left: 20px;
   color: #46554a;
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 1.0625rem;
+  line-height: 1.8;
 }
 
 .studio-review-status:not(:empty) {
@@ -344,8 +344,8 @@
   overflow: auto;
   white-space: pre-wrap;
   color: #46554a;
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 1.0625rem;
+  line-height: 1.8;
 }
 
 .studio-choice {
@@ -368,7 +368,7 @@
 .studio-next p {
   margin: 0;
   color: #405544;
-  font-size: 13px;
+  font-size: 1.0625rem;
 }
 
 .studio-refinement {
@@ -379,7 +379,7 @@
 .studio-refinement h3 {
   margin: 0;
   color: #344139;
-  font-size: 15px;
+  font-size: 1.125rem;
 }
 
 .studio-refinement-nav {
@@ -437,7 +437,7 @@
   padding: 10px;
   border: 1px solid #e2e7df;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 1.0625rem;
 }
 
 .studio-evidence-list p,
@@ -454,8 +454,8 @@
   display: grid;
   gap: 10px;
   margin: 10px 0 0;
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 1.0625rem;
+  line-height: 1.8;
 }
 
 .studio-report-section dt {
