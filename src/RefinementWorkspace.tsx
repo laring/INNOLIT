@@ -7,11 +7,14 @@ import {
 } from './designWork'
 import type { ResearchLog, ValidationOutcome, ValidationPlan } from './designWork'
 import { EvidencePanel } from './EvidencePanel'
+import type { ImageSettings } from './imageGeneration'
+import { VisualStudio } from './VisualStudio'
 
 const stages = {
   notes: '深化笔记',
   validation: '可行性验证',
   research: '原创性检索',
+  visuals: '概念图与展板',
   report: '设计报告',
 } as const
 
@@ -21,12 +24,15 @@ const fields = Object.keys(validationFields) as (keyof typeof validationFields)[
 const emptyResearch: ResearchLog = { keywords: '', evidence: [] }
 
 type RefinementProps = {
+  projectId: string
   projectName: string
   round: ConceptBatch
   roundNumber: number
   concept: Concept
   onChange: (update: (current: Concept) => Concept) => void
   children: ReactNode
+  imageSettings: ImageSettings
+  onImageSettingsChange: (change: Partial<ImageSettings>) => void
 }
 
 function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' | 'onChange'>) {
@@ -79,7 +85,7 @@ function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' 
   )
 }
 
-function ReportPanel({ projectName, round, roundNumber, concept }: Omit<RefinementProps, 'onChange' | 'children'>) {
+function ReportPanel({ projectName, round, roundNumber, concept }: Pick<RefinementProps, 'projectName' | 'round' | 'roundNumber' | 'concept'>) {
   const report = buildDesignReport(projectName, round, roundNumber, concept)
 
   function download() {
@@ -123,7 +129,7 @@ function ReportPanel({ projectName, round, roundNumber, concept }: Omit<Refineme
   )
 }
 
-export function RefinementWorkspace({ projectName, round, roundNumber, concept, onChange, children }: RefinementProps) {
+export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, onImageSettingsChange }: RefinementProps) {
   const [stage, setStage] = useState<Stage>('notes')
 
   return (
@@ -172,6 +178,9 @@ export function RefinementWorkspace({ projectName, round, roundNumber, concept, 
         />
       )}
       {stage === 'report' && <ReportPanel projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} />}
+      {stage === 'visuals' && <VisualStudio key={`${roundNumber}:${concept.id}`} projectId={projectId}
+        projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}
+        imageSettings={imageSettings} onImageSettingsChange={onImageSettingsChange} />}
     </>
   )
 }

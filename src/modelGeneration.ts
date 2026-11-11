@@ -20,7 +20,7 @@ export const conceptContentFields = ['idea', 'interaction', 'difference', 'value
 const modelFields = ['title', 'format', ...conceptContentFields] as const
 const invalidBatch = '模型返回的概念不完整或有重复。请减少生成数量、重试，或更换模型。'
 
-export function chatCompletionUrl(value: string): URL {
+export function providerUrl(value: string, endpoint: string): URL {
   let url: URL
   try {
     url = new URL(value.trim())
@@ -34,8 +34,12 @@ export function chatCompletionUrl(value: string): URL {
     throw new Error('API 地址需使用服务商提供的公开域名。')
   }
   const path = url.pathname.replace(/\/+$/u, '')
-  url.pathname = path.endsWith('/chat/completions') ? path : `${path}/chat/completions`
+  url.pathname = path.endsWith(endpoint) ? path : `${path}${endpoint}`
   return url
+}
+
+export function chatCompletionUrl(value: string): URL {
+  return providerUrl(value, '/chat/completions')
 }
 
 export function objectRecord(value: unknown): Record<string, unknown> {

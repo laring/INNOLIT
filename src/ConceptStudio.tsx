@@ -11,17 +11,21 @@ import type {
 import { RefinementWorkspace } from './RefinementWorkspace'
 import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
+import type { ImageSettings } from './imageGeneration'
 import { ModelControls } from './ModelControls'
 import { ChatConceptImport } from './ChatConceptImport'
 import { ConceptComparison } from './ConceptComparison'
 import './ConceptStudio.css'
 
 type StudioProps = {
+  projectId: string
   projectName: string
   state: ConceptStudioState
   onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
   settings: ModelSettings
   onSettingsChange: (change: Partial<ModelSettings>) => void
+  imageSettings: ImageSettings
+  onImageSettingsChange: (change: Partial<ImageSettings>) => void
   idea?: ChatIdea
   onDismissIdea: () => void
 }
@@ -46,7 +50,7 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ projectName, state, onChange, settings, onSettingsChange, idea, onDismissIdea }: StudioProps) {
+export function ConceptStudio({ projectId, projectName, state, onChange, settings, onSettingsChange, imageSettings, onImageSettingsChange, idea, onDismissIdea }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const [customModel, setCustomModel] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -170,11 +174,14 @@ export function ConceptStudio({ projectName, state, onChange, settings, onSettin
             <span className="studio-badge">{conceptSourceLabel(batch)}</span>
           </header>
           <RefinementWorkspace
+            projectId={projectId}
             projectName={projectName}
             round={batch}
             roundNumber={activeRound + 1}
             concept={selected}
             onChange={update => editConcept(selected.id, update)}
+            imageSettings={imageSettings}
+            onImageSettingsChange={onImageSettingsChange}
           >
             <details>
               <summary>查看完整九句话</summary>

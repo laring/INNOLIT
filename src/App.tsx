@@ -8,6 +8,8 @@ import { ConceptStudio } from './ConceptStudio'
 import { CreativeChat } from './CreativeChat'
 import type { ChatIdea, ConceptStudioState } from './concepts'
 import type { ModelSettings } from './modelGeneration'
+import type { ImageSettings } from './imageGeneration'
+import { deleteProjectVisuals } from './visualStore'
 import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
 import type { Message } from './projects'
 import './App.css'
@@ -22,6 +24,7 @@ function App() {
   const [view, setView] = useState<'workspace' | 'studio'>('workspace')
   const [saveFailed, setSaveFailed] = useState(false)
   const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
+  const [imageSettings, setImageSettings] = useState<ImageSettings>({ baseUrl: '', model: '', apiKey: '', protocol: 'siliconflow', size: '1024x1024' })
   const [transfer, setTransfer] = useState<{ projectId: string; idea: ChatIdea } | null>(null)
 
   const activeProject =
@@ -62,7 +65,17 @@ function App() {
     setInput('')
   }
 
+  function editImageSettings(change: Partial<ImageSettings>) {
+    setImageSettings(current => {
+      const next = { ...current, ...change }
+      if (next.baseUrl.trim() !== current.baseUrl.trim()) next.apiKey = ''
+      return next
+    })
+  }
+
   function deleteProject(id: string) {
+    // Removing a project must still work when browser image storage is unavailable.
+    void deleteProjectVisuals(id).catch(() => {})
     const replacement = createProject()
     setProjects(current => {
       const remaining = current.filter(project => project.id !== id)
@@ -190,11 +203,14 @@ function App() {
         {view === 'studio' ? (
           <ConceptStudio
             key={activeProject.id}
+            projectId={activeProject.id}
             projectName={activeProject.name}
             state={getProjectStudio(activeProject)}
             onChange={updateStudio}
             settings={modelSettings}
             onSettingsChange={editModelSettings}
+            imageSettings={imageSettings}
+            onImageSettingsChange={editImageSettings}
             idea={transfer?.projectId === activeProject.id ? transfer.idea : undefined}
             onDismissIdea={() => setTransfer(null)}
           />

@@ -1,0 +1,46 @@
+.visual-api-settings > .studio-validation-fields,
+.visual-api-settings > button {
+  margin-top: 12px;
+}
+
+.visual-upload {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.visual-upload input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.visual-image {
+  margin: 0;
+}
+
+.visual-image img {
+  display: block;
+  width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  border: 1px solid #e2e7df;
+  border-radius: 10px;
+  background: #f5f4ef;
+}
+
+.visual-image figcaption {
+  margin-top: 6px;
+  color: #58655b;
+  font-size: 12px;
+}
+
+.visual-board {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #d5ded4;
+  border-radius: 8px;
+}
