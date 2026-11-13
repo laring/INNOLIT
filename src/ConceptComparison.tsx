@@ -44,7 +44,7 @@ export function ConceptComparison({ batch, settings, onScore, onSelect, onReview
         <p className="studio-hint">
           {canReview
             ? '模型只依据本轮简报和概念独立评分。'
-            : '如需模型评分，请先在上方完成自配 API 设置。'}
+            : '如需模型评分，请先在 AI 模型中心配置方案深化模型。'}
         </p>
       </div>
       <p className="studio-hint studio-review-status" role="status">{notice}</p>
@@ -122,7 +122,7 @@ export function ConceptComparison({ batch, settings, onScore, onSelect, onReview
       <div className="studio-next">
         <p aria-live="polite">{selected ? `已选方案 · ${selected.title}` : '请选择一个方案继续。'}</p>
         <button type="button" className="studio-button primary" disabled={!selected || generating || pending} onClick={onRefine}>
-          进入深化 <ArrowRight size={16} aria-hidden="true" />
+          继续深化 <ArrowRight size={16} aria-hidden="true" />
         </button>
       </div>
     </>

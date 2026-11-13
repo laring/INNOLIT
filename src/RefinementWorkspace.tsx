@@ -12,8 +12,9 @@ import { VisualStudio } from './VisualStudio'
 import { DevelopmentAssistant } from './DevelopmentAssistant'
 import { ConceptFreezePanel } from './ConceptFreezePanel'
 import { developmentOf } from './conceptDevelopment'
-import { ModelControls } from './ModelControls'
 import type { ModelSettings } from './modelGeneration'
+import type { AIModelRouting, AITask } from './aiModelRouter'
+import { TaskModelCenter } from './TaskModelCenter'
 
 const stages = {
   notes: '深化笔记',
@@ -37,6 +38,12 @@ type RefinementProps = {
   concept: Concept
   onChange: (update: (current: Concept) => Concept) => void
   children: ReactNode
+  routing: AIModelRouting
+  onTaskSettingsChange: (task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) => void
+  onTaskReset: (task: AITask) => void
+  defaultTextSettings: ModelSettings
+  defaultImageSettings: ImageSettings
+  translationSettings: ModelSettings
   imageSettings: ImageSettings
   onImageSettingsChange: (change: Partial<ImageSettings>) => void
   settings: ModelSettings
@@ -145,7 +152,7 @@ function ReportPanel({ projectName, round, roundNumber, concept }: Pick<Refineme
   )
 }
 
-export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, onImageSettingsChange, settings, onSettingsChange }: RefinementProps) {
+export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, routing, onTaskSettingsChange, onTaskReset, defaultTextSettings, defaultImageSettings, translationSettings }: RefinementProps) {
   const [stage, setStage] = useState<Stage>('notes')
   const locked = Boolean(developmentOf(concept).frozen)
   function edit(update: (current: Concept) => Concept) {
@@ -155,9 +162,8 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
   return (
     <>
       <details className="studio-surface development-model-settings">
-        <summary>深化 AI 模型设置</summary>
-        <ModelControls settings={settings} onSettingsChange={onSettingsChange} settingsOnly customModel onModeChange={() => {}} disabled={false}
-          requestDescription="深化分析、检索比较和完善总结共用此文字模型。模型建议由你修正与确认。" />
+        <summary>AI 模型中心</summary>
+        <TaskModelCenter routing={routing} defaultText={defaultTextSettings} defaultImage={defaultImageSettings} onChange={onTaskSettingsChange} onReset={onTaskReset} />
       </details>
       {locked && <p className="studio-badge">冻结 V{developmentOf(concept).frozen!.revision} · 设计内容已锁定，展示制作引用此版本</p>}
       <nav className="studio-refinement-nav" aria-label="深化工作区">
@@ -217,7 +223,9 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
       {stage === 'report' && <ReportPanel projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} />}
       {stage === 'visuals' && <VisualStudio key={`${roundNumber}:${concept.id}`} projectId={projectId}
         projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}
-        imageSettings={imageSettings} onImageSettingsChange={onImageSettingsChange} />}
+        imageSettings={imageSettings}
+        modelSettings={translationSettings} 
+         />}
     </>
   )
 }

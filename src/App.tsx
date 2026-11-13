@@ -9,6 +9,8 @@ import { CreativeChat } from './CreativeChat'
 import type { ChatIdea, ConceptStudioState } from './concepts'
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
+import { createEmptyRouting, resolveTextModel } from './aiModelRouter'
+import type { AIModelRouting, AITask } from './aiModelRouter'
 import { deleteProjectVisuals } from './visualStore'
 import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
 import type { Message } from './projects'
@@ -25,6 +27,18 @@ function App() {
   const [saveFailed, setSaveFailed] = useState(false)
   const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
   const [imageSettings, setImageSettings] = useState<ImageSettings>({ baseUrl: '', model: '', apiKey: '', protocol: 'siliconflow', size: '1024x1024' })
+  const [routing, setRouting] = useState<AIModelRouting>(createEmptyRouting)
+  function editTaskSettings(task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) {
+    setRouting(current => {
+      const previous = current[task] ?? (task === 'image' ? imageSettings : modelSettings)
+      const next = { ...previous, ...change }
+      if (next.baseUrl.trim() !== previous.baseUrl.trim()) next.apiKey = ''
+      return { ...current, [task]: next } as AIModelRouting
+    })
+  }
+  function resetTaskSettings(task: AITask) {
+    setRouting(current => ({ ...current, [task]: null }))
+  }
   const [transfer, setTransfer] = useState<{ projectId: string; idea: ChatIdea } | null>(null)
 
   const activeProject =
@@ -209,6 +223,9 @@ function App() {
             onChange={updateStudio}
             settings={modelSettings}
             onSettingsChange={editModelSettings}
+            routing={routing}
+            onTaskSettingsChange={editTaskSettings}
+            onTaskReset={resetTaskSettings}
             imageSettings={imageSettings}
             onImageSettingsChange={editImageSettings}
             idea={transfer?.projectId === activeProject.id ? transfer.idea : undefined}
@@ -225,7 +242,7 @@ function App() {
               setTransfer({ projectId: activeProject.id, idea })
               setView('studio')
             }}
-            settings={modelSettings}
+            settings={resolveTextModel('concept', routing, modelSettings)}
             onSettingsChange={editModelSettings}
           />
         )}

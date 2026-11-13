@@ -72,7 +72,8 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
 
   return (
     <form className="studio-surface studio-brief studio-chat-import" onSubmit={save} aria-labelledby="chat-import-heading">
-      <h2 id="chat-import-heading">把对话创意整理成概念</h2>
+      <h2 id="chat-import-heading">从对话导入创意</h2>
+      <p className="studio-hint">先用 AI 整理对话，再核对概念并加入工作台；设计简报只需维护一份。</p>
       <details className="studio-import-source">
         <summary>查看对话原文 · {modelSourceLabel(idea.source)}</summary>
         <p>{idea.reply}</p>
@@ -90,23 +91,23 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
           ))}
         </select>
       </label>
-      <p className="studio-hint">
-        加入已有轮次会沿用该轮简报，最多可放 {maxRoundConcepts} 张卡片。下方字段可另存为下一轮的简报草稿。
-      </p>
-      {([
-        ['problem', '设计问题'], ['audience', '目标用户'], ['scenario', '使用场景'],
-      ] as const).map(([key, label]) => (
-        <label className="studio-field" key={key}>
-          {label}
-          <input
-            maxLength={key === 'problem' ? 1000 : 500}
-            value={draft[key]}
-            disabled={pending}
-            required={key === 'problem'}
-            onChange={event => setDraft(current => ({ ...current, [key]: event.target.value }))}
-          />
-        </label>
-      ))}
+      <details className="studio-import-brief">
+        <summary>设计简报（可选核对）</summary>
+        <p className="studio-hint">加入已有轮次会沿用该轮简报；此处内容可另存为下一轮草稿。</p>
+        {([
+          ['problem', '设计问题'], ['audience', '目标用户'], ['scenario', '使用场景'],
+        ] as const).map(([key, label]) => (
+          <label className="studio-field" key={key}>
+            {label}
+            <input
+              maxLength={key === 'problem' ? 1000 : 500}
+              value={draft[key]}
+              disabled={pending}
+              onChange={event => setDraft(current => ({ ...current, [key]: event.target.value }))}
+            />
+          </label>
+        ))}
+      </details>
       <div className="studio-actions">
         <button type="button" className="studio-button" disabled={!canExtract || pending} onClick={extract}>
           {pending ? '正在整理…' : '用模型整理'}
@@ -117,31 +118,37 @@ export function ChatConceptImport({ idea, state, settings, onSave, onDismiss }: 
         </span>
       </div>
       <p className="studio-hint" role="status">{notice}</p>
-      <label className="studio-field">
-        概念名称
-        <input value={fields.title} maxLength={60} disabled={pending} required
-          onChange={event => setFields(current => ({ ...current, title: event.target.value }))} />
-      </label>
-      <label className="studio-field">
-        方案形态
-        <input value={fields.format} maxLength={60} disabled={pending}
-          onChange={event => setFields(current => ({ ...current, format: event.target.value }))} />
-      </label>
-      {conceptContentFields.map(key => (
-        <label className="studio-field" key={key}>
-          {sentenceLabels[key]}
-          <textarea value={fields[key]} maxLength={600} rows={2} disabled={pending} required={key === 'idea'}
-            placeholder={key === 'idea' ? '可先填写想保留的创意方向，再让模型整理' : '可留空'}
-            onChange={event => setFields(current => ({ ...current, [key]: event.target.value }))} />
+      <details className="studio-import-fields" open={!organizedBy}>
+        <summary>概念内容（整理后可核对或修改）</summary>
+        <label className="studio-field">
+          概念名称
+          <input value={fields.title} maxLength={60} disabled={pending} required={false}
+            onChange={event => setFields(current => ({ ...current, title: event.target.value }))} />
         </label>
-      ))}
+        <label className="studio-field">
+          方案形态
+          <input value={fields.format} maxLength={60} disabled={pending}
+            onChange={event => setFields(current => ({ ...current, format: event.target.value }))} />
+        </label>
+        {conceptContentFields.map(key => (
+          <label className="studio-field" key={key}>
+            {sentenceLabels[key]}
+            <textarea value={fields[key]} maxLength={600} rows={2} disabled={pending}
+              placeholder={key === 'idea' ? '写下创意方向，或点击上方 AI 整理' : '可留空'}
+              onChange={event => setFields(current => ({ ...current, [key]: event.target.value }))} />
+          </label>
+        ))}
+      </details>
       <div className="studio-actions">
         <button type="submit" value="draft" className="studio-button primary" disabled={!canSave}>
-          加入并填入简报草稿
+          加入工作台并同步简报
         </button>
-        <button type="submit" value="add-only" className="studio-button" disabled={!canSave || (!complete && !target)}>
-          加入 Concept Studio
-        </button>
+        <details>
+          <summary>其他保存方式</summary>
+          <button type="submit" value="add-only" className="studio-button" disabled={!canSave || (!complete && !target)}>
+            仅加入 Concept Studio（不修改简报）
+          </button>
+        </details>
         <button type="button" className="studio-button" onClick={onDismiss}>返回工作室</button>
       </div>
     </form>

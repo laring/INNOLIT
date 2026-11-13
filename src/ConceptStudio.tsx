@@ -13,6 +13,8 @@ import { RefinementWorkspace } from './RefinementWorkspace'
 import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
+import { resolveTextModel, resolveImageModel } from './aiModelRouter'
+import type { AIModelRouting, AITask } from './aiModelRouter'
 import { ModelControls } from './ModelControls'
 import { ChatConceptImport } from './ChatConceptImport'
 import { ConceptComparison } from './ConceptComparison'
@@ -25,6 +27,9 @@ type StudioProps = {
   onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
   settings: ModelSettings
   onSettingsChange: (change: Partial<ModelSettings>) => void
+  routing: AIModelRouting
+  onTaskSettingsChange: (task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) => void
+  onTaskReset: (task: AITask) => void
   imageSettings: ImageSettings
   onImageSettingsChange: (change: Partial<ImageSettings>) => void
   idea?: ChatIdea
@@ -51,7 +56,7 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ projectId, projectName, state, onChange, settings, onSettingsChange, imageSettings, onImageSettingsChange, idea, onDismissIdea }: StudioProps) {
+export function ConceptStudio({ projectId, projectName, state, onChange, settings, onSettingsChange, routing, onTaskSettingsChange, onTaskReset, imageSettings, onImageSettingsChange, idea, onDismissIdea }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const [customModel, setCustomModel] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -67,7 +72,11 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
   const selected = batch?.concepts.find(concept => concept.id === batch.selectedId)
   const normalized = normalizeDraft(draft)
   const ready = normalized.problem && normalized.audience && normalized.scenario
-  const configured = hasModelSettings(settings)
+  const conceptSettings = resolveTextModel('concept', routing, settings)
+  const refinementSettings = resolveTextModel('refinement', routing, settings)
+  const translationSettings = resolveTextModel('translation', routing, settings)
+  const routedImageSettings = resolveImageModel(routing, imageSettings)
+  const configured = hasModelSettings(conceptSettings)
   const unchanged = latest && !latest.origin && !latest.generation && !customModel && (
     latest.brief.problem === normalized.problem &&
     latest.brief.audience === normalized.audience &&
@@ -108,7 +117,8 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
     setGenerating(true)
     try {
       const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(150000)])
-      const result = await generateWithModel(draft, settings, signal)
+      const result = await generateWithModel(draft, conceptSettings, signal)
+      
       if (controller.signal.aborted) return
       pendingFocus.current = 'concepts'
       onChange(current => appendConceptRound(current, result))
@@ -183,9 +193,15 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             roundNumber={activeRound + 1}
             concept={selected}
             onChange={update => editConcept(selected.id, update)}
-            imageSettings={imageSettings}
+             imageSettings={routedImageSettings}
+            translationSettings={translationSettings}
+            routing={routing}
+            onTaskSettingsChange={onTaskSettingsChange}
+            onTaskReset={onTaskReset}
+            defaultTextSettings={settings}
+            defaultImageSettings={imageSettings}
             onImageSettingsChange={onImageSettingsChange}
-            settings={settings}
+            settings={refinementSettings}
             onSettingsChange={onSettingsChange}
           >
             <details>
@@ -212,7 +228,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             key={idea.messageId}
             idea={idea}
             state={state}
-            settings={settings}
+            settings={conceptSettings}
             onDismiss={onDismissIdea}
             onSave={(destination, brief, candidate, useAsDraft) => {
               pendingFocus.current = useAsDraft ? 'brief' : 'concepts'
@@ -226,9 +242,9 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
         )}
 
         <form className="studio-surface studio-brief" onSubmit={generate}>
-          <h2 ref={briefHeading} tabIndex={-1}>设计简报草稿</h2>
+          <h2 ref={briefHeading} tabIndex={-1}>生成设计方向</h2>
           <label className="studio-field studio-problem">
-            设计问题
+            你想设计什么？
             <textarea
               rows={2}
               value={draft.problem}
@@ -282,7 +298,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             <ModelControls
               settings={settings}
               onSettingsChange={change => {
-                onSettingsChange(change)
+                onTaskSettingsChange('concept', change)
                 setNotice('')
               }}
               customModel={customModel}
@@ -309,7 +325,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
           </div>
           <p className="studio-hint" role="status">
             {generating
-              ? `正在使用 ${settings.model.trim()} 生成概念…`
+              ? `正在使用 ${conceptSettings.model.trim()} 生成概念…`
               : notice || (latest
               ? unchanged
                 ? `最新的第 ${rounds.length} 轮有 ${latest.concepts.length} 个概念。可修改简报、数量或选择模型生成新一轮。`
@@ -391,7 +407,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
               <ConceptComparison
                 key={activeRound}
                 batch={batch}
-                settings={settings}
+                settings={refinementSettings}
                 onScore={setScore}
                 onSelect={selectConcept}
                 onReviews={reviews => updateRound(round => ({
@@ -411,3 +427,4 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
     </section>
   )
 }
+

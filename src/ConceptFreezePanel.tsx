@@ -1,91 +1,693 @@
+
 import { useState } from 'react'
 import { modelSourceLabel, sentenceLabels } from './concepts'
 import type { Concept } from './concepts'
-import { developmentOf, developmentSteps, freezeConcept, freezeProblems, identityFields, reopenConcept, stepConfirmed, synthesisContext, titleFonts } from './conceptDevelopment'
-import type { ProductIdentity, Synthesis } from './conceptDevelopment'
+import {
+  developmentOf,
+  developmentSteps,
+  freezeConcept,
+  freezeProblems,
+  identityFields,
+  reopenConcept,
+  stepConfirmed,
+  synthesisContext,
+  titleFonts,
+} from './conceptDevelopment'
+import type {
+  ProductIdentity,
+  Synthesis,
+} from './conceptDevelopment'
 import { synthesizeConcept } from './developmentModel'
 import { hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
 import { useModelTask } from './useModelTask'
 
-export function ConceptFreezePanel({ concept, settings, onChange, onFrozen }: {
-  concept: Concept; settings: ModelSettings; onChange: (update: (current: Concept) => Concept) => void; onFrozen: () => void
-}) {
+type Props = {
+  concept: Concept
+  settings: ModelSettings
+  onChange: (
+    update: (current: Concept) => Concept
+  ) => void
+  onFrozen: () => void
+}
+
+const detailLabels = {
+  insight: '设计洞察',
+  mechanism: '产品机制',
+  useFlow: '使用流程',
+  summary: '完善总结与剩余风险',
+} as const
+
+export function ConceptFreezePanel({
+  concept,
+  settings,
+  onChange,
+  onFrozen,
+}: Props) {
   const { pending, notice, run, cancel } = useModelTask()
-  const [reviewed, setReviewed] = useState(false)
+
+  const [checks, setChecks] = useState<string[]>([])
+  const [editing, setEditing] = useState(false)
+  const [freezeError, setFreezeError] = useState('')
+
   const data = developmentOf(concept)
   const frozen = data.frozen
   const final = frozen?.design ?? data.final
   const identity = frozen?.identity ?? data.identity
-  const ready = Object.keys(developmentSteps).every(step => stepConfirmed(concept, step as keyof typeof developmentSteps))
-  const problems = freezeProblems(concept)
+
+  const ready = Object.keys(developmentSteps).every(
+    step => stepConfirmed(
+      concept,
+      step as keyof typeof developmentSteps,
+    ),
+  )
+
+  const problems = frozen ? [] : freezeProblems(concept)
+
+  const items = final
+    ? [
+        {
+          key: 'title',
+          label: '最终概念标题',
+          value: final.title,
+        },
+        {
+          key: 'format',
+          label: '最终产品形态',
+          value: final.format,
+        },
+        ...Object.entries(sentenceLabels).map(
+          ([key, label]) => ({
+            key: `sentence:${key}`,
+            label,
+            value: final.sentences[
+              key as keyof typeof sentenceLabels
+            ],
+          }),
+        ),
+        ...Object.entries(detailLabels).map(
+          ([key, label]) => ({
+            key: `detail:${key}`,
+            label,
+            value: final[
+              key as keyof typeof detailLabels
+            ],
+          }),
+        ),
+        ...Object.entries(identityFields).map(
+          ([key, label]) => ({
+            key: `identity:${key}`,
+            label,
+            value: identity[
+              key as keyof typeof identityFields
+            ],
+          }),
+        ),
+        {
+          key: 'titleFont',
+          label: '统一标题字体',
+          value: identity.titleFont,
+        },
+        {
+          key: 'sceneException',
+          label: '场景表达例外理由',
+          value: frozen?.sceneException ??
+            data.sceneException ??
+            '',
+        },
+      ]
+    : []
+
+  // 场景例外是可选项，留空无需勾选。
+  const requiredItems = items.filter(
+    item =>
+      item.key !== 'sceneException' ||
+      Boolean(item.value.trim()),
+  )
+
+  const checkedCount = requiredItems.filter(
+    item => checks.includes(item.key),
+  ).length
+
+  const allChecked =
+    requiredItems.length > 0 &&
+    checkedCount === requiredItems.length
+
+  function resetReview() {
+    setChecks([])
+    setFreezeError('')
+  }
+
+  function toggleCheck(key: string, checked: boolean) {
+    setChecks(current =>
+      checked
+        ? [...new Set([...current, key])]
+        : current.filter(item => item !== key),
+    )
+  }
 
   function updateFinal(change: Partial<Synthesis>) {
-    setReviewed(false)
+    resetReview()
+
     onChange(current => {
       const development = developmentOf(current)
-      return development.final ? { ...current, development: { ...development, final: { ...development.final, ...change } } } : current
+
+      if (!development.final) return current
+
+      return {
+        ...current,
+        development: {
+          ...development,
+          final: {
+            ...development.final,
+            ...change,
+          },
+        },
+      }
     })
   }
+
   function updateIdentity(change: Partial<ProductIdentity>) {
-    setReviewed(false)
-    onChange(current => ({ ...current, development: { ...developmentOf(current), identity: { ...developmentOf(current).identity, ...change } } }))
+    resetReview()
+
+    onChange(current => {
+      const development = developmentOf(current)
+
+      return {
+        ...current,
+        development: {
+          ...development,
+          identity: {
+            ...development.identity,
+            ...change,
+          },
+        },
+      }
+    })
   }
-  return <section className="studio-surface studio-refinement">
-    <h2>{frozen ? `概念已冻结 · V${frozen.revision}` : '完善优化、总结与概念冻结'}</h2>
-    <p>根据三步中你修正并确认的记录形成最终方案，再锁定产品规范。冻结后的三张展示图都引用同一版本。</p>
-    <ul>{Object.entries(developmentSteps).map(([key, label]) => <li key={key}>{label}：{stepConfirmed(concept, key as keyof typeof developmentSteps) ? 'AI 参与 · 人工已确认' : '待完成'}</li>)}</ul>
-    {!frozen && <div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={!ready || pending || !hasModelSettings(settings)} onClick={() => {
-        setReviewed(false)
-        void run(signal => synthesizeConcept(concept, settings, signal), result => onChange(current => {
-          if (synthesisContext(current) !== result.final.contextKey) return current
-          const development = developmentOf(current)
-          const identity = { ...result.identity, ...Object.fromEntries(Object.entries(development.identity).filter(([, value]) => value.trim())) } as ProductIdentity
-          return { ...current, development: { ...development, final: result.final, identity } }
-        }), '完善方案已生成，请人工修正，并明确产品一致性规范。')
-      }}>AI 完善概念与总结</button>
-      {pending && <button type="button" className="studio-button" onClick={cancel}>取消完善</button>}
-    </div>}
-    <p className="studio-hint" role="status">{notice || (frozen ? `冻结编号：${frozen.id}` : '三步人工确认后可生成完善方案。')}</p>
-    {final && <>
-      <p className="studio-badge">完善模型：{modelSourceLabel(frozen?.source ?? data.final?.source)}</p>
-      <fieldset className="development-fields studio-refinement" disabled={Boolean(frozen) || pending}>
-        <label className="studio-field">最终概念标题<input value={final.title} maxLength={100} onChange={event => updateFinal({ title: event.target.value })} /></label>
-        <label className="studio-field">最终产品形态<input value={final.format} maxLength={100} onChange={event => updateFinal({ format: event.target.value })} /></label>
-        <div className="studio-validation-fields">{Object.entries(sentenceLabels).map(([key, label]) => <label className="studio-field" key={key}>{label}
-          <textarea rows={3} maxLength={1000} value={final.sentences[key as keyof typeof sentenceLabels]} onChange={event => updateFinal({ sentences: { ...final.sentences, [key]: event.target.value } })} />
-        </label>)}</div>
-        {(['insight', 'mechanism', 'useFlow', 'summary'] as const).map(key => <label className="studio-field" key={key}>
-          {{ insight: '设计洞察', mechanism: '产品机制', useFlow: '使用流程', summary: '完善总结与剩余风险' }[key]}
-          <textarea rows={4} maxLength={4000} value={final[key]} onChange={event => updateFinal({ [key]: event.target.value })} />
-        </label>)}
-        <h3>三图共用的产品一致性规范</h3>
-        <p className="studio-hint">填写已确定的形态、参数与标识；将“待确认”“建议”等内容改为明确决定后冻结。</p>
-        <div className="studio-validation-fields">{Object.entries(identityFields).map(([key, label]) => <label className="studio-field" key={key}>{label}
-          <textarea rows={3} maxLength={800} value={identity[key as keyof typeof identityFields]} onChange={event => updateIdentity({ [key]: event.target.value })} />
-        </label>)}</div>
-        <label className="studio-field">统一标题字体<select value={identity.titleFont} onChange={event => updateIdentity({ titleFont: event.target.value as ProductIdentity['titleFont'] })}>
-          {titleFonts.map(font => <option key={font}>{font}</option>)}
-        </select></label>
-        <label className="studio-field">场景表达例外理由（仅不适合场景化的项目填写）
-          <textarea rows={2} maxLength={1000} value={frozen?.sceneException ?? data.sceneException} placeholder="通常留空；例外必须说明项目为何不适合真实使用场景表达。" onChange={event => {
-            setReviewed(false)
-            const sceneException = event.target.value
-            onChange(current => ({ ...current, development: { ...developmentOf(current), sceneException } }))
-          }} />
-        </label>
-      </fieldset>
-      {!frozen && <>
-        {problems.length > 0 && <ul className="studio-hint">{problems.map(problem => <li key={problem}>{problem}</li>)}</ul>}
-        <label className="studio-choice"><input type="checkbox" checked={reviewed} disabled={pending} onChange={event => setReviewed(event.target.checked)} />我已核对最终概念、八项一致性规范和剩余风险；未实测事项仍按未实测记录。</label>
-        <button type="button" className="studio-button primary" disabled={pending || problems.length > 0 || !reviewed} onClick={() => {
-          const id = crypto.randomUUID(); const at = Date.now()
-          onChange(current => freezeConcept(current, id, at)); onFrozen()
-        }}>冻结概念并进入展示制作</button>
-      </>}
-    </>}
-    {frozen && <><p>设计内容已锁定。需要调整时创建修订版，现有冻结版本和对应图片继续保留。</p><button type="button" className="studio-button" onClick={() => { setReviewed(false); onChange(reopenConcept) }}>创建修订版</button></>}
-    {data.history.length > 0 && <details><summary>历史冻结版本 · {data.history.length}</summary><ul>{data.history.map(item => <li key={item.id}>V{item.revision} · {item.design.title} · {new Date(item.at).toLocaleString()} · {item.id}</li>)}</ul></details>}
-  </section>
+
+  function handleFreeze() {
+    if (!allChecked || pending || problems.length) return
+
+    try {
+      setFreezeError('')
+
+      const id = crypto.randomUUID()
+      const at = Date.now()
+
+      // 继续使用现有冻结函数，不绕过任何校验。
+      onChange(current => freezeConcept(current, id, at))
+      onFrozen()
+    } catch (error) {
+      setFreezeError(
+        error instanceof Error
+          ? error.message
+          : '冻结失败，请检查概念数据。',
+      )
+    }
+  }
+
+  return (
+    <section className="studio-surface studio-refinement">
+      <h2>
+        {frozen
+          ? `概念已冻结 · V${frozen.revision}`
+          : '概念确认与冻结'}
+      </h2>
+
+      <p>
+        阅读 AI 完善后的设计内容，勾选认可的项目。
+        不需要逐条修改文字；只有发现问题时，
+        才需要展开编辑。
+      </p>
+
+      <h3>前置深化步骤</h3>
+
+      <ul>
+        {Object.entries(developmentSteps).map(
+          ([key, label]) => (
+            <li key={key}>
+              {stepConfirmed(
+                concept,
+                key as keyof typeof developmentSteps,
+              )
+                ? '✓'
+                : '○'}{' '}
+              {label}
+              {' · '}
+              {stepConfirmed(
+                concept,
+                key as keyof typeof developmentSteps,
+              )
+                ? '已确认'
+                : '待完成'}
+            </li>
+          ),
+        )}
+      </ul>
+
+      {!frozen && (
+        <div className="studio-actions">
+          <button
+            type="button"
+            className="studio-button primary"
+            disabled={
+              !ready ||
+              pending ||
+              !hasModelSettings(settings)
+            }
+            onClick={() => {
+              resetReview()
+
+              void run(
+                signal =>
+                  synthesizeConcept(
+                    concept,
+                    settings,
+                    signal,
+                  ),
+                result =>
+                  onChange(current => {
+                    if (
+                      synthesisContext(current) !==
+                      result.final.contextKey
+                    ) {
+                      return current
+                    }
+
+                    const development =
+                      developmentOf(current)
+
+                    const preserved = Object.fromEntries(
+                      Object.entries(
+                        development.identity,
+                      ).filter(
+                        ([, value]) =>
+                          value.trim(),
+                      ),
+                    )
+
+                    const identity = {
+                      ...result.identity,
+                      ...preserved,
+                    } as ProductIdentity
+
+                    return {
+                      ...current,
+                      development: {
+                        ...development,
+                        final: result.final,
+                        identity,
+                      },
+                    }
+                  }),
+                'AI 完善方案已生成，请勾选确认。',
+              )
+            }}
+          >
+            AI 完善概念与总结
+          </button>
+
+          {pending && (
+            <button
+              type="button"
+              className="studio-button"
+              onClick={cancel}
+            >
+              取消完善
+            </button>
+          )}
+        </div>
+      )}
+
+      <p className="studio-hint" role="status">
+        {notice ||
+          (frozen
+            ? `冻结编号：${frozen.id}`
+            : '完成前置深化后，即可确认最终概念。')}
+      </p>
+
+      {final && (
+        <>
+          <p className="studio-badge">
+            完善模型：
+            {modelSourceLabel(
+              frozen?.source ?? data.final?.source,
+            )}
+          </p>
+
+          <h3>人工勾选确认</h3>
+
+          {!frozen && (
+            <div className="studio-actions">
+              <button
+                type="button"
+                className="studio-button"
+                disabled={pending}
+                onClick={() =>
+                  setChecks(
+                    requiredItems.map(item => item.key),
+                  )
+                }
+              >
+                全部勾选确认
+              </button>
+
+              <button
+                type="button"
+                className="studio-button"
+                disabled={pending}
+                onClick={() => setChecks([])}
+              >
+                清除勾选
+              </button>
+            </div>
+          )}
+
+          <p className="studio-hint">
+            已确认 {frozen
+              ? requiredItems.length
+              : checkedCount}
+            {' / '}
+            {requiredItems.length} 项
+          </p>
+
+          <div
+            className="development-fields"
+            style={{
+              display: 'grid',
+              gap: '12px',
+            }}
+          >
+            {requiredItems.map(item => (
+              <label
+                key={item.key}
+                className="studio-choice"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '14px',
+                  padding: '16px',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '12px',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    Boolean(frozen) ||
+                    checks.includes(item.key)
+                  }
+                  disabled={Boolean(frozen) || pending}
+                  onChange={event =>
+                    toggleCheck(
+                      item.key,
+                      event.target.checked,
+                    )
+                  }
+                  style={{
+                    width: '22px',
+                    height: '22px',
+                    flexShrink: 0,
+                  }}
+                />
+
+                <span style={{ flex: 1 }}>
+                  <strong
+                    style={{
+                      display: 'block',
+                      fontSize: '17px',
+                    }}
+                  >
+                    {item.label}
+                  </strong>
+
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: '6px',
+                      fontSize: '16px',
+                      lineHeight: 1.7,
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {item.value || '尚未填写'}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          {!frozen && (
+            <details
+              open={editing}
+              onToggle={event =>
+                setEditing(event.currentTarget.open)
+              }
+              style={{ marginTop: '20px' }}
+            >
+              <summary>
+                内容有问题？展开修改
+              </summary>
+
+              <fieldset
+                className="development-fields studio-refinement"
+                disabled={pending}
+              >
+                <label className="studio-field">
+                  最终概念标题
+                  <input
+                    value={final.title}
+                    maxLength={100}
+                    onChange={event =>
+                      updateFinal({
+                        title: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <label className="studio-field">
+                  最终产品形态
+                  <input
+                    value={final.format}
+                    maxLength={100}
+                    onChange={event =>
+                      updateFinal({
+                        format: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <div className="studio-validation-fields">
+                  {Object.entries(sentenceLabels).map(
+                    ([key, label]) => (
+                      <label
+                        className="studio-field"
+                        key={key}
+                      >
+                        {label}
+                        <textarea
+                          rows={3}
+                          maxLength={1000}
+                          value={
+                            final.sentences[
+                              key as keyof typeof sentenceLabels
+                            ]
+                          }
+                          onChange={event =>
+                            updateFinal({
+                              sentences: {
+                                ...final.sentences,
+                                [key]: event.target.value,
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ),
+                  )}
+                </div>
+
+                {(
+                  Object.keys(
+                    detailLabels,
+                  ) as Array<
+                    keyof typeof detailLabels
+                  >
+                ).map(key => (
+                  <label
+                    className="studio-field"
+                    key={key}
+                  >
+                    {detailLabels[key]}
+                    <textarea
+                      rows={4}
+                      maxLength={4000}
+                      value={final[key]}
+                      onChange={event =>
+                        updateFinal({
+                          [key]: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                ))}
+
+                <h3>产品一致性规范</h3>
+
+                <div className="studio-validation-fields">
+                  {Object.entries(identityFields).map(
+                    ([key, label]) => (
+                      <label
+                        className="studio-field"
+                        key={key}
+                      >
+                        {label}
+                        <textarea
+                          rows={3}
+                          maxLength={800}
+                          value={
+                            identity[
+                              key as keyof typeof identityFields
+                            ]
+                          }
+                          onChange={event =>
+                            updateIdentity({
+                              [key]: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    ),
+                  )}
+                </div>
+
+                <label className="studio-field">
+                  统一标题字体
+                  <select
+                    value={identity.titleFont}
+                    onChange={event =>
+                      updateIdentity({
+                        titleFont: event.target.value as
+                          ProductIdentity['titleFont'],
+                      })
+                    }
+                  >
+                    {titleFonts.map(font => (
+                      <option key={font}>
+                        {font}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="studio-field">
+                  场景表达例外理由（可选）
+                  <textarea
+                    rows={2}
+                    maxLength={1000}
+                    value={data.sceneException}
+                    onChange={event => {
+                      resetReview()
+                      const sceneException =
+                        event.target.value
+
+                      onChange(current => ({
+                        ...current,
+                        development: {
+                          ...developmentOf(current),
+                          sceneException,
+                        },
+                      }))
+                    }}
+                  />
+                </label>
+              </fieldset>
+            </details>
+          )}
+
+          {!frozen && (
+            <>
+              {problems.length > 0 && (
+                <div className="studio-hint">
+                  <h3>冻结前需要解决</h3>
+                  <ul>
+                    {problems.map(problem => (
+                      <li key={problem}>
+                        {problem}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {freezeError && (
+                <p role="alert">
+                  {freezeError}
+                </p>
+              )}
+
+              <button
+                type="button"
+                className="studio-button primary"
+                disabled={
+                  pending ||
+                  !allChecked ||
+                  problems.length > 0
+                }
+                onClick={handleFreeze}
+              >
+                确认并冻结概念
+              </button>
+            </>
+          )}
+        </>
+      )}
+
+      {frozen && (
+        <>
+          <p>
+            产品定义已锁定。下一阶段将根据冻结版本，
+            由 AI 自动转译为专业生图提示词。
+          </p>
+
+          <button
+            type="button"
+            className="studio-button"
+            onClick={() => {
+              resetReview()
+              onChange(reopenConcept)
+            }}
+          >
+            创建修订版
+          </button>
+        </>
+      )}
+
+      {data.history.length > 0 && (
+        <details>
+          <summary>
+            历史冻结版本 · {data.history.length}
+          </summary>
+
+          <ul>
+            {data.history.map(item => (
+              <li key={item.id}>
+                V{item.revision}
+                {' · '}
+                {item.design.title}
+                {' · '}
+                {new Date(item.at).toLocaleString()}
+                {' · '}
+                {item.id}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
+  )
 }

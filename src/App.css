@@ -526,3 +526,174 @@ button {
     padding: 10px 12px 16px;
   }
 }
+
+
+/* =========================================
+   INNO LIT V0.2.2
+   全站舒适阅读字体优化
+   ========================================= */
+
+:root {
+  font-family:
+    "Microsoft YaHei",
+    "PingFang SC",
+    "Noto Sans SC",
+    system-ui,
+    sans-serif;
+
+  font-size: 17px;
+  line-height: 1.7;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  font-size: 17px;
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* 页面标题 */
+
+h1 {
+  font-size: 1.8rem;
+  line-height: 1.35;
+}
+
+h2 {
+  font-size: 1.45rem;
+  line-height: 1.4;
+}
+
+h3 {
+  font-size: 1.2rem;
+  line-height: 1.45;
+}
+
+/* 正文和列表 */
+
+p,
+li,
+dt,
+dd {
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+/* 表单 */
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+button,
+select,
+input {
+  min-height: 44px;
+}
+
+textarea {
+  min-height: 100px;
+  line-height: 1.7;
+}
+
+label {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* 表格 */
+
+table {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+th,
+td {
+  padding: 12px 14px;
+}
+
+/* 导航 */
+
+nav,
+nav button,
+nav a {
+  font-size: 1rem;
+}
+
+/* 辅助文字 */
+
+small,
+figcaption,
+.studio-hint {
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+/* INNO LIT 常用组件 */
+
+.studio-button {
+  font-size: 1rem;
+  min-height: 44px;
+  padding: 10px 18px;
+}
+
+.studio-field {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.studio-field input,
+.studio-field select,
+.studio-field textarea {
+  font-size: 1rem;
+  padding: 10px 12px;
+}
+
+.studio-surface {
+  line-height: 1.7;
+}
+
+.studio-badge {
+  font-size: 0.9rem;
+}
+
+/* 手机和平板适配 */
+
+@media (max-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
