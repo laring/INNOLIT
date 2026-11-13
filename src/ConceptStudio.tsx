@@ -4,7 +4,6 @@ import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import {
   addChatConcept, appendConceptRound, conceptCounts, conceptSourceLabel, draftFromConcept, normalizeDraft, sentenceLabels,
   startingPointLimit,
-  modelSourceLabel,
 } from './concepts'
 import type {
   ChatIdea, Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
@@ -13,8 +12,9 @@ import { RefinementWorkspace } from './RefinementWorkspace'
 import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
-import { resolveTextModel, resolveImageModel } from './aiModelRouter'
-import type { AIModelRouting, AITask } from './aiModelRouter'
+import { resolveWorkflowModels } from './aiModelRouter'
+import { imageConfigurationLabel } from './imageConfiguration'
+import type { AIModelRouting, WorkflowModelRouting } from './aiModelRouter'
 import { ModelControls } from './ModelControls'
 import { ChatConceptImport } from './ChatConceptImport'
 import { ConceptComparison } from './ConceptComparison'
@@ -26,14 +26,16 @@ type StudioProps = {
   state: ConceptStudioState
   onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
   settings: ModelSettings
-  onSettingsChange: (change: Partial<ModelSettings>) => void
+
   routing: AIModelRouting
-  onTaskSettingsChange: (task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) => void
-  onTaskReset: (task: AITask) => void
+  workflowRouting: WorkflowModelRouting
+
+
   imageSettings: ImageSettings
-  onImageSettingsChange: (change: Partial<ImageSettings>) => void
+
   idea?: ChatIdea
   onDismissIdea: () => void
+  onOpenModelCenter: () => void
 }
 
 const sentences = Object.keys(sentenceLabels) as (keyof typeof sentenceLabels)[]
@@ -56,7 +58,7 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ projectId, projectName, state, onChange, settings, onSettingsChange, routing, onTaskSettingsChange, onTaskReset, imageSettings, onImageSettingsChange, idea, onDismissIdea }: StudioProps) {
+export function ConceptStudio({ projectId, projectName, state, onChange, settings, routing, workflowRouting, imageSettings, idea, onDismissIdea, onOpenModelCenter }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const [customModel, setCustomModel] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -72,10 +74,11 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
   const selected = batch?.concepts.find(concept => concept.id === batch.selectedId)
   const normalized = normalizeDraft(draft)
   const ready = normalized.problem && normalized.audience && normalized.scenario
-  const conceptSettings = resolveTextModel('concept', routing, settings)
-  const refinementSettings = resolveTextModel('refinement', routing, settings)
-  const translationSettings = resolveTextModel('translation', routing, settings)
-  const routedImageSettings = resolveImageModel(routing, imageSettings)
+  const workflowSettings = resolveWorkflowModels(workflowRouting, routing, settings, imageSettings)
+  const conceptSettings = workflowSettings.conceptStudio
+  const refinementSettings = workflowSettings.notes
+  const engineeringSettings = workflowSettings.engineering
+  const routedImageSettings = workflowSettings.visual
   const configured = hasModelSettings(conceptSettings)
   const unchanged = latest && !latest.origin && !latest.generation && !customModel && (
     latest.brief.problem === normalized.problem &&
@@ -181,9 +184,6 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
           <header className="studio-intro">
             <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.development?.frozen?.design.format ?? selected.format}</p>
             <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.development?.frozen?.design.title ?? selected.title}</h1>
-            <p>AI 协助深化、验证与检索，经你修正后完善概念并冻结，再制作一致的三张展示图。</p>
-            <span className="studio-badge">初始概念：{conceptSourceLabel(batch)}</span>
-            {selected.development?.frozen && <span className="studio-badge">完善模型：{modelSourceLabel(selected.development.frozen.source)}</span>}
           </header>
           <RefinementWorkspace
             key={`${activeRound}:${selected.id}`}
@@ -194,15 +194,17 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             concept={selected}
             onChange={update => editConcept(selected.id, update)}
              imageSettings={routedImageSettings}
-            translationSettings={translationSettings}
-            routing={routing}
-            onTaskSettingsChange={onTaskSettingsChange}
-            onTaskReset={onTaskReset}
-            defaultTextSettings={settings}
-            defaultImageSettings={imageSettings}
-            onImageSettingsChange={onImageSettingsChange}
+            engineeringSettings={engineeringSettings}
+            workflowSettings={workflowSettings}
+            imageConfiguration={imageConfigurationLabel(workflowRouting, routing, imageSettings)}
+
+
+
+
+
+
             settings={refinementSettings}
-            onSettingsChange={onSettingsChange}
+
           >
             <details>
               <summary>查看完整九句话</summary>
@@ -296,11 +298,8 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
           </label>
           <div className="studio-model">
             <ModelControls
-              settings={settings}
-              onSettingsChange={change => {
-                onTaskSettingsChange('concept', change)
-                setNotice('')
-              }}
+              settings={conceptSettings}
+              onOpenModelCenter={onOpenModelCenter}
               customModel={customModel}
               onModeChange={custom => {
                 setCustomModel(custom)

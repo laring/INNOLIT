@@ -70,6 +70,23 @@ export function resolveAIModel(
   }
 }
 
+export const workflowTasks = {
+  home: '首页 · 创意对话',
+  conceptStudio: 'Concept Studio · 概念生成',
+  notes: '深化笔记',
+  feasibility: '可行性验证',
+  originality: '原创性检索',
+  optimization: '方案优化与定稿',
+  visual: '概念图与展板',
+  engineering: '七步产品设计 · 工程文字模型',
+  report: '设计报告',
+} as const
+
+export type WorkflowTask = keyof typeof workflowTasks
+
+
+
+
 export function updateTaskModel<T extends AITask>(
   routing: AIModelRouting,
   task: T,
@@ -109,4 +126,67 @@ export function taskModelLabel(
     resolved.source === 'fallback' ? '（默认配置）' : ''
 
   return `${model}${suffix}`
+}
+
+
+
+
+
+
+export type WorkflowModelRouting = {
+  home: ModelSettings | null
+  conceptStudio: ModelSettings | null
+  notes: ModelSettings | null
+  feasibility: ModelSettings | null
+  originality: ModelSettings | null
+  optimization: ModelSettings | null
+  visual: ImageSettings | null
+  engineering: ModelSettings | null
+  report: ModelSettings | null
+}
+
+export function createEmptyWorkflowRouting(): WorkflowModelRouting {
+  return {
+    home: null,
+    conceptStudio: null,
+    notes: null,
+    feasibility: null,
+    originality: null,
+    optimization: null,
+    visual: null,
+    engineering: null,
+    report: null,
+  }
+}
+
+export function resolveWorkflowTextModel(
+  task: Exclude<WorkflowTask, 'visual'>,
+  routing: WorkflowModelRouting,
+  fallback: ModelSettings,
+): ModelSettings {
+  return routing[task] ?? fallback
+}
+
+export function resolveWorkflowImageModel(
+  routing: WorkflowModelRouting,
+  fallback: ImageSettings,
+): ImageSettings {
+  return routing.visual ?? fallback
+}
+
+export function resolveWorkflowModels(workflow: WorkflowModelRouting, legacy: AIModelRouting, text: ModelSettings, image: ImageSettings) {
+  const creative = resolveTextModel('concept', legacy, text)
+  const refinement = resolveTextModel('refinement', legacy, text)
+  return {
+    home: resolveWorkflowTextModel('home', workflow, creative),
+    conceptStudio: resolveWorkflowTextModel('conceptStudio', workflow, creative),
+    notes: resolveWorkflowTextModel('notes', workflow, refinement),
+    feasibility: resolveWorkflowTextModel('feasibility', workflow, refinement),
+    originality: resolveWorkflowTextModel('originality', workflow, refinement),
+    optimization: resolveWorkflowTextModel('optimization', workflow, refinement),
+    report: resolveWorkflowTextModel('report', workflow, refinement),
+    visual: resolveWorkflowImageModel(workflow, resolveImageModel(legacy, image)),
+    engineering: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
+    translation: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
+  }
 }

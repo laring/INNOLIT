@@ -8,9 +8,14 @@ import {
 import { chatPrompt } from '../src/modelChat.ts'
 import { extractPrompt, reviewPrompt } from '../src/modelStudio.ts'
 import { developmentPrompt } from '../src/developmentModel.ts'
+import { visualTranslationPrompt } from '../src/visualPromptAI.ts'
+import { reportPrompt } from '../src/reportModel.ts'
+import { engineeringPrompt } from '../src/engineeringModel.ts'
 import { readJson, requestProviderJson } from './providerHttp.ts'
 
-type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt>
+
+
+type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt> | ReturnType<typeof engineeringPrompt>
 
 type ModelTransport = (
   url: URL, key: string, payload: ModelPayload, signal: AbortSignal,
@@ -57,7 +62,7 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
     let url: URL
     let payload: ModelPayload
     try {
-      const input = objectRecord(await readJson(request, request.url === modelDevelopmentPath ? 192 * 1024 : request.url === modelReviewPath ? 128 * 1024 : 64 * 1024))
+      const input = objectRecord(await readJson(request, request.url === modelDevelopmentPath ? 384 * 1024 : request.url === modelReviewPath ? 128 * 1024 : 64 * 1024))
       const { baseUrl, model, brief, messages } = input
       if (typeof baseUrl !== 'string' || baseUrl.length > 1000 || typeof model !== 'string' || !model.trim() || model.length > 200) {
         throw new Error('请填写 API 地址和模型 ID。')
@@ -69,8 +74,13 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
         payload = reviewPrompt(input, model.trim())
       } else if (request.url === modelExtractPath) {
         payload = extractPrompt(input, model.trim())
+      //} else if (request.url === modelDevelopmentPath) {
+       // payload = developmentPrompt(input, model.trim())
       } else if (request.url === modelDevelopmentPath) {
-        payload = developmentPrompt(input, model.trim())
+        payload =
+          input.stage === 'product-engineering' ? engineeringPrompt(input, model.trim()) : input.stage === 'report' ? reportPrompt(input, model.trim()) : input.stage === 'visual-translation'
+          ? visualTranslationPrompt(input, model.trim())
+          : developmentPrompt(input, model.trim()) 
       } else {
         const input = objectRecord(brief)
         if (typeof input.problem !== 'string' || typeof input.audience !== 'string' || typeof input.scenario !== 'string') {

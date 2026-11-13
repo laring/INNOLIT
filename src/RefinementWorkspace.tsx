@@ -1,3 +1,5 @@
+import { formatPlanningReports } from './planningReport'
+import { PlanningReportPanel } from './PlanningReportPanel'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Download } from 'lucide-react'
@@ -13,14 +15,19 @@ import { DevelopmentAssistant } from './DevelopmentAssistant'
 import { ConceptFreezePanel } from './ConceptFreezePanel'
 import { developmentOf } from './conceptDevelopment'
 import type { ModelSettings } from './modelGeneration'
-import type { AIModelRouting, AITask } from './aiModelRouter'
-import { TaskModelCenter } from './TaskModelCenter'
+import { hasModelSettings } from './modelGeneration'
+import type { resolveWorkflowModels } from './aiModelRouter'
+import { draftDesignReport, reportContext } from './reportModel'
+import { modelSourceLabel } from './concepts'
+import { useModelTask } from './useModelTask'
+
+
 
 const stages = {
   notes: '深化笔记',
   validation: '可行性验证',
   research: '原创性检索',
-  optimize: '完善与冻结',
+  optimize: '方案优化与定稿',
   visuals: '概念图与展板',
   report: '设计报告',
 } as const
@@ -38,16 +45,18 @@ type RefinementProps = {
   concept: Concept
   onChange: (update: (current: Concept) => Concept) => void
   children: ReactNode
-  routing: AIModelRouting
-  onTaskSettingsChange: (task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) => void
-  onTaskReset: (task: AITask) => void
-  defaultTextSettings: ModelSettings
-  defaultImageSettings: ImageSettings
-  translationSettings: ModelSettings
+
+
+
+
+
+  engineeringSettings: ModelSettings
   imageSettings: ImageSettings
-  onImageSettingsChange: (change: Partial<ImageSettings>) => void
+
   settings: ModelSettings
-  onSettingsChange: (change: Partial<ModelSettings>) => void
+  workflowSettings: ReturnType<typeof resolveWorkflowModels>
+  imageConfiguration: string
+
 }
 
 function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' | 'onChange'>) {
@@ -108,11 +117,15 @@ function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' 
   )
 }
 
-function ReportPanel({ projectName, round, roundNumber, concept }: Pick<RefinementProps, 'projectName' | 'round' | 'roundNumber' | 'concept'>) {
+function ReportPanel({ projectName, round, roundNumber, concept, settings, onChange }: Pick<RefinementProps, 'projectName' | 'round' | 'roundNumber' | 'concept' | 'settings' | 'onChange'>) {
+  const [reportView,setReportView]=useState<'planning'|'summary'|'records'>('planning')
+  const { pending, notice, run, cancel } = useModelTask()
   const report = buildDesignReport(projectName, round, roundNumber, concept)
+  const stale = Boolean(concept.aiReport && concept.aiReport.contextKey !== reportContext(concept))
 
   function download() {
-    const file = new Blob([formatDesignReport(report)], { type: 'text/markdown;charset=utf-8' })
+    const appendix = concept.aiReport ? `\n\n## AI 协作报告（可经人工修正${stale ? '，依据已更新，请复核' : ''}）\n\n${modelSourceLabel(concept.aiReport.source)}\n\n${concept.aiReport.text}\n` : ''
+    const file = new Blob([formatDesignReport(report) + appendix + formatPlanningReports(concept.planningReport)], { type: 'text/markdown;charset=utf-8' })
     const url = URL.createObjectURL(file)
     const link = document.createElement('a')
     link.href = url
@@ -128,15 +141,27 @@ function ReportPanel({ projectName, round, roundNumber, concept }: Pick<Refineme
       <header className="studio-report-header">
         <div>
           <h2 id="report-heading">设计报告</h2>
-          <p>报告使用当前轮次和选定方案的最新记录。</p>
+          <p>先完成策划报告；设计总结和过程记录可按需查看。</p>
         </div>
         <button type="button" className="studio-button primary" onClick={download}>
-          <Download size={16} aria-hidden="true" /> 下载 Markdown
+          <Download size={16} aria-hidden="true" /> 导出全部记录（Markdown）
         </button>
       </header>
-      {report.sections.map(section => (
-        <section className="studio-report-section" key={section.heading}>
-          <h3>{section.heading}</h3>
+      <nav className="studio-actions" aria-label="报告内容">{([['planning','策划与合规'],['summary','设计总结'],['records','过程记录']] as const).map(([value,label])=><button key={value} className="studio-button" aria-pressed={reportView===value} onClick={()=>setReportView(value)}>{label}</button>)}</nav>
+      {reportView==='planning'&&<PlanningReportPanel concept={concept} settings={settings} onChange={onChange}/>}
+      {reportView==='summary'&&<>
+      <div className="studio-actions"><button type="button" className="studio-button primary" disabled={pending || !hasModelSettings(settings)} onClick={() => {
+        void run(signal => draftDesignReport(projectName, round, roundNumber, concept, settings, signal), aiReport => onChange(current => reportContext(current) === aiReport.contextKey ? { ...current, aiReport } : current), 'AI 报告草稿已保存，请核对并修正。')
+      }}>AI 整理设计报告</button>{pending && <button type="button" className="studio-button" onClick={cancel}>取消整理</button>}</div>
+      <p className="studio-hint" role="status">{notice || 'AI 根据已有记录整理报告，人工核对后可修改并导出。'}</p>
+      {stale && <p className="studio-hint">概念或分析记录已变化，请重新整理或复核报告草稿。</p>}
+      {concept.aiReport && <label className="studio-field">AI 报告草稿 · {modelSourceLabel(concept.aiReport.source)}<textarea rows={14} maxLength={16000} disabled={pending} value={concept.aiReport.text} onChange={event => {
+        const text = event.target.value; onChange(current => current.aiReport ? { ...current, aiReport: { ...current.aiReport, text } } : current)
+      }} /></label>}
+      </>}
+      {reportView==='records'&&report.sections.map(section => (
+        <details className="studio-report-section" key={section.heading}>
+          <summary>{section.heading}</summary>
           <dl>
             {section.entries.map(entry => (
               <div key={entry.url ?? entry.label}>
@@ -146,26 +171,25 @@ function ReportPanel({ projectName, round, roundNumber, concept }: Pick<Refineme
               </div>
             ))}
           </dl>
-        </section>
+        </details>
       ))}
     </section>
   )
 }
 
-export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, routing, onTaskSettingsChange, onTaskReset, defaultTextSettings, defaultImageSettings, translationSettings }: RefinementProps) {
+export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, engineeringSettings, workflowSettings, imageConfiguration }: RefinementProps) {
   const [stage, setStage] = useState<Stage>('notes')
-  const locked = Boolean(developmentOf(concept).frozen)
+  const currentModel = stage === 'notes' ? workflowSettings.notes : stage === 'validation' ? workflowSettings.feasibility : stage === 'research' ? workflowSettings.originality : stage === 'optimize' ? workflowSettings.optimization : stage === 'report' ? workflowSettings.report : settings
   function edit(update: (current: Concept) => Concept) {
     onChange(current => developmentOf(current).frozen ? current : update(current))
   }
 
   return (
     <>
-      <details className="studio-surface development-model-settings">
-        <summary>AI 模型中心</summary>
-        <TaskModelCenter routing={routing} defaultText={defaultTextSettings} defaultImage={defaultImageSettings} onChange={onTaskSettingsChange} onReset={onTaskReset} />
-      </details>
-      {locked && <p className="studio-badge">冻结 V{developmentOf(concept).frozen!.revision} · 设计内容已锁定，展示制作引用此版本</p>}
+      {stage !== 'visuals' && <p className="studio-hint">
+        当前环节模型：{currentModel.model.trim() || '未配置'}
+        （在全局 AI 模型中心管理）
+      </p>}
       <nav className="studio-refinement-nav" aria-label="深化工作区">
         {stageNames.map(key => (
           <button
@@ -180,7 +204,7 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         ))}
       </nav>
       {stage === 'notes' && (
-        <DevelopmentAssistant step="notes" concept={concept} settings={settings} onChange={edit}>
+        <DevelopmentAssistant step="notes" concept={concept} settings={workflowSettings.notes} onChange={edit}>
         <section className="studio-surface studio-refinement" aria-labelledby="notes-heading">
           <div>
             <h2 id="notes-heading">首轮验证建议</h2>
@@ -204,11 +228,11 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         </section>
         </DevelopmentAssistant>
       )}
-      {stage === 'validation' && <DevelopmentAssistant step="validation" concept={concept} settings={settings} onChange={edit}>
+      {stage === 'validation' && <DevelopmentAssistant step="validation" concept={concept} settings={workflowSettings.feasibility} onChange={edit}>
         <ValidationPanel concept={concept} onChange={edit} />
       </DevelopmentAssistant>}
       {stage === 'research' && (
-        <DevelopmentAssistant step="research" concept={concept} settings={settings} onChange={edit}>
+        <DevelopmentAssistant step="research" concept={concept} settings={workflowSettings.originality} onChange={edit}>
         <EvidencePanel
           research={concept.research ?? emptyResearch}
           onChange={update => edit(current => ({ ...current, research: update(current.research ?? emptyResearch) }))}
@@ -219,12 +243,14 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         </label></section>
         </DevelopmentAssistant>
       )}
-      {stage === 'optimize' && <ConceptFreezePanel concept={concept} settings={settings} onChange={onChange} onFrozen={() => setStage('visuals')} />}
-      {stage === 'report' && <ReportPanel projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} />}
+      {stage === 'optimize' && <ConceptFreezePanel concept={concept} settings={workflowSettings.optimization} onChange={onChange} onFrozen={() => setStage('visuals')} />}
+      {stage === 'report' && <ReportPanel projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} settings={workflowSettings.report} onChange={onChange} />}
       {stage === 'visuals' && <VisualStudio key={`${roundNumber}:${concept.id}`} projectId={projectId}
         projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}
         imageSettings={imageSettings}
-        modelSettings={translationSettings} 
+        imageConfiguration={imageConfiguration}
+        reportSettings={workflowSettings.report}
+        modelSettings={engineeringSettings}
          />}
     </>
   )

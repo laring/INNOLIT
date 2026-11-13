@@ -27,3 +27,6 @@ dist-ssr
 *.tsx.txt
 .inno-lit-routing-backup-*/
 backup-model-language-*/
+
+# INNO LIT Stage 2 local backups
+.inno-lit-stage2-backup-*/

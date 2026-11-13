@@ -38,6 +38,10 @@ export function getVisual(id: string): Promise<SavedVisual | undefined> {
   return visualTransaction('readonly', store => store.get(id))
 }
 
+export function projectVisuals(projectId: string): Promise<SavedVisual[]> {
+  return visualTransaction('readonly', store => store.index('project').getAll(IDBKeyRange.only(projectId)))
+}
+
 export async function putVisual(visual: SavedVisual, signal: AbortSignal): Promise<SavedVisual> {
   await visualTransaction('readwrite', store => store.put(visual), signal)
   return visual

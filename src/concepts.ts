@@ -1,7 +1,10 @@
+import type { PlanningState } from './planningReport.ts'
 import type { ResearchLog, ValidationPlan } from './designWork.ts'
 import type { VisualLayout } from './imageGeneration.ts'
 import type { ConceptDevelopment } from './conceptDevelopment.ts'
 import type { EntryRole } from './entryVisuals.ts'
+import type { VisualStudioSettings } from './visualStudioTypes.ts'
+import type { ProductWorkflow } from './productWorkflow.ts'
 
 export const conceptCounts = [3, 4, 5, 6] as const
 export type ConceptCount = typeof conceptCounts[number]
@@ -68,6 +71,10 @@ export type Concept = {
   development?: ConceptDevelopment
   visualEntry?: EntryRole
   visualDirections?: Record<string, string>
+  visualStudio?: VisualStudioSettings
+  planningReport?: PlanningState
+  aiReport?: { text: string; source: ModelSource; contextKey: string }
+  productWorkflow?: ProductWorkflow
 }
 
 export type ConceptBatch = {

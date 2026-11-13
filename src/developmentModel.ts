@@ -5,6 +5,7 @@ import { emptyValidation, evidenceUrl } from './designWork.ts'
 import type { Evidence } from './designWork.ts'
 import { chatCompletionUrl, modelDevelopmentPath, objectRecord, requestModel, structuredModelPrompt } from './modelGeneration.ts'
 import type { ModelSettings } from './modelGeneration.ts'
+import { parseModelObject } from './modelJson.ts'
 
 const sentenceKeys = ['problem', 'audience', 'scenario', 'idea', 'interaction', 'difference', 'value', 'risk', 'test'] as const
 export type DevelopmentAction = DevelopmentStep | 'synthesis'
@@ -68,7 +69,7 @@ function required(entry: Record<string, unknown>, key: string, max = 4000) {
 }
 
 export function parseDevelopmentAdvice(content: string, concept: Concept, stage: DevelopmentStep, source: ModelSource, references: Evidence[]): DevelopmentAdvice {
-  const result = objectRecord(JSON.parse(content))
+  const result = parseModelObject(content, '深化模型')
   const comparisons = Array.isArray(result.comparisons) ? result.comparisons : []
   const allowed = new Map(references.map(item => [item.id, item]))
   const compared = new Set<string>()
@@ -98,8 +99,7 @@ export async function assistDevelopment(concept: Concept, stage: DevelopmentStep
 
 export async function synthesizeConcept(concept: Concept, settings: ModelSettings, signal: AbortSignal): Promise<{ final: Synthesis; identity: ProductIdentity }> {
   const content = await requestModel(modelDevelopmentPath, developmentInput(concept, 'synthesis'), settings, signal)
-  let result: Record<string, unknown>
-  try { result = objectRecord(JSON.parse(content)) } catch { throw new Error('模型未返回可用的完善方案。') }
+  const result = parseModelObject(content, '方案优化模型')
   const proposed = objectRecord(result.identity)
   const identity = { ...Object.fromEntries(Object.keys(identityFields).map(key => [key, required(proposed, key, 800)])), titleFont: titleFonts[0] } as ProductIdentity
   return {

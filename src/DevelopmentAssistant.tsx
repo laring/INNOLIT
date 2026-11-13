@@ -52,7 +52,7 @@ export function DevelopmentAssistant({ step, concept, settings, onChange, childr
         {step === 'research' && <button type="button" className="studio-button" disabled={locked || pending || !hasModelSettings(settings)} onClick={() => analyze(true)}>检索论文并由 AI 比较</button>}
         {pending && <button type="button" className="studio-button" onClick={cancel}>取消分析</button>}
       </div>
-      {!hasModelSettings(settings) && <p className="studio-hint">请在上方「深化 AI 模型设置」中填写自己的文字模型 API。</p>}
+      {!hasModelSettings(settings) && <p className="studio-hint">请在顶部 AI 模型中心配置本环节的文字模型。</p>}
       <p className="studio-hint" role="status">{notice || (confirmed ? '人工已确认当前记录。' : '等待 AI 参与与人工确认。')}</p>
       {advice && <div className="development-advice">
         <p className="studio-badge">{modelSourceLabel(advice.source)}</p>

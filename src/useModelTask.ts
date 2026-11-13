@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-export function useModelTask() {
+export function useModelTask(timeoutMs = 150000) {
   const request = useRef<AbortController | null>(null)
   const [pending, setPending] = useState(false)
   const [notice, setNotice] = useState('')
@@ -14,7 +14,7 @@ export function useModelTask() {
     setPending(true)
     setNotice('')
     try {
-      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(150000)])
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(timeoutMs)])
       const result = await task(signal)
       if (!controller.signal.aborted) {
         apply(result)

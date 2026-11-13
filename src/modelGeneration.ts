@@ -13,8 +13,9 @@ export function canUseCustomModel(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1'
 }
 
+
 export function hasModelSettings(settings: ModelSettings): boolean {
-  return Boolean(settings.baseUrl.trim() && settings.model.trim() && settings.apiKey.trim())
+  return Boolean(settings.baseUrl.trim() && settings.model.trim() && /^[!-~]{1,2048}$/u.test(settings.apiKey.trim()))
 }
 
 export const conceptContentFields = ['idea', 'interaction', 'difference', 'value', 'risk', 'test'] as const
