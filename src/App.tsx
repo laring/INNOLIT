@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react'
 import {
   Lightbulb, Plus, PanelRightClose,
-  PanelRightOpen, FolderOpen, Trash2
+  PanelRightOpen, FolderOpen, Trash2, Settings2
 } from 'lucide-react'
 import { ConceptStudio } from './ConceptStudio'
 import { CreativeChat } from './CreativeChat'
+import { TaskModelCenter } from './TaskModelCenter'
 import type { ChatIdea, ConceptStudioState } from './concepts'
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
@@ -28,6 +29,7 @@ function App() {
   const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
   const [imageSettings, setImageSettings] = useState<ImageSettings>({ baseUrl: '', model: '', apiKey: '', protocol: 'siliconflow', size: '1024x1024' })
   const [routing, setRouting] = useState<AIModelRouting>(createEmptyRouting)
+  const [modelCenterOpen, setModelCenterOpen] = useState(false)
   function editTaskSettings(task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) {
     setRouting(current => {
       const previous = current[task] ?? (task === 'image' ? imageSettings : modelSettings)
@@ -212,6 +214,46 @@ function App() {
           <button type="button" aria-pressed={view === 'workspace'} onClick={() => setView('workspace')}>创意对话</button>
           <button type="button" aria-pressed={view === 'studio'} onClick={() => setView('studio')}>Concept Studio</button>
         </nav>
+        <div className="global-model-center-toggle">
+          <button
+            type="button"
+            aria-expanded={modelCenterOpen}
+            aria-controls="global-ai-model-center"
+            onClick={() => setModelCenterOpen(open => !open)}
+          >
+            <Settings2 size={16} />
+            AI 模型中心
+          </button>
+        </div>
+
+        {modelCenterOpen && (
+          <section
+            id="global-ai-model-center"
+            className="studio-surface global-model-center"
+            aria-label="全局 AI 模型中心"
+          >
+            <div className="global-model-center-header">
+              <h2>AI 模型中心</h2>
+              <button
+                type="button"
+                onClick={() => setModelCenterOpen(false)}
+              >
+                关闭
+              </button>
+            </div>
+
+            <TaskModelCenter
+              routing={routing}
+              defaultText={modelSettings}
+              defaultImage={imageSettings}
+              onDefaultTextChange={editModelSettings}
+              onDefaultImageChange={editImageSettings}
+              onChange={editTaskSettings}
+              onReset={resetTaskSettings}
+            />
+          </section>
+        )}
+
         {saveFailed && <p className="workspace-save-error" role="alert">当前浏览器无法保存项目，刷新可能丢失本次更改。</p>}
 
         {view === 'studio' ? (
@@ -222,12 +264,12 @@ function App() {
             state={getProjectStudio(activeProject)}
             onChange={updateStudio}
             settings={modelSettings}
-            onSettingsChange={editModelSettings}
             routing={routing}
-            onTaskSettingsChange={editTaskSettings}
-            onTaskReset={resetTaskSettings}
+            onOpenModelCenter={() => setModelCenterOpen(true)}
+
+
             imageSettings={imageSettings}
-            onImageSettingsChange={editImageSettings}
+
             idea={transfer?.projectId === activeProject.id ? transfer.idea : undefined}
             onDismissIdea={() => setTransfer(null)}
           />
@@ -243,7 +285,7 @@ function App() {
               setView('studio')
             }}
             settings={resolveTextModel('concept', routing, modelSettings)}
-            onSettingsChange={editModelSettings}
+            onOpenModelCenter={() => setModelCenterOpen(true)}
           />
         )}
       </main>

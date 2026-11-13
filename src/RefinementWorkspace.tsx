@@ -13,8 +13,8 @@ import { DevelopmentAssistant } from './DevelopmentAssistant'
 import { ConceptFreezePanel } from './ConceptFreezePanel'
 import { developmentOf } from './conceptDevelopment'
 import type { ModelSettings } from './modelGeneration'
-import type { AIModelRouting, AITask } from './aiModelRouter'
-import { TaskModelCenter } from './TaskModelCenter'
+
+
 
 const stages = {
   notes: '深化笔记',
@@ -38,16 +38,16 @@ type RefinementProps = {
   concept: Concept
   onChange: (update: (current: Concept) => Concept) => void
   children: ReactNode
-  routing: AIModelRouting
-  onTaskSettingsChange: (task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) => void
-  onTaskReset: (task: AITask) => void
-  defaultTextSettings: ModelSettings
-  defaultImageSettings: ImageSettings
+
+
+
+
+
   translationSettings: ModelSettings
   imageSettings: ImageSettings
-  onImageSettingsChange: (change: Partial<ImageSettings>) => void
+
   settings: ModelSettings
-  onSettingsChange: (change: Partial<ModelSettings>) => void
+
 }
 
 function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' | 'onChange'>) {
@@ -152,7 +152,7 @@ function ReportPanel({ projectName, round, roundNumber, concept }: Pick<Refineme
   )
 }
 
-export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, routing, onTaskSettingsChange, onTaskReset, defaultTextSettings, defaultImageSettings, translationSettings }: RefinementProps) {
+export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, translationSettings }: RefinementProps) {
   const [stage, setStage] = useState<Stage>('notes')
   const locked = Boolean(developmentOf(concept).frozen)
   function edit(update: (current: Concept) => Concept) {
@@ -161,10 +161,10 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
 
   return (
     <>
-      <details className="studio-surface development-model-settings">
-        <summary>AI 模型中心</summary>
-        <TaskModelCenter routing={routing} defaultText={defaultTextSettings} defaultImage={defaultImageSettings} onChange={onTaskSettingsChange} onReset={onTaskReset} />
-      </details>
+      <p className="studio-hint">
+        方案深化模型：{settings.model.trim() || '未配置'}
+        （在全局 AI 模型中心管理）
+      </p>
       {locked && <p className="studio-badge">冻结 V{developmentOf(concept).frozen!.revision} · 设计内容已锁定，展示制作引用此版本</p>}
       <nav className="studio-refinement-nav" aria-label="深化工作区">
         {stageNames.map(key => (

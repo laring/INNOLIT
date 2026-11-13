@@ -15,7 +15,7 @@ type ChatProps = {
   onAppend: (user: Message, assistant: Message) => void
   onTransfer: (idea: ChatIdea) => void
   settings: ModelSettings
-  onSettingsChange: (change: Partial<ModelSettings>) => void
+  onOpenModelCenter: () => void
 }
 
 function generateGuidance(input: string): string {
@@ -35,7 +35,7 @@ function generateGuidance(input: string): string {
 下一步，请描述：这个产品最希望帮助哪一类人？`
 }
 
-export function CreativeChat({ messages, input, onInputChange, onAppend, onTransfer, settings, onSettingsChange }: ChatProps) {
+export function CreativeChat({ messages, input, onInputChange, onAppend, onTransfer, settings, onOpenModelCenter }: ChatProps) {
   const [customModel, setCustomModel] = useState(false)
   const [pending, setPending] = useState(false)
   const [notice, setNotice] = useState('')
@@ -156,10 +156,7 @@ export function CreativeChat({ messages, input, onInputChange, onAppend, onTrans
           <div className="composer-model">
             <ModelControls
               settings={settings}
-              onSettingsChange={change => {
-                onSettingsChange(change)
-                setNotice('')
-              }}
+              onOpenModelCenter={onOpenModelCenter}
               customModel={customModel}
               onModeChange={custom => {
                 setCustomModel(custom)

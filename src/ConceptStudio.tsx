@@ -14,7 +14,7 @@ import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelG
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { resolveTextModel, resolveImageModel } from './aiModelRouter'
-import type { AIModelRouting, AITask } from './aiModelRouter'
+import type { AIModelRouting } from './aiModelRouter'
 import { ModelControls } from './ModelControls'
 import { ChatConceptImport } from './ChatConceptImport'
 import { ConceptComparison } from './ConceptComparison'
@@ -26,14 +26,15 @@ type StudioProps = {
   state: ConceptStudioState
   onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
   settings: ModelSettings
-  onSettingsChange: (change: Partial<ModelSettings>) => void
+
   routing: AIModelRouting
-  onTaskSettingsChange: (task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) => void
-  onTaskReset: (task: AITask) => void
+
+
   imageSettings: ImageSettings
-  onImageSettingsChange: (change: Partial<ImageSettings>) => void
+
   idea?: ChatIdea
   onDismissIdea: () => void
+  onOpenModelCenter: () => void
 }
 
 const sentences = Object.keys(sentenceLabels) as (keyof typeof sentenceLabels)[]
@@ -56,7 +57,7 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ projectId, projectName, state, onChange, settings, onSettingsChange, routing, onTaskSettingsChange, onTaskReset, imageSettings, onImageSettingsChange, idea, onDismissIdea }: StudioProps) {
+export function ConceptStudio({ projectId, projectName, state, onChange, settings, routing, imageSettings, idea, onDismissIdea, onOpenModelCenter }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const [customModel, setCustomModel] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -195,14 +196,14 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             onChange={update => editConcept(selected.id, update)}
              imageSettings={routedImageSettings}
             translationSettings={translationSettings}
-            routing={routing}
-            onTaskSettingsChange={onTaskSettingsChange}
-            onTaskReset={onTaskReset}
-            defaultTextSettings={settings}
-            defaultImageSettings={imageSettings}
-            onImageSettingsChange={onImageSettingsChange}
+
+
+
+
+
+
             settings={refinementSettings}
-            onSettingsChange={onSettingsChange}
+
           >
             <details>
               <summary>查看完整九句话</summary>
@@ -296,11 +297,8 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
           </label>
           <div className="studio-model">
             <ModelControls
-              settings={settings}
-              onSettingsChange={change => {
-                onTaskSettingsChange('concept', change)
-                setNotice('')
-              }}
+              settings={conceptSettings}
+              onOpenModelCenter={onOpenModelCenter}
               customModel={customModel}
               onModeChange={custom => {
                 setCustomModel(custom)
