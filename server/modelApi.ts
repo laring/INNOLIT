@@ -8,7 +8,10 @@ import {
 import { chatPrompt } from '../src/modelChat.ts'
 import { extractPrompt, reviewPrompt } from '../src/modelStudio.ts'
 import { developmentPrompt } from '../src/developmentModel.ts'
+import { visualTranslationPrompt } from '../src/visualPromptAI.ts'
 import { readJson, requestProviderJson } from './providerHttp.ts'
+
+
 
 type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt>
 
@@ -69,8 +72,13 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
         payload = reviewPrompt(input, model.trim())
       } else if (request.url === modelExtractPath) {
         payload = extractPrompt(input, model.trim())
+      //} else if (request.url === modelDevelopmentPath) {
+       // payload = developmentPrompt(input, model.trim())
       } else if (request.url === modelDevelopmentPath) {
-        payload = developmentPrompt(input, model.trim())
+        payload =
+          input.stage === 'visual-translation'
+          ? visualTranslationPrompt(input, model.trim())
+          : developmentPrompt(input, model.trim()) 
       } else {
         const input = objectRecord(brief)
         if (typeof input.problem !== 'string' || typeof input.audience !== 'string' || typeof input.scenario !== 'string') {

@@ -14,6 +14,12 @@ import { getVisual, putVisual } from './visualStore'
 import type { SavedVisual } from './visualStore'
 import { downloadBlob } from './conceptBoard'
 
+import {
+  industrialDesignPrompt,
+  industrialTaskNames,
+} from './industrialDesignTasks'
+import type { IndustrialTask } from './industrialDesignTasks'
+
 type GenerateMode = 'concept' | 'board'
 type OutputSize = 'landscape' | 'portrait' | 'square'
 
@@ -200,6 +206,11 @@ export function SimpleVisualGenerator({
 }: Props) {
   const [mode, setMode] =
     useState<GenerateMode>('board')
+  const [industrialTask, setIndustrialTask] =
+    useState<IndustrialTask>('original')
+
+  const [industrialStyle, setIndustrialStyle] =
+    useState('极简、未来感、轻量化、精致 CMF')
 
   const [size, setSize] =
     useState<OutputSize>('landscape')
@@ -317,7 +328,7 @@ export function SimpleVisualGenerator({
     }
 
     if (
-      !settings.apiKey.trim() ||
+      (settings.protocol !== 'openai' && !settings.apiKey.trim()) ||
       !settings.baseUrl.trim() ||
       !settings.model.trim()
     ) {
@@ -328,7 +339,11 @@ export function SimpleVisualGenerator({
     const referenceSupported =
       supportsImageReference(settings)
 
-    if (referenceSupported && !masterBlob) {
+    const requiresReference =
+      settings.protocol === 'siliconflow' &&
+      referenceSupported
+
+if (requiresReference && !masterBlob) {
       setError(
         '当前图像编辑模型需要已审核的产品母版。请先在高级模式完成母版审核。',
       )
@@ -362,8 +377,20 @@ export function SimpleVisualGenerator({
         )
       }
 
+    
+      const taskPrompt =
+        industrialTask === 'original'
+          ? ''
+          : industrialDesignPrompt({
+              task: industrialTask,
+              productBrief: translation.prompt,
+              style: industrialStyle,
+              locked: Boolean(validFrozen),
+            })
+
       const prompt = [
         translation.prompt,
+        taskPrompt,
         '',
         'PRESENTATION PREFERENCES:',
         extra.trim(),
@@ -532,7 +559,46 @@ export function SimpleVisualGenerator({
           </p>
         )}
       </div>
+<div className="studio-surface">
+  <h3>工业设计绘图任务 · V0.3.1</h3>
 
+  <label className="studio-field">
+    设计任务
+    <select
+      value={industrialTask}
+      disabled={busy || exportBusy}
+      onChange={event => {
+        setIndustrialTask(
+          event.target.value as IndustrialTask,
+        )
+        setTranslatedPrompt('')
+      }}
+    >
+      {(
+        Object.keys(industrialTaskNames) as IndustrialTask[]
+      ).map(task => (
+        <option key={task} value={task}>
+          {industrialTaskNames[task]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {industrialTask !== 'original' && (
+          <label className="studio-field">
+            工业设计风格
+            <textarea
+              rows={3}
+              value={industrialStyle}
+              disabled={busy}
+              onChange={event =>
+                setIndustrialStyle(event.target.value)
+              }
+              placeholder="例如：极简未来感、轻量化、年轻化、精致 CMF"
+            />
+          </label>
+        )}
+      </div>
       <label className="studio-field">
         生成内容
         <select
@@ -566,7 +632,7 @@ export function SimpleVisualGenerator({
       </label>
 
       <label className="studio-field">
-        语言转译模型
+        视觉提示词生成
         <input
           value={
             textSettings?.model ||

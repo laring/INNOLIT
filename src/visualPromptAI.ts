@@ -159,6 +159,61 @@ export function visualTranslationPrompt(
   )
 }
 
+
+
+function parseVisualTranslation(
+  content: string,
+): Record<string, unknown> {
+  const raw = content.trim()
+
+  if (!raw) {
+    throw new Error('视觉转译模型返回了空内容。')
+  }
+
+  const candidates = [raw]
+
+  // 兼容 Markdown JSON 代码块
+  const fenced = raw.match(
+    /```(?:json)?\s*([\s\S]*?)```/i,
+  )
+
+  if (fenced?.[1]) {
+    candidates.push(fenced[1].trim())
+  }
+
+  // 兼容 JSON 前后包含解释文字
+  const firstBrace = raw.indexOf('{')
+  const lastBrace = raw.lastIndexOf('}')
+
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(
+      raw.slice(firstBrace, lastBrace + 1),
+    )
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed: unknown = JSON.parse(candidate)
+
+      if (
+        parsed !== null &&
+        typeof parsed === 'object' &&
+        !Array.isArray(parsed)
+      ) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      // 尝试下一种格式
+    }
+  }
+
+  throw new Error(
+    'AI 返回内容不是有效的视觉转译 JSON。请检查模型输出格式或输出长度。',
+  )
+}
+
+
+
 export async function translateVisualWithAI(
   frozen: FrozenConcept,
   mode: VisualPromptMode,
@@ -181,13 +236,7 @@ export async function translateVisualWithAI(
     signal,
   )
 
-  let result: Record<string, unknown>
-
-  try {
-    result = objectRecord(JSON.parse(content))
-  } catch {
-    throw new Error('AI 未返回有效的视觉转译 JSON。')
-  }
+  const result = parseVisualTranslation(content)
 
   const prompt = result.prompt
 
@@ -196,7 +245,13 @@ export async function translateVisualWithAI(
     prompt.trim().length < 80 ||
     prompt.length > 16000
   ) {
-    throw new Error('AI 视觉提示词不完整。')
+    throw new Error(
+  typeof prompt !== 'string'
+    ? 'AI 视觉转译 JSON 缺少 prompt 字符串字段。'
+    : prompt.trim().length < 80
+      ? `AI 视觉提示词过短（${prompt.trim().length} 字符），至少需要 80 字符。`
+      : 'AI 视觉提示词超过 16000 字符限制。',
+)
   }
 
   const warnings = Array.isArray(result.warnings)

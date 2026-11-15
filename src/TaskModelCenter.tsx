@@ -3,7 +3,12 @@ import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { imageSizes } from './imageGeneration'
 import { aiTasks } from './aiModelRouter'
-import type { AIModelRouting, AITask } from './aiModelRouter'
+import type {
+  AIModelRouting,
+  AITask,
+  WorkflowModelRouting,
+  WorkflowTask,
+} from './aiModelRouter'
 
 type Props = {
   routing: AIModelRouting
@@ -16,6 +21,14 @@ type Props = {
     change: Partial<ModelSettings> | Partial<ImageSettings>,
   ) => void
   onReset: (task: AITask) => void
+
+  workflowRouting: WorkflowModelRouting
+  onWorkflowChange: (
+    task: WorkflowTask,
+    change: Partial<ModelSettings> | Partial<ImageSettings>,
+  ) => void
+  onWorkflowReset: (task: WorkflowTask) => void
+
 }
 
 type ProviderPreset = {
@@ -53,7 +66,7 @@ const textProviders: ProviderPreset[] = [
   },
   {
     id: 'custom',
-    name: '自定义 OpenAI 兼容接口',
+    name: ' OpenAI 兼容接口',
     baseUrl: '',
     models: [],
   },
@@ -66,6 +79,23 @@ const imageProviders: ProviderPreset[] = [
     baseUrl: 'https://api.siliconflow.cn/v1',
     models: [],
   },
+
+
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: ['recraft/recraft-v4.1-flash-v2:free'],
+  },
+
+
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    models: ['gpt-image-1.5'],
+  },
+
   {
     id: 'custom',
     name: '自定义图像接口',
@@ -126,12 +156,20 @@ function CommonModelFields({
       return
     }
 
-    onChange({
-      baseUrl: selected.baseUrl,
-      model: selected.models[0] ?? settings.model,
-    })
+      onChange({
+        baseUrl: selected.baseUrl,
+        model: selected.models[0] ?? settings.model,
+        ...(image
+          ? {
+              protocol: selected.id === 'openai'
+                ? 'openai'
+                : selected.id === 'openrouter'
+                  ? 'openrouter'
+                  : 'siliconflow',
+            }
+          : {}),
+      })
   }
-
   return (
     <>
       <label>
@@ -200,21 +238,30 @@ function CommonModelFields({
         />
       </label>
 
-      <label>
-        API Key
-        <input
-          type="password"
-          autoComplete="off"
-          value={settings.apiKey}
-          placeholder="输入服务商 API Key"
-          onChange={event =>
-            onChange({ apiKey: event.target.value })
-          }
-        />
-      </label>
+      {!(image && 'protocol' in settings && settings.protocol === 'openai') && (
+        <label>
+          API Key
+          <input
+            type="password"
+            autoComplete="off"
+            value={settings.apiKey}
+            placeholder="输入服务商 API Key"
+            onChange={event =>
+              onChange({ apiKey: event.target.value })
+            }
+          />
+        </label>
+      )}
+
+      {image && 'protocol' in settings && settings.protocol === 'openai' && (
+        <p className="studio-hint">
+          OpenAI API Key 由本地服务端环境变量 OPENAI_API_KEY 提供。
+        </p>
+      )}
     </>
   )
 }
+
 
 type ImageFieldsProps = {
   settings: ImageSettings
@@ -241,8 +288,18 @@ function ImageExtraFields({
           <option value="siliconflow">
             SiliconFlow
           </option>
+
+          <option value="openrouter">
+            OpenRouter Images API
+          </option>
+
+
           <option value="images">
             Images 兼容接口
+          </option>
+
+          <option value="openai">
+            OpenAI Images API
           </option>
         </select>
       </label>

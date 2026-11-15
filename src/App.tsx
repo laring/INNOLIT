@@ -17,6 +17,19 @@ import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './pr
 import type { Message } from './projects'
 import './App.css'
 
+import {
+  createEmptyWorkflowRouting,
+  resolveWorkflowTextModel,
+} from './aiModelRouter'
+import type {
+  WorkflowModelRouting,
+  WorkflowTask,
+} from './aiModelRouter'
+
+
+
+
+
 function App() {
   const [projects, setProjects] = useState(loadProjects)
   const [activeId, setActiveId] = useState(
@@ -29,6 +42,41 @@ function App() {
   const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
   const [imageSettings, setImageSettings] = useState<ImageSettings>({ baseUrl: '', model: '', apiKey: '', protocol: 'siliconflow', size: '1024x1024' })
   const [routing, setRouting] = useState<AIModelRouting>(createEmptyRouting)
+
+  const [workflowRouting, setWorkflowRouting] =
+    useState<WorkflowModelRouting>(
+      createEmptyWorkflowRouting
+    )
+
+  function editWorkflowSettings(
+    task: WorkflowTask,
+    change: Partial<ModelSettings> | Partial<ImageSettings>,
+  ) {
+    setWorkflowRouting(current => {
+      const fallback =
+        task === 'visual' ? imageSettings : modelSettings
+
+      const previous = current[task] ?? fallback
+      const next = { ...previous, ...change }
+
+      if (next.baseUrl.trim() !== previous.baseUrl.trim()) {
+        next.apiKey = ''
+      }
+
+      return {
+        ...current,
+        [task]: next,
+      } as WorkflowModelRouting
+    })
+  }
+
+function resetWorkflowSettings(task: WorkflowTask) {
+  setWorkflowRouting(current => ({
+    ...current,
+    [task]: null,
+  }))
+}
+
   const [modelCenterOpen, setModelCenterOpen] = useState(false)
   function editTaskSettings(task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) {
     setRouting(current => {
@@ -227,33 +275,70 @@ function App() {
         </div>
 
         {modelCenterOpen && (
-          <section
-            id="global-ai-model-center"
-            className="studio-surface global-model-center"
-            aria-label="全局 AI 模型中心"
+          <div
+            className="global-model-center-overlay"
+            onMouseDown={event => {
+              if (event.target === event.currentTarget) {
+                setModelCenterOpen(false)
+              }
+            }}
           >
-            <div className="global-model-center-header">
-              <h2>AI 模型中心</h2>
-              <button
-                type="button"
-                onClick={() => setModelCenterOpen(false)}
-              >
-                关闭
-              </button>
-            </div>
+            <section
+              id="global-ai-model-center"
+              className="global-model-center-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="global-model-center-title"
+            >
+              <header className="global-model-center-dialog-header">
+                <div className="global-model-center-title-group">
+                  <h2 id="global-model-center-title">
+                    AI 模型中心
+                  </h2>
+                  <p>
+                    按八个产品设计环节分别配置 AI 模型
+                  </p>
+                </div>
 
-            <TaskModelCenter
-              routing={routing}
-              defaultText={modelSettings}
-              defaultImage={imageSettings}
-              onDefaultTextChange={editModelSettings}
-              onDefaultImageChange={editImageSettings}
-              onChange={editTaskSettings}
-              onReset={resetTaskSettings}
-            />
-          </section>
+                <button
+                  type="button"
+                  className="global-model-center-close"
+                  onClick={() => setModelCenterOpen(false)}
+                  aria-label="关闭 AI 模型中心"
+                >
+                  关闭
+                </button>
+              </header>
+
+              <div className="global-model-center-dialog-body">
+                <TaskModelCenter
+                  routing={routing}
+                  defaultText={modelSettings}
+                  defaultImage={imageSettings}
+                  onDefaultTextChange={editModelSettings}
+                  onDefaultImageChange={editImageSettings}
+                  onChange={editTaskSettings}
+                  onReset={resetTaskSettings}
+                  workflowRouting={workflowRouting}
+                  onWorkflowChange={editWorkflowSettings}
+                  onWorkflowReset={resetWorkflowSettings}
+                />
+              </div>
+
+              <footer className="global-model-center-dialog-footer">
+                <span>
+                  模型配置仅在当前页面会话中有效
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setModelCenterOpen(false)}
+                >
+                  完成
+                </button>
+              </footer>
+            </section>
+          </div>
         )}
-
         {saveFailed && <p className="workspace-save-error" role="alert">当前浏览器无法保存项目，刷新可能丢失本次更改。</p>}
 
         {view === 'studio' ? (
@@ -284,7 +369,11 @@ function App() {
               setTransfer({ projectId: activeProject.id, idea })
               setView('studio')
             }}
-            settings={resolveTextModel('concept', routing, modelSettings)}
+          settings={resolveWorkflowTextModel( 
+            'home',
+            workflowRouting,
+            resolveTextModel('concept', routing, modelSettings),
+          )}
             onOpenModelCenter={() => setModelCenterOpen(true)}
           />
         )}

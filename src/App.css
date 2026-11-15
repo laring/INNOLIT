@@ -749,3 +749,321 @@ figcaption,
   border: 1px solid #d5ded4;
   border-radius: 7px;
 }
+
+
+/* ==========================================
+   INNO LIT V0.2.3.3-B Stage 2.2
+   Global AI Model Center Layout
+   ========================================== */
+
+/* 全屏遮罩 */
+.global-model-center-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(28, 35, 30, 0.32);
+  backdrop-filter: blur(3px);
+}
+
+/* 主面板 */
+.global-model-center-dialog {
+  display: flex;
+  flex-direction: column;
+
+  width: min(920px, 100%);
+  height: min(780px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  min-height: 0;
+
+  overflow: hidden;
+
+  border: 1px solid #dfe5dd;
+  border-radius: 18px;
+
+  background: #ffffff;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.12),
+    0 3px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* 固定顶部 */
+.global-model-center-dialog-header {
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  padding: 18px 24px;
+
+  border-bottom: 1px solid #e8ece7;
+  background: #ffffff;
+}
+
+.global-model-center-title-group {
+  min-width: 0;
+}
+
+.global-model-center-title-group h2 {
+  margin: 0;
+
+  color: #26372b;
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.global-model-center-title-group p {
+  margin: 4px 0 0;
+
+  color: #738075;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.global-model-center-close {
+  flex-shrink: 0;
+
+  min-height: 36px;
+  padding: 6px 14px;
+
+  border: 1px solid #d9e1d8;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #4c6251;
+
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.global-model-center-close:hover {
+  background: #f2f6f1;
+}
+
+/* 唯一主要滚动区域 */
+.global-model-center-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  overscroll-behavior: contain;
+
+  padding: 18px 24px 24px;
+
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5c9 transparent;
+}
+
+.global-model-center-dialog-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.global-model-center-dialog-body::-webkit-scrollbar-thumb {
+  background: #cbd5c9;
+  border-radius: 8px;
+}
+
+/* 配置容器 */
+.global-model-center-dialog-body .model-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  min-width: 0;
+  width: 100%;
+}
+
+.global-model-center-dialog-body .model-settings > p {
+  margin: 0 0 4px;
+
+  color: #6b786d;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* 默认模型配置卡片 */
+.global-model-center-dialog-body .global-model-defaults,
+.global-model-center-dialog-body .model-settings > fieldset {
+  min-width: 0;
+
+  margin: 0;
+  padding: 14px 16px 16px;
+
+  border: 1px solid #e1e7df;
+  border-radius: 12px;
+
+  background: #ffffff;
+}
+
+.global-model-center-dialog-body fieldset legend {
+  padding: 0 8px;
+
+  color: #344a39;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.global-model-center-dialog-body fieldset legend strong {
+  font-weight: 600;
+}
+
+/* 减少输入区纵向留白 */
+.global-model-center-dialog-body .model-settings label {
+  display: grid;
+  gap: 5px;
+
+  min-width: 0;
+  margin: 6px 0;
+
+  color: #435247;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.global-model-center-dialog-body .model-settings input,
+.global-model-center-dialog-body .model-settings select {
+  display: block;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  min-height: 38px;
+  padding: 7px 10px;
+
+  border: 1px solid #d8e0d6;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #29372d;
+
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.global-model-center-dialog-body .model-settings input:focus,
+.global-model-center-dialog-body .model-settings select:focus {
+  outline: 2px solid #a8c6ab;
+  outline-offset: 1px;
+  border-color: #8eae92;
+}
+
+/* 辅助文字 */
+.global-model-center-dialog-body .studio-hint {
+  margin: 5px 0 8px;
+
+  color: #778279;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+/* 固定底部 */
+.global-model-center-dialog-footer {
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  min-height: 66px;
+  padding: 12px 24px;
+
+  border-top: 1px solid #e8ece7;
+
+  background: #ffffff;
+}
+
+.global-model-center-dialog-footer span {
+  color: #7b867d;
+  font-size: 0.8rem;
+}
+
+.global-model-center-dialog-footer button {
+  min-height: 38px;
+  padding: 7px 22px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #344d39;
+  color: #ffffff;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.global-model-center-dialog-footer button:hover {
+  background: #263c2c;
+}
+
+/* 小屏幕适配 */
+@media (max-width: 768px) {
+  .global-model-center-overlay {
+    padding: 12px;
+  }
+
+  .global-model-center-dialog {
+    width: 100%;
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 12px;
+  }
+
+  .global-model-center-dialog-header {
+    padding: 14px 16px;
+  }
+
+  .global-model-center-dialog-body {
+    padding: 14px 16px 20px;
+  }
+
+  .global-model-center-dialog-footer {
+    padding: 10px 16px;
+  }
+
+  .global-model-center-dialog-footer span {
+    display: none;
+  }
+
+  .global-model-center-dialog-footer {
+    justify-content: flex-end;
+  }
+}
+
+/* 低高度浏览器适配 */
+@media (max-height: 650px) {
+  .global-model-center-overlay {
+    padding: 10px;
+  }
+
+  .global-model-center-dialog {
+    height: calc(100dvh - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+
+  .global-model-center-dialog-header {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .global-model-center-dialog-footer {
+    min-height: 52px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+}
+

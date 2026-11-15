@@ -7,7 +7,7 @@ export const entryRoles = {
 } as const
 export type EntryRole = keyof typeof entryRoles
 export const entryPurpose: Record<EntryRole, string> = {
-  master: '建立唯一的产品视觉母版，清楚显示完整造型、结构、比例、材质、配色、关键交互与产品标识。',
+  master: '建立唯一的产品视觉母版，背景单色，清楚显示完整造型、结构、比例、材质、配色、关键交互与产品标识。',
   landscape: 'WHY + WHAT + Hero Scene：以有目标用户参与的使用情境展示为什么需要产品、产品是什么。',
   portrait: 'HOW + 产品结构 / 关键交互：通过有手部操作的近景、功能部位与结构关系说明同一产品如何工作。保持可见外形，不自行增加零件。',
   poster: 'Problem + Insight + Solution + Mechanism + Use Flow + Value：使用另一张独立构图的真实使用情境主图，清楚展示人、产品、动作和环境。禁止用爆炸图、机制图、结构图作为主视觉。',
