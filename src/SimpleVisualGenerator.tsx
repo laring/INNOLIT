@@ -9,7 +9,7 @@ import {
 } from './imageGeneration'
 import type { ImageSettings } from './imageGeneration'
 import type { ModelSettings } from './modelGeneration'
-import { translateVisualWithAI } from './visualPromptAI'
+import { translateVisualWithAI, visualConceptOf } from './visualPromptAI'
 import { getVisual, putVisual } from './visualStore'
 import type { SavedVisual } from './visualStore'
 import { downloadBlob } from './conceptBoard'
@@ -304,13 +304,6 @@ export function SimpleVisualGenerator({
   async function generate() {
     if (busy || loading) return
 
-    if (!validFrozen) {
-      setError(
-        '请先完成概念人工确认和 Concept Freeze。',
-      )
-      return
-    }
-
     if (!textSettings) {
       setError(
         '尚未接入语言模型配置 textSettings。请在 VisualStudio 中传入已配置的文本模型。',
@@ -355,13 +348,13 @@ if (requiresReference && !masterBlob) {
 
     setBusy(true)
     setError('')
-    setTranslationStatus('正在转译冻结概念...')
+    setTranslationStatus('正在转译当前概念...')
     setTranslatedPrompt('')
 
     try {
       const translation =
         await translateVisualWithAI(
-          validFrozen,
+          visualConceptOf(concept),
           mode,
           target.width,
           target.height,
@@ -371,7 +364,7 @@ if (requiresReference && !masterBlob) {
 
       if (controller.signal.aborted) return
 
-      if (translation.frozenId !== validFrozen.id) {
+      if (translation.frozenId !== (validFrozen?.id ?? 'draft')) {
         throw new Error(
           'AI 转译版本与当前冻结版本不一致。',
         )
@@ -416,7 +409,7 @@ if (requiresReference && !masterBlob) {
         )
       }
 
-      const reference = referenceSupported
+      const reference = referenceSupported && masterBlob
         ? await blobToDataURL(masterBlob!)
         : undefined
 
@@ -429,7 +422,7 @@ if (requiresReference && !masterBlob) {
         },
         prompt,
         controller.signal,
-        referenceSupported
+        reference
           ? {
               reference,
               purpose: 'landscape',
@@ -469,7 +462,7 @@ if (requiresReference && !masterBlob) {
           ).hostname,
         },
         prompt,
-        frozenId: validFrozen.id,
+        ...(validFrozen ? { frozenId: validFrozen.id } : {}),
         digest,
       }
 
@@ -540,7 +533,7 @@ if (requiresReference && !masterBlob) {
       <h2>AI 视觉生成 · V0.2.3</h2>
 
       <p>
-        根据冻结概念自动转译生图语言，
+        根据优化稿或当前概念自动转译生图语言，冻结可选，
         然后生成产品效果图或设计展板。
       </p>
 
@@ -550,7 +543,7 @@ if (requiresReference && !masterBlob) {
         <p>
           {validFrozen
             ? `已冻结 · V${validFrozen.revision}`
-            : '尚未冻结当前概念'}
+            : '使用当前方案 · 可继续优化，冻结可选'}
         </p>
 
         {validFrozen && (
@@ -689,7 +682,6 @@ if (requiresReference && !masterBlob) {
           disabled={
             busy ||
             loading ||
-            !validFrozen ||
             !textSettings
           }
           onClick={generate}

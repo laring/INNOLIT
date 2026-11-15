@@ -212,16 +212,15 @@ export function ConceptFreezePanel({
       <h2>
         {frozen
           ? `概念已冻结 · V${frozen.revision}`
-          : '概念确认与冻结'}
+          : '方案优化与定稿'}
       </h2>
 
       <p>
-        阅读 AI 完善后的设计内容，勾选认可的项目。
-        不需要逐条修改文字；只有发现问题时，
-        才需要展开编辑。
+        AI 根据现有概念与分析记录先完善方案，你可以随时修正。
+        未完成的验证保留为待验证；冻结是可选操作，不影响继续生成概念图。
       </p>
 
-      <h3>前置深化步骤</h3>
+      <h3>已有分析记录</h3>
 
       <ul>
         {Object.entries(developmentSteps).map(
@@ -252,7 +251,6 @@ export function ConceptFreezePanel({
             type="button"
             className="studio-button primary"
             disabled={
-              !ready ||
               pending ||
               !hasModelSettings(settings)
             }
@@ -301,7 +299,7 @@ export function ConceptFreezePanel({
                       },
                     }
                   }),
-                'AI 完善方案已生成，请勾选确认。',
+                'AI 优化稿已保存，可修正、直接制作概念图，或选择冻结。',
               )
             }}
           >
@@ -324,7 +322,7 @@ export function ConceptFreezePanel({
         {notice ||
           (frozen
             ? `冻结编号：${frozen.id}`
-            : '完成前置深化后，即可确认最终概念。')}
+            : ready ? '已有三步确认记录，可让 AI 继续优化。' : '可以先让 AI 优化现有概念；未完成的分析与实测不会被自动确认。')}
       </p>
 
       {final && (
@@ -336,7 +334,9 @@ export function ConceptFreezePanel({
             )}
           </p>
 
-          <h3>人工勾选确认</h3>
+          {!frozen && <button type="button" className="studio-button primary" disabled={pending || data.final?.contextKey !== synthesisContext(concept)} onClick={onFrozen}>使用优化稿制作概念图（无需冻结）</button>}
+          {!frozen && data.final?.contextKey !== synthesisContext(concept) && <p className="studio-hint">分析记录已变化，请重新优化后使用最新方案。</p>}
+          <h3>方案内容 · 勾选用于可选冻结</h3>
 
           {!frozen && (
             <div className="studio-actions">

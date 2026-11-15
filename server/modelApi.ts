@@ -9,6 +9,7 @@ import { chatPrompt } from '../src/modelChat.ts'
 import { extractPrompt, reviewPrompt } from '../src/modelStudio.ts'
 import { developmentPrompt } from '../src/developmentModel.ts'
 import { visualTranslationPrompt } from '../src/visualPromptAI.ts'
+import { reportPrompt } from '../src/reportModel.ts'
 import { readJson, requestProviderJson } from './providerHttp.ts'
 
 
@@ -76,7 +77,7 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
        // payload = developmentPrompt(input, model.trim())
       } else if (request.url === modelDevelopmentPath) {
         payload =
-          input.stage === 'visual-translation'
+          input.stage === 'report' ? reportPrompt(input, model.trim()) : input.stage === 'visual-translation'
           ? visualTranslationPrompt(input, model.trim())
           : developmentPrompt(input, model.trim()) 
       } else {

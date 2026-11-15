@@ -170,3 +170,19 @@ export function resolveWorkflowImageModel(
 ): ImageSettings {
   return routing.visual ?? fallback
 }
+
+export function resolveWorkflowModels(workflow: WorkflowModelRouting, legacy: AIModelRouting, text: ModelSettings, image: ImageSettings) {
+  const creative = resolveTextModel('concept', legacy, text)
+  const refinement = resolveTextModel('refinement', legacy, text)
+  return {
+    home: resolveWorkflowTextModel('home', workflow, creative),
+    conceptStudio: resolveWorkflowTextModel('conceptStudio', workflow, creative),
+    notes: resolveWorkflowTextModel('notes', workflow, refinement),
+    feasibility: resolveWorkflowTextModel('feasibility', workflow, refinement),
+    originality: resolveWorkflowTextModel('originality', workflow, refinement),
+    optimization: resolveWorkflowTextModel('optimization', workflow, refinement),
+    report: resolveWorkflowTextModel('report', workflow, refinement),
+    visual: resolveWorkflowImageModel(workflow, resolveImageModel(legacy, image)),
+    translation: resolveTextModel('translation', legacy, text),
+  }
+}

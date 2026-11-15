@@ -10,7 +10,7 @@ export type ImageSettings = ModelSettings & {
   size: typeof imageSizes[number]
 }
 export type VisualLayout = 'diagram' | 'landscape' | 'portrait'
-export type VisualSource = { kind: 'upload' } | { kind: 'model'; model: string; provider: string }
+export type VisualSource = { kind: 'local' } | { kind: 'upload' } | { kind: 'model'; model: string; provider: string }
 
 export function supportsImageReference(
   settings: Pick<ImageSettings, 'protocol' | 'model'>,
@@ -86,9 +86,9 @@ if (data.protocol === 'openrouter') {
 
   const size = data.size as string
   const purpose = data.purpose ?? 'master'
-  if (!['master', 'landscape', 'portrait', 'poster'].includes(purpose as string)) throw new Error('未知的展示入口。')
+  if (!['master', 'landscape', 'portrait', 'poster', 'concept'].includes(purpose as string)) throw new Error('未知的展示入口。')
   const reference = data.reference
-  if (purpose !== 'master' && !reference) throw new Error('三张展示入口必须携带产品母版参考图。')
+  if (purpose !== 'master' && purpose !== 'concept' && !reference) throw new Error('三张展示入口必须携带产品母版参考图。')
   if (reference !== undefined && (typeof reference !== 'string' || reference.length > imageByteLimit * 1.4
     || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/u.test(reference))) throw new Error('产品母版参考图格式无效。')
   if (reference && !supportsImageReference({ protocol: data.protocol as ImageSettings['protocol'], model: data.model })) {

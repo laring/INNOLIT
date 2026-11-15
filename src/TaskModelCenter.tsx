@@ -2,7 +2,7 @@
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { imageSizes } from './imageGeneration'
-import { aiTasks } from './aiModelRouter'
+import { aiTasks, workflowTasks, resolveWorkflowModels } from './aiModelRouter'
 import type {
   AIModelRouting,
   AITask,
@@ -334,12 +334,16 @@ export function TaskModelCenter({
   onDefaultImageChange,
   onChange,
   onReset,
+  workflowRouting,
+  onWorkflowChange,
+  onWorkflowReset,
 }: Props) {
+  const models = resolveWorkflowModels(workflowRouting, routing, defaultText, defaultImage)
   return (
     <div className="model-settings">
       <p>
         在此统一管理 AI 模型。
-        四类任务可独立配置；未单独配置时继承默认模型。
+        八个设计环节可独立配置；未单独配置时继承原有任务或默认模型。
         API Key 只保留在本次页面会话中。
       </p>
 
@@ -380,6 +384,25 @@ export function TaskModelCenter({
         />
       </fieldset>
 
+      {(Object.keys(workflowTasks) as WorkflowTask[]).map(task => {
+        const image = task === 'visual'
+        const dedicated = workflowRouting[task] !== null
+        const active = models[task]
+        return <fieldset key={task} className="global-model-defaults">
+          <legend><strong>{workflowTasks[task]}</strong></legend>
+          <label>配置方式<select aria-label={`${workflowTasks[task]} 配置方式`} value={dedicated ? 'dedicated' : 'fallback'} onChange={event => {
+            if (event.target.value === 'fallback') onWorkflowReset(task)
+            else onWorkflowChange(task, { ...active })
+          }}><option value="fallback">继承原有或默认配置</option><option value="dedicated">独立模型</option></select></label>
+          {dedicated && <>
+            <CommonModelFields settings={active} image={image} onChange={change => onWorkflowChange(task, change)} />
+            {image && <ImageExtraFields settings={active as ImageSettings} onChange={change => onWorkflowChange(task, change)} />}
+          </>}
+          <p className="studio-hint">当前模型：{active.model || '未配置'}{dedicated ? '（独立配置）' : '（继承配置）'}</p>
+          {image && <p className="studio-hint">专业流程的视觉转译文字模型在下方原有任务配置中管理。</p>}
+        </fieldset>
+      })}
+      <details><summary>原有四类任务与视觉转译配置</summary>
       {tasks.map(task => {
         const isImage = task === 'image'
         const dedicated = routing[task] !== null
@@ -460,6 +483,7 @@ export function TaskModelCenter({
           </fieldset>
         )
       })}
+      </details>
 
       <p className="studio-hint">
         当前仅支持现有后端兼容的云端接口。

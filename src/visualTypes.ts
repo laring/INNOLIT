@@ -1,5 +1,6 @@
 import type { VisualSource } from './imageGeneration.ts'
 import type { EntryRole, VisualApproval } from './entryVisuals.ts'
+import type { VisualPageRole } from './visualStudioTypes.ts'
 
 export type SavedVisual = {
   id: string
@@ -12,4 +13,6 @@ export type SavedVisual = {
   digest?: string
   masterDigest?: string
   approval?: VisualApproval
+  pageRole?: VisualPageRole
+  conceptKey?: string
 }

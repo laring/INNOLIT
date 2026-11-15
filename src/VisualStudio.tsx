@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react'
 import { SimpleVisualGenerator } from './SimpleVisualGenerator'
+import { ConceptVisualWorkspace } from './ConceptVisualWorkspace'
 import type { Concept, ConceptBatch } from './concepts'
 import { developmentOf } from './conceptDevelopment'
 import {
@@ -33,7 +34,7 @@ type VisualProps = {
 
 const roles = Object.keys(entryRoles) as EntryRole[]
 
-export function VisualStudio({
+function AdvancedVisualStudio({
   projectId,
   round,
   roundNumber,
@@ -379,4 +380,16 @@ export function VisualStudio({
       )}
     </section>
   )
+}
+
+export function VisualStudio(props: VisualProps) {
+  const [advanced, setAdvanced] = useState(false)
+  return <>
+    <div className="studio-actions">
+      <button type="button" className="studio-button" onClick={() => setAdvanced(value => !value)}>
+        {advanced ? '返回自由生成与排版' : '打开原有 AI 专业流程'}
+      </button>
+    </div>
+    {advanced ? <AdvancedVisualStudio {...props} /> : <ConceptVisualWorkspace {...props} />}
+  </>
 }

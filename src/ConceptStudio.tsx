@@ -13,8 +13,8 @@ import { RefinementWorkspace } from './RefinementWorkspace'
 import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
-import { resolveTextModel, resolveImageModel } from './aiModelRouter'
-import type { AIModelRouting } from './aiModelRouter'
+import { resolveWorkflowModels } from './aiModelRouter'
+import type { AIModelRouting, WorkflowModelRouting } from './aiModelRouter'
 import { ModelControls } from './ModelControls'
 import { ChatConceptImport } from './ChatConceptImport'
 import { ConceptComparison } from './ConceptComparison'
@@ -28,6 +28,7 @@ type StudioProps = {
   settings: ModelSettings
 
   routing: AIModelRouting
+  workflowRouting: WorkflowModelRouting
 
 
   imageSettings: ImageSettings
@@ -57,7 +58,7 @@ function focusHeading(heading: HTMLHeadingElement | null) {
   heading?.focus({ preventScroll: true })
 }
 
-export function ConceptStudio({ projectId, projectName, state, onChange, settings, routing, imageSettings, idea, onDismissIdea, onOpenModelCenter }: StudioProps) {
+export function ConceptStudio({ projectId, projectName, state, onChange, settings, routing, workflowRouting, imageSettings, idea, onDismissIdea, onOpenModelCenter }: StudioProps) {
   const [refining, setRefining] = useState(false)
   const [customModel, setCustomModel] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -73,10 +74,11 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
   const selected = batch?.concepts.find(concept => concept.id === batch.selectedId)
   const normalized = normalizeDraft(draft)
   const ready = normalized.problem && normalized.audience && normalized.scenario
-  const conceptSettings = resolveTextModel('concept', routing, settings)
-  const refinementSettings = resolveTextModel('refinement', routing, settings)
-  const translationSettings = resolveTextModel('translation', routing, settings)
-  const routedImageSettings = resolveImageModel(routing, imageSettings)
+  const workflowSettings = resolveWorkflowModels(workflowRouting, routing, settings, imageSettings)
+  const conceptSettings = workflowSettings.conceptStudio
+  const refinementSettings = workflowSettings.notes
+  const translationSettings = workflowSettings.translation
+  const routedImageSettings = workflowSettings.visual
   const configured = hasModelSettings(conceptSettings)
   const unchanged = latest && !latest.origin && !latest.generation && !customModel && (
     latest.brief.problem === normalized.problem &&
@@ -182,7 +184,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
           <header className="studio-intro">
             <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.development?.frozen?.design.format ?? selected.format}</p>
             <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.development?.frozen?.design.title ?? selected.title}</h1>
-            <p>AI 协助深化、验证与检索，经你修正后完善概念并冻结，再制作一致的三张展示图。</p>
+            <p>完善方案的分析记录，也可以直接用概念图表达想法，自由调整版式与尺寸。</p>
             <span className="studio-badge">初始概念：{conceptSourceLabel(batch)}</span>
             {selected.development?.frozen && <span className="studio-badge">完善模型：{modelSourceLabel(selected.development.frozen.source)}</span>}
           </header>
@@ -196,6 +198,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             onChange={update => editConcept(selected.id, update)}
              imageSettings={routedImageSettings}
             translationSettings={translationSettings}
+            workflowSettings={workflowSettings}
 
 
 

@@ -350,6 +350,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
             onChange={updateStudio}
             settings={modelSettings}
             routing={routing}
+            workflowRouting={workflowRouting}
             onOpenModelCenter={() => setModelCenterOpen(true)}
 
 
