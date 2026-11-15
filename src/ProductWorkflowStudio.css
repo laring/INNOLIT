@@ -1,0 +1,38 @@
+.product-workflow { gap: 22px; }
+.product-step-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.product-step-nav button { display: grid; align-content: start; justify-items: start; gap: 10px; min-width: 0; text-align: left; padding: 14px 12px; }
+.product-step-nav button > span { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #b6c4b9; border-radius: 50%; }
+.product-step-nav button[aria-pressed="true"] { background: #e8f0e5; border-color: #6e8b74; }
+.workflow-role { border-left: 3px solid #6e8b74; padding: 4px 0 4px 16px; }
+.workflow-role h3 { margin: 8px 0; font-size: 1.3rem; }
+.workflow-role p { margin: 0; color: #607164; }
+.workflow-role > span { color: #607164; font-size: .9rem; }
+.workflow-parameter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.workflow-parameter-grid input { min-width: 0; width: 100%; }
+.workflow-parameter-grid input[type="color"] { height: 46px; padding: 5px; }
+.workflow-style-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.workflow-style-card { padding: 10px; border: 1px solid #d3dcd2; border-radius: 12px; background: #fff; color: #344b3b; text-align: left; }
+.workflow-style-card svg { display: block; width: 100%; margin-bottom: 8px; }
+.workflow-style-card[aria-pressed="true"] { background: #eef4e9; border-color: #75987b; }
+.workflow-product-image { display: block; max-width: 100%; max-height: 740px; object-fit: contain; margin: auto; border-radius: 10px; background: #f1f3ed; }
+.workflow-sketch-sheet { position: relative; overflow: hidden; border: 1px solid #d3dcd2; border-radius: 12px; }
+.workflow-sketch-sheet > .workflow-product-image { width: 100%; max-height: none; border-radius: 0; }
+.workflow-sketch-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(2, 1fr); }
+.workflow-sketch-grid button { display: flex; align-items: flex-start; padding: 8px; border: 1px dashed #6c826466; background: transparent; }
+.workflow-sketch-grid button > span { background: #ffffffdf; color: #244332; border-radius: 4px; padding: 4px 6px; font-weight: 600; }
+.workflow-sketch-grid button[aria-pressed="true"] { box-shadow: inset 0 0 0 4px #4e7857; background: #8da88718; }
+.workflow-artwork-preview { display: block; max-width: 100%; max-height: 720px; background: #fff; border: 1px solid #d3dcd2; }
+.workflow-empty { padding: 30px; border: 1px dashed #b7c8b8; border-radius: 12px; color: #6b7a6e; background: #f5f7f1; }
+.workflow-step-footer { justify-content: space-between; border-top: 1px solid #e3e9df; padding-top: 20px; }
+@media (max-width: 900px) {
+  .product-step-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .workflow-parameter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .product-step-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .product-step-nav button { padding: 10px; }
+  .workflow-style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workflow-parameter-grid { grid-template-columns: minmax(0, 1fr); }
+  .workflow-sketch-grid button { padding: 2px; }
+  .workflow-sketch-grid button > span { font-size: 12px; padding: 2px; }
+}

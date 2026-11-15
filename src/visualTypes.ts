@@ -15,4 +15,6 @@ export type SavedVisual = {
   approval?: VisualApproval
   pageRole?: VisualPageRole
   conceptKey?: string
+  workflowKind?: string
+  filename?: string
 }

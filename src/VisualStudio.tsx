@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { SimpleVisualGenerator } from './SimpleVisualGenerator'
 import { ConceptVisualWorkspace } from './ConceptVisualWorkspace'
+import { ProductWorkflowStudio } from './ProductWorkflowStudio'
 import type { Concept, ConceptBatch } from './concepts'
 import { developmentOf } from './conceptDevelopment'
 import {
@@ -383,13 +384,13 @@ function AdvancedVisualStudio({
 }
 
 export function VisualStudio(props: VisualProps) {
-  const [advanced, setAdvanced] = useState(false)
+  const [mode, setMode] = useState<'workflow' | 'layout' | 'advanced'>('workflow')
   return <>
-    <div className="studio-actions">
-      <button type="button" className="studio-button" onClick={() => setAdvanced(value => !value)}>
-        {advanced ? '返回自由生成与排版' : '打开原有 AI 专业流程'}
-      </button>
-    </div>
-    {advanced ? <AdvancedVisualStudio {...props} /> : <ConceptVisualWorkspace {...props} />}
+    <nav className="studio-actions" aria-label="概念图工作方式">
+      <button type="button" className="studio-button" aria-pressed={mode === 'workflow'} onClick={() => setMode('workflow')}>五步产品设计</button>
+      <button type="button" className="studio-button" aria-pressed={mode === 'layout'} onClick={() => setMode('layout')}>自由排版与三图</button>
+      <button type="button" className="studio-button" aria-pressed={mode === 'advanced'} onClick={() => setMode('advanced')}>原有 AI 专业流程</button>
+    </nav>
+    {mode === 'workflow' ? <ProductWorkflowStudio {...props} /> : mode === 'advanced' ? <AdvancedVisualStudio {...props} /> : <ConceptVisualWorkspace {...props} />}
   </>
 }
