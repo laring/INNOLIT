@@ -1,3 +1,4 @@
+import { useModelConfig } from './useModelConfig'
 
 import { useEffect, useState } from 'react'
 import {
@@ -17,11 +18,9 @@ import type { Message } from './projects'
 import './App.css'
 
 import {
-  createEmptyWorkflowRouting,
   resolveWorkflowTextModel,
 } from './aiModelRouter'
 import type {
-  WorkflowModelRouting,
   WorkflowTask,
 } from './aiModelRouter'
 
@@ -38,14 +37,8 @@ function App() {
   const [showResults, setShowResults] = useState(true)
   const [view, setView] = useState<'workspace' | 'studio'>('workspace')
   const [saveFailed, setSaveFailed] = useState(false)
-  const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
-  const [imageSettings, setImageSettings] = useState<ImageSettings>({ baseUrl: '', model: '', apiKey: '', protocol: 'siliconflow', size: '1024x1024' })
+  const { modelSettings, setModelSettings, imageSettings, setImageSettings, workflowRouting, setWorkflowRouting, ready: modelConfigReady, remember, setRemember, notice: modelConfigNotice, saveNow: saveModelConfigNow, forget: forgetSavedModelConfig } = useModelConfig()
   const routing = createEmptyRouting()
-
-  const [workflowRouting, setWorkflowRouting] =
-    useState<WorkflowModelRouting>(
-      createEmptyWorkflowRouting
-    )
 
   function editWorkflowSettings(
     task: WorkflowTask,
@@ -65,7 +58,7 @@ function App() {
       return {
         ...current,
         [task]: next,
-      } as WorkflowModelRouting
+      }
     })
   }
 
@@ -299,7 +292,12 @@ function resetWorkflowSettings(task: WorkflowTask) {
               </header>
 
               <div className="global-model-center-dialog-body">
-                <TaskModelCenter
+                {!modelConfigReady ? <p role="status">正在恢复模型配置…</p> : <TaskModelCenter
+                  remember={remember}
+                  onRememberChange={setRemember}
+                  onForget={forgetSavedModelConfig}
+                  saveNotice={modelConfigNotice}
+                  onSave={saveModelConfigNow}
                   routing={routing}
                   defaultText={modelSettings}
                   defaultImage={imageSettings}
@@ -308,18 +306,19 @@ function resetWorkflowSettings(task: WorkflowTask) {
                   workflowRouting={workflowRouting}
                   onWorkflowChange={editWorkflowSettings}
                   onWorkflowReset={resetWorkflowSettings}
-                />
+                />}
               </div>
 
               <footer className="global-model-center-dialog-footer">
                 <span>
-                  模型配置仅在当前页面会话中有效
+                  {remember ? '配置会加密保存在此浏览器' : '仅在本次页面会话使用'}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setModelCenterOpen(false)}
+                  onClick={() => { void saveModelConfigNow().then(saved => { if (saved) setModelCenterOpen(false) }) }}
+                  disabled={!modelConfigReady}
                 >
-                  完成
+                  保存并完成
                 </button>
               </footer>
             </section>

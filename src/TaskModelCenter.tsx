@@ -11,6 +11,11 @@ import type {
 } from './aiModelRouter'
 
 type Props = {
+  remember: boolean
+  onRememberChange: (remember: boolean) => void
+  onForget: () => void
+  saveNotice: string
+  onSave: () => Promise<boolean>
   routing: AIModelRouting
   defaultText: ModelSettings
   defaultImage: ImageSettings
@@ -54,13 +59,13 @@ const textProviders: ProviderPreset[] = [
   },
   {
     id: 'openai',
-    name: 'OpenAI',
+    name: 'OpenAI（官方 API）',
     baseUrl: 'https://api.openai.com/v1',
     models: ['gpt-4.1', 'gpt-4.1-mini'],
   },
   {
     id: 'custom',
-    name: ' OpenAI 兼容接口',
+    name: '其他服务（OpenAI 兼容）',
     baseUrl: '',
     models: [],
   },
@@ -85,7 +90,7 @@ const imageProviders: ProviderPreset[] = [
 
   {
     id: 'openai',
-    name: 'OpenAI',
+    name: 'OpenAI（官方 API）',
     baseUrl: 'https://api.openai.com/v1',
     models: ['gpt-image-1.5'],
   },
@@ -317,6 +322,7 @@ function ImageExtraFields({
 }
 
 export function TaskModelCenter({
+  remember, onRememberChange, onForget, saveNotice, onSave,
   routing,
   defaultText,
   defaultImage,
@@ -333,9 +339,15 @@ export function TaskModelCenter({
       <p>
         在此统一管理 AI 模型。
         各设计环节可独立配置；未单独配置时继承默认模型。
-        API Key 只保留在本次页面会话中。
+        OpenAI 官方 API 为官方地址预设；其他兼容服务使用各自的地址、模型和密钥。
       </p>
 
+      <section className="studio-refinement" aria-label="配置保存设置">
+        <label><input type="checkbox" checked={remember} onChange={event=>onRememberChange(event.target.checked)}/> 记住配置与 API Key（仅此浏览器）</label>
+        <p className="studio-hint">开启后自动加密保存，刷新或重新打开后恢复。建议仅在自己的电脑开启；清理浏览器数据会丢失配置。不同浏览器或访问地址各自保存。</p>
+        <div className="studio-actions"><button type="button" className="studio-button" onClick={()=>void onSave()}>保存配置</button><button type="button" className="studio-button" onClick={onForget}>清除已保存配置</button></div>
+        <p className="studio-hint" role="status">{saveNotice}</p>
+      </section>
       <fieldset className="global-model-defaults">
         <legend>
           <strong>默认文本模型</strong>
