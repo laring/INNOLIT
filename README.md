@@ -86,3 +86,12 @@ If you are developing a production application, we recommend enabling type-aware
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
 
 OpenRouter 图片请求默认仅提交模型、提示词，以及用户选中的参考图；不再固定附加 aspect_ratio 或 n，原图尺寸使用模型默认值。HTTP 400 等错误会显示经过密钥与图片数据脱敏的服务商具体原因，不自动重试或计费调用其他模型。无参考图时不查询参考图能力，也不发送 input_references。
+
+
+### 设计报告：PCB 产品策划与市场合规
+
+在 Concept Studio 选定方案后进入「设计报告」，填写产品、目标地区、客群、硬件、价格与竞品、成本供应链和证据。两套独立的 12 章草稿使用 AI 模型中心的「设计报告」模型，可逐章修正并随项目保存；未配置模型可建立明确标为非 AI 的本地评审提纲。重新生成会覆盖当前类型草稿，请先导出保留修改。
+
+「导出图文 PPTX」生成 16:9 可编辑演示稿，自动分页、引用当前概念已保存的产品效果图和结构图，保留原图比例，并加入可编辑的硬件架构、法务预审或阶段门槛示意。过期产品图和过期报告均显示提醒。缺少产品图时不伪造图片。Markdown 导出也包含两套草稿及输入。
+
+合规报告仅为内部审查草稿，无实时法规检索。CCC、CE、FCC、RoHS、REACH 等按产品范围及地区条件评估；适用标准版本、化学限值、豁免、认证费用及法律结论须依据原文、测试与专业审查确认。内置官方入口供核查，不代表产品已取得认证。市场规模、竞品数据、成本和试验结果不得编造。

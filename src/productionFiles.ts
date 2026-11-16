@@ -37,7 +37,7 @@ export function pngDensity(bytes: Uint8Array, dpi: number): Uint8Array<ArrayBuff
 
 export type BundleFile = { name: string; data: string | Uint8Array }
 export function zipFiles(files: BundleFile[]): Uint8Array<ArrayBuffer> {
-  if (!files.length || files.length > 128 || new Set(files.map(file => file.name.toLowerCase())).size !== files.length) throw new Error('交付包文件数量或名称无效。')
+  if (!files.length || files.length > 256 || new Set(files.map(file => file.name.toLowerCase())).size !== files.length) throw new Error('交付包文件数量或名称无效。')
   const entries = files.map(file => {
     const segments = file.name.replaceAll('\\', '/').split('/')
     if (!file.name || segments[0] === '' || segments.some(part => part === '..' || part === '.') || file.name.includes(':') || Array.from(file.name).some(char => char.codePointAt(0)! < 32)) throw new Error('交付包文件名无效。')

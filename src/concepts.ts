@@ -1,3 +1,4 @@
+import type { PlanningState } from './planningReport.ts'
 import type { ResearchLog, ValidationPlan } from './designWork.ts'
 import type { VisualLayout } from './imageGeneration.ts'
 import type { ConceptDevelopment } from './conceptDevelopment.ts'
@@ -71,6 +72,7 @@ export type Concept = {
   visualEntry?: EntryRole
   visualDirections?: Record<string, string>
   visualStudio?: VisualStudioSettings
+  planningReport?: PlanningState
   aiReport?: { text: string; source: ModelSource; contextKey: string }
   productWorkflow?: ProductWorkflow
 }

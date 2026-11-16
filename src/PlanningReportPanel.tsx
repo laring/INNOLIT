@@ -1,0 +1,90 @@
+import { useState } from 'react'
+import type { Concept } from './concepts'
+import type { ModelSettings } from './modelGeneration'
+import { hasModelSettings } from './modelGeneration'
+import { emptyPlanningInputs, planningFields, planningTitles, planningContext, planningTemplate, generatePlanning, officialReferences } from './planningReport'
+import type { PlanningKind, PlanningDraft } from './planningReport'
+import { buildPlanningPptx, planningSlides } from './planningPptx'
+import type { ReportPicture } from './planningPptx'
+import { getVisual } from './visualStore'
+import { workflowOf, workflowContext } from './productWorkflow'
+import { useModelTask } from './useModelTask'
+
+export function PlanningReportPanel({ concept, settings, onChange }: { concept: Concept; settings: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }) {
+  const [kind, setKind] = useState<PlanningKind>('product')
+  const [exportNotice, setExportNotice] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const task = useModelTask()
+  const state = concept.planningReport ?? { inputs: { ...emptyPlanningInputs } }
+  const inputs = { ...emptyPlanningInputs, ...state.inputs }
+  const draft = state[kind]
+  const contextKey = planningContext(concept, inputs)
+  const stale = Boolean(draft && draft.contextKey !== contextKey)
+  function saveDraft(result: PlanningDraft) {
+    onChange(current => planningContext(current, { ...emptyPlanningInputs, ...current.planningReport?.inputs }) === result.contextKey
+      ? { ...current, planningReport: { ...(current.planningReport ?? { inputs }), [kind]: result } } : current)
+  }
+  async function exportPptx() {
+    if (!draft || exporting) return
+    setExporting(true); setExportNotice('正在整理报告与已保存的产品图…')
+    try {
+      const workflow = workflowOf(concept)
+      const pictures: ReportPicture[] = []
+      const ids = [workflow.confirmedHero || workflow.assets.hero, workflow.assets.exploded]
+      let missing = 0
+      for (const [index, id] of ids.entries()) {
+        if (!id) continue
+        const saved = await getVisual(id)
+        if (!saved) { missing++; continue }
+        const bitmap = await createImageBitmap(saved.blob)
+        try {
+          const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height))
+          const canvas = document.createElement('canvas'); canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale)
+          const context = canvas.getContext('2d'); if (!context) throw new Error('无法读取产品图，请重试。')
+          context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+          const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('产品图处理失败。')), 'image/png'))
+          const role = index === 0 ? 'hero' : 'exploded'
+          const staleImage = saved.conceptKey !== workflowContext(concept, role)
+          const title = (index === 0 ? '产品效果与概念表达' : '结构设计参考图') + (staleImage ? '（依据已变化，待更新）' : index === 0 && workflow.confirmedHero !== id ? '（外观待确认）' : '')
+          pictures.push({ title, data: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height })
+        } finally { bitmap.close() }
+      }
+      const slides = planningSlides(kind, draft, inputs, pictures, stale)
+      const bytes = buildPlanningPptx(slides)
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
+      const link = document.createElement('a'); link.href = url; link.download = `INNO-LIT-${planningTitles[kind]}.pptx`; document.body.append(link); link.click(); link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      setExportNotice(`已导出 ${slides.length} 页可编辑 PPTX，含 ${pictures.length} 张产品图。${missing ? `${missing} 张已保存配图缺失，请检查。` : ''}${!pictures.length ? '当前无产品图，使用可编辑的流程与架构示意。' : ''}`)
+    } catch (error) { setExportNotice(error instanceof Error ? error.message : 'PPT 导出失败，请重试。') }
+    finally { setExporting(false) }
+  }
+  return <section aria-labelledby="planning-report-heading" className="studio-report-section">
+    <h3 id="planning-report-heading">产品策划与市场合规报告</h3>
+    <p>以资深产品经理、市场与法务经理视角编制内部评审草稿。填写产品及目标地区，AI 使用模型中心的“设计报告”配置。</p>
+    <div className="studio-validation-fields">{Object.entries(planningFields).map(([key, label]) => <label className="studio-field" key={key}>{label}<textarea rows={3} maxLength={4000} disabled={task.pending} value={inputs[key as keyof typeof inputs]} placeholder="未确定的内容可留空，报告会列为待确认。" onChange={event => {
+      const value = event.target.value
+      onChange(current => ({ ...current, planningReport: { ...current.planningReport, inputs: { ...emptyPlanningInputs, ...current.planningReport?.inputs, [key]: value } } }))
+    }} /></label>)}</div>
+    <div className="studio-actions">{(['product', 'compliance'] as const).map(value => <button type="button" className="studio-button" aria-pressed={kind === value} disabled={task.pending || exporting} key={value} onClick={() => { setKind(value); setExportNotice('') }}>{planningTitles[value]}</button>)}</div>
+    <p className="studio-hint">{kind === 'product' ? '12 章：从项目背景、定位与竞品，到 PCB 工程、供应链及版本落地。' : '第一部分：市场推广与法务预审。第二部分：国内外标准、认证、知识产权、贸易与数据合规。'}</p>
+    <div className="studio-actions">
+      <button type="button" className="studio-button primary" disabled={task.pending || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '12 章草稿已保存，请逐章核对与修正。')}>{draft ? '重新生成 AI 草稿' : 'AI 编制完整草稿'}</button>
+      {!draft && <button type="button" className="studio-button" disabled={task.pending} onClick={() => saveDraft(planningTemplate(kind, contextKey))}>建立本地评审提纲</button>}
+      {task.pending && <button type="button" className="studio-button" onClick={task.cancel}>取消</button>}
+      <button type="button" className="studio-button" disabled={!draft || task.pending || exporting} onClick={() => void exportPptx()}>导出图文 PPTX</button>
+    </div>
+    {!hasModelSettings(settings) && <p className="studio-hint">请在 AI 模型中心配置设计报告模型，或先建立本地提纲并人工填写。</p>}
+    {draft && <p className="studio-hint">{draft.source} · 保存于 {new Date(draft.updatedAt).toLocaleString()}。重新生成会覆盖当前这一份草稿，请先导出需要保留的修改。</p>}
+    {stale && <p role="status">产品、概念或分析依据已变化，请复核或重新生成。导出也会标注此状态。</p>}
+    <p role="status" className="studio-hint">{task.notice || exportNotice}</p>
+    {draft?.sections.map((section, index) => <label className="studio-field" key={section.title}>{index + 1}. {section.title}<textarea rows={7} maxLength={1600} disabled={task.pending} value={section.body} onChange={event => {
+      const body = event.target.value
+      onChange(current => {
+        const previous = current.planningReport?.[kind]
+        if (!previous || !current.planningReport) return current
+        return { ...current, planningReport: { ...current.planningReport, [kind]: { ...previous, updatedAt: new Date().toISOString(), sections: previous.sections.map((item, i) => i === index ? { ...item, body } : item) } } }
+      })
+    }} /></label>)}
+    <details><summary>官方法规核查入口与报告边界</summary><p>未进行实时法规检索。CCC、CE、FCC 等是否适用，应按产品类别、供电、无线能力与目标市场确认。限值、标准版本、豁免和认证费用须有原文或询价依据。AI 不能代替测试与法律审查。</p>{officialReferences.map(item => <p key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></p>)}</details>
+  </section>
+}

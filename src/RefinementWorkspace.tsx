@@ -1,3 +1,5 @@
+import { formatPlanningReports } from './planningReport'
+import { PlanningReportPanel } from './PlanningReportPanel'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Download } from 'lucide-react'
@@ -122,7 +124,7 @@ function ReportPanel({ projectName, round, roundNumber, concept, settings, onCha
 
   function download() {
     const appendix = concept.aiReport ? `\n\n## AI 协作报告（可经人工修正${stale ? '，依据已更新，请复核' : ''}）\n\n${modelSourceLabel(concept.aiReport.source)}\n\n${concept.aiReport.text}\n` : ''
-    const file = new Blob([formatDesignReport(report) + appendix], { type: 'text/markdown;charset=utf-8' })
+    const file = new Blob([formatDesignReport(report) + appendix + formatPlanningReports(concept.planningReport)], { type: 'text/markdown;charset=utf-8' })
     const url = URL.createObjectURL(file)
     const link = document.createElement('a')
     link.href = url
@@ -152,6 +154,7 @@ function ReportPanel({ projectName, round, roundNumber, concept, settings, onCha
       {concept.aiReport && <label className="studio-field">AI 报告草稿 · {modelSourceLabel(concept.aiReport.source)}<textarea rows={14} maxLength={16000} disabled={pending} value={concept.aiReport.text} onChange={event => {
         const text = event.target.value; onChange(current => current.aiReport ? { ...current, aiReport: { ...current.aiReport, text } } : current)
       }} /></label>}
+      <PlanningReportPanel concept={concept} settings={settings} onChange={onChange} />
       {report.sections.map(section => (
         <section className="studio-report-section" key={section.heading}>
           <h3>{section.heading}</h3>
