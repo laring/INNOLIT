@@ -4,7 +4,7 @@ import type { ImageSettings, VisualSource } from './imageGeneration'
 import { generateConceptImage, supportsImageReference } from './imageGeneration'
 import { hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
-import { productStages, workflowContext, workflowImagePrompt, workflowOf, printResolution, selectedSketchMatches } from './productWorkflow'
+import { productStages, workflowContext, workflowImagePrompt, workflowOf, printResolution, selectedSketchMatches, heroUsesSketch } from './productWorkflow'
 import type { ProductAsset, ProductStage, ProductWorkflow } from './productWorkflow'
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
@@ -35,6 +35,8 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   }, [ids, projectId, roundNumber, concept.id])
   const asset = (role: ProductAsset) => data.assets[role] ? records[data.assets[role]!] : undefined
   const current = (role: ProductAsset) => Boolean(asset(role) && (role === 'selected' ? selectedSketchMatches(concept, asset(role)!.conceptKey) : asset(role)!.conceptKey === workflowContext(concept, role)))
+  const useSketch = heroUsesSketch(concept)
+  const needsReference = active === 'sketches' ? Boolean(data.assets.style) : active === 'render' ? useSketch : true
   const heroReady = current('hero') && data.confirmedHero === data.assets.hero
   const configured = hasModelSettings(imageSettings), referenceSupported = supportsImageReference(imageSettings)
   const stageIndex = Object.keys(productStages).indexOf(active)
@@ -58,16 +60,16 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     void run(async signal => {
       if (!data.productName.trim()) throw new Error('请先填写产品名称。')
       if (!configured) throw new Error('请先在 AI 模型中心配置图片模型。')
-      if ((role !== 'sheet' || asset('style')) && !referenceSupported) throw new Error('当前图片模型不支持参考图输入，无法读取你上传的风格或产品图片。请在 AI 模型中心切换支持参考图的模型，再点击生成。')
       let reference: Blob | undefined
       if (role === 'sheet') reference = asset('style')?.blob
-      else if (role === 'hero') {
+      else if (role === 'hero' && useSketch) {
         if (!current('selected')) throw new Error('请先在第一步点击数字编号选定草图；如果重新生成过十款图，请重新选择一次编号。')
         reference = asset('selected')!.blob
-      } else {
+      } else if (role !== 'hero') {
         if (!heroReady) throw new Error('请先在第二步确认当前产品外观基准。')
         reference = asset('hero')!.blob
       }
+      if (reference && !referenceSupported) throw new Error('当前图片模型不支持参考图输入。请切换支持参考图的模型；生成效果图也可以选择自由生成，不使用草图。')
       const prompt = workflowImagePrompt(concept, role)
       const blob = await generateConceptImage(imageSettings, prompt, signal, { purpose: imageSettings.protocol === 'openrouter' ? 'master' : 'concept', ...(referenceSupported && reference ? { reference: await imageDataUrl(reference) } : {}) })
       return storeImage(role, blob, { kind: 'model', model: imageSettings.model.trim(), provider: new URL(imageSettings.baseUrl).hostname }, prompt, workflowContext(concept, role), signal)
@@ -77,7 +79,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     return <div className="studio-refinement"><div className="studio-actions">
       <button type="button" className="studio-button primary" disabled={pending || loading} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成，请稍候…' : label}</button>
       {role !== 'sheet' && role !== 'hero' && <label className="studio-button visual-upload">上传{role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
-    </div><p className="studio-hint" role="status" aria-live="polite">{generationRole === role && (pending || notice) ? pending ? '正在读取所选图片并请求图片模型，生成结果会保存在下方。' : notice : !configured ? '请先在 AI 模型中心配置当前图片模型和密钥。' : !ready ? role === 'hero' ? '请先在第一步点击数字编号选款。修改名称、品牌及功能说明不会取消已有选款。' : '请先确认第二步的产品外观。' : role === 'hero' ? '将自动使用选定草图生成产品效果图，无需上传效果图。' : ''}</p></div>
+    </div><p className="studio-hint" role="status" aria-live="polite">{generationRole === role && (pending || notice) ? pending ? '正在请求图片模型，生成结果会保存在下方。' : notice : !configured ? '请先在 AI 模型中心配置当前图片模型和密钥。' : !ready ? role === 'hero' ? '请先在第一步点击数字编号选款。修改名称、品牌及功能说明不会取消已有选款。' : '请先确认第二步的产品外观。' : role === 'hero' ? useSketch ? '将使用选定草图生成产品效果图，无需上传效果图。' : '当前不使用草图，根据概念和产品说明自由生成效果图。' : ''}</p></div>
   }
   const filename = (record: SavedVisual) => `INNO-LIT-${record.workflowKind ?? '参考图'}.${record.blob.type === 'image/jpeg' ? 'jpg' : record.blob.type === 'image/webp' ? 'webp' : 'png'}`
   function imagePreview(role: ProductAsset, label: string) {
@@ -89,7 +91,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     </div> : <p className="workflow-empty">{label}将在这里显示。可调用自己的图片模型，或上传已有图片。</p>
   }
   return <section className="studio-surface studio-refinement product-workflow">
-    <header><h2>概念图与展板 · 五步产品设计</h2><p>十款草图 → 选款效果图 → 结构爆炸图 → 模具 DFM → 品牌包装。确认一次产品外观，后续步骤沿用同一产品。</p></header>
+    <header><h2>概念图与展板 · 五步产品设计</h2><p>可选十款草图 → 产品效果图 → 结构爆炸图 → 模具 DFM → 品牌包装。确认一次产品外观，后续步骤沿用同一产品。</p></header>
     <nav className="product-step-nav" aria-label="产品设计步骤">{(Object.keys(productStages) as ProductStage[]).map((stage, index) => <button type="button" key={stage} className="studio-button" disabled={pending} aria-pressed={active === stage} onClick={() => change({ stage })}><span>{index + 1}</span>{productStages[stage].title}</button>)}</nav>
     <div className="workflow-role"><span>步骤 {stageIndex + 1}</span><h3>{productStages[active].title}</h3><p>角色：{productStages[active].role}</p></div>
     <details open={active === 'sketches' || active === 'render'}><summary>统一产品与品牌资料</summary><fieldset className="development-fields studio-refinement" disabled={pending}>
@@ -97,7 +99,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <label className="studio-field">实际功能与关键交互<textarea rows={3} maxLength={2000} value={data.functions} onChange={event => change({ functions: event.target.value })} /></label>
       <label className="studio-field">设计方向与价值目标<textarea rows={3} maxLength={2000} value={data.direction} onChange={event => change({ direction: event.target.value })} /></label>
     </fieldset></details>
-    {!referenceSupported && (active !== 'sketches' || Boolean(asset('style'))) && <p className="studio-hint" role="alert">当前配置的图片模型不支持参考图输入，不能读取上传图片。请在 AI 模型中心切换支持参考图的模型；本页面不会忽略参考图或自动改用其他模型。</p>}
+    {!referenceSupported && needsReference && <p className="studio-hint" role="alert">当前配置的图片模型不支持参考图输入，不能读取上传图片。请在 AI 模型中心切换支持参考图的模型；本页面不会忽略参考图或自动改用其他模型。</p>}
     <p className="studio-hint" role="status">{notice || loadError || (configured ? `图片模型：${imageSettings.model}；工程文字模型：${modelSettings.model || '未配置'}` : '请在顶部 AI 模型中心配置图片模型，或上传已有图片。')}</p>
     {pending && <button type="button" className="studio-button" onClick={cancel}>取消当前操作</button>}
     {active === 'sketches' && <>
@@ -116,10 +118,11 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <p className="studio-hint">点击编号即自动提取对应草图，供第二步生成效果图。</p></> : <p className="workflow-empty">AI 生成的 10 款产品草图将在这里显示。</p>}
       {asset('selected') && imagePreview('selected', '选定的草图')}
     </>}
-    {active === 'render' && <><p>只深化选定草图，强调前沿风格、轻盈造型、人文与情感价值。功能、绿色制造和原创性是待验证的设计目标；不能自动变成产品声明。</p>
+    {active === 'render' && <><p>可沿用选定草图，也可跳过草图，根据概念、产品功能与设计方向自由生成合适的产品效果图。功能、绿色制造和原创性仍是待验证的设计目标。</p>
+      <label className="studio-field">效果图生成方式<select value={useSketch ? 'sketch' : 'free'} disabled={pending} onChange={event => change({ heroMode: event.target.value as 'free' | 'sketch' })}><option value="free">自由生成（不使用草图）</option><option value="sketch">使用选定草图</option></select></label>
       <button type="button" className="studio-button" disabled={pending || !hasModelSettings(modelSettings)} onClick={() => void run(signal => analyzeEngineering(concept, 'industrial', modelSettings, signal), renderNotes => change({ renderNotes: `模型建议（${modelSettings.model}，基于文字，待人工核对）：\n${renderNotes}` }), '功能与 CMF 建议已保存，可修正后用于效果图。')}>AI 功能与 CMF 深化建议</button>
       <label className="studio-field">效果图深化说明<textarea rows={5} maxLength={8000} value={data.renderNotes} disabled={pending} onChange={event => change({ renderNotes: event.target.value })} /></label>
-      {imagePreview('selected', '选定的草图')}{imageActions('hero', '生成选定产品效果图', current('selected'))}{imagePreview('hero', '产品效果图')}<button type="button" className="studio-button primary" disabled={pending || !current('hero')} onClick={() => change({ confirmedHero: data.assets.hero })}>{heroReady ? '当前产品外观已确认为统一基准' : '确认此产品外观，供后续步骤使用'}</button><p className="studio-hint">核对造型、比例、材质、配色、交互、产品名称及 Logo。产品资料或上游选款改变后，旧图会标为待更新。</p></>}
+      {useSketch && imagePreview('selected', '选定的草图')}{imageActions('hero', useSketch ? '生成选定产品效果图' : '自由生成产品效果图', !useSketch || current('selected'))}{imagePreview('hero', '产品效果图')}<button type="button" className="studio-button primary" disabled={pending || !current('hero')} onClick={() => change({ confirmedHero: data.assets.hero })}>{heroReady ? '当前产品外观已确认为统一基准' : '确认此产品外观，供后续步骤使用'}</button><p className="studio-hint">核对造型、比例、材质、配色、交互、产品名称及 Logo。产品资料或上游选款改变后，旧图会标为待更新。</p></>}
     {active === 'structure' && <><p>沿用第二步产品外观，制作带编号的详细结构爆炸示意。内部结构、连接和尺寸需工程核对；模型图片不作为加工图。</p>
       <label className="studio-field">编号、组件、材料与连接说明<textarea rows={7} maxLength={8000} value={data.components} disabled={pending} placeholder="01 | 上壳 | 材料牌号待定 | 连接方式待工程确认" onChange={event => change({ components: event.target.value })} /></label>
       <button type="button" className="studio-button" disabled={pending || !hasModelSettings(modelSettings)} onClick={() => void run(signal => analyzeEngineering(concept, 'structure', modelSettings, signal), components => change({ components: `模型结构建议（${modelSettings.model}，待人工核对）：\n${components}` }), '结构建议已保存，请核对组件与编号。')}>AI 组件与装配建议</button>

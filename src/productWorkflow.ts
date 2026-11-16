@@ -3,7 +3,7 @@ import { visualSubjectOf } from './conceptVisuals.ts'
 
 export const productStages = {
   sketches: { title: '十款设计草图', role: '资深工业设计师' },
-  render: { title: '选款与产品效果图', role: '资深工业设计师' },
+  render: { title: '产品效果图（草图可选）', role: '资深工业设计师' },
   structure: { title: '结构爆炸图', role: '资深结构、模具工程师' },
   tooling: { title: '注塑模具与 DFM', role: '资深结构与注塑模具工程师' },
   packaging: { title: '品牌与包装打样', role: '资深品牌视觉传达设计师' },
@@ -19,6 +19,7 @@ export type ProductWorkflow = {
   brandColor: string
   functions: string
   direction: string
+  heroMode?: 'free' | 'sketch'
   renderNotes: string
   assets: Partial<Record<ProductAsset, string>>
   selection?: number
@@ -42,13 +43,18 @@ export function workflowOf(concept: Concept): ProductWorkflow {
   return { ...defaults, ...saved, assets: { ...saved?.assets }, engineering: { ...defaults.engineering, ...saved?.engineering }, packaging: { ...defaults.packaging, ...saved?.packaging } }
 }
 
+export function heroUsesSketch(concept: Concept): boolean {
+  const data = workflowOf(concept)
+  return data.heroMode === 'sketch' || (data.heroMode !== 'free' && Boolean(data.assets.selected))
+}
+
 export function workflowContext(concept: Concept, step: ProductAsset): string {
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
   const common = { concept: { title: subject.title, format: subject.format, sentences: subject.sentences, identity: subject.identity }, name: data.productName, brand: data.brand, brandColor: data.brandColor, functions: data.functions, direction: data.direction }
   if (step === 'sheet') return JSON.stringify({ ...common, styleImage: data.assets.style })
   if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection })
-  if (step === 'hero') return JSON.stringify({ ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes })
+  if (step === 'hero') return JSON.stringify(heroUsesSketch(concept) ? { ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes } : { ...common, mode: 'free', renderNotes: data.renderNotes })
   if (step === 'exploded') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), components: data.components, engineering: { ...data.engineering, files: undefined, review: undefined, reviewer: undefined, confirmedContext: undefined } })
   if (step === 'package') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), packaging: packagingContext(data) })
   return ''
@@ -92,8 +98,8 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     ],
     hero: [
       `Development notes (proposals, not verified claims): ${data.renderNotes}`,
-      'The reference is ONE selected product sketch. Develop ONLY that chosen design into ONE polished realistic product rendering; do not create a collage or switch to another design.',
-      'Preserve its silhouette, proportions, main construction and interaction. Refine plausible material finishes and details. One full product, refined studio lighting, credible joints, light visual weight. Apply only the exact supplied product and brand names.',
+      heroUsesSketch(concept) ? 'The reference is ONE selected product sketch. Develop ONLY that chosen design into ONE polished realistic product rendering; do not create a collage or switch to another design.' : 'No sketch or reference image is supplied. Design ONE suitable product freely from the concept, actual functions, brand information and rendering notes. Create ONE polished realistic product rendering, not a collage. Do not claim to have read a sketch or image.',
+      heroUsesSketch(concept) ? 'Preserve its silhouette, proportions, main construction and interaction. Refine plausible material finishes and details. One full product, refined studio lighting, credible joints, light visual weight. Apply only the exact supplied product and brand names.' : 'Develop a suitable silhouette, proportions, construction and interaction consistent with the concept and actual functions. One full product, refined studio lighting, plausible materials and joints. Apply only the exact supplied product and brand names.',
       'User will review the resulting appearance before it becomes the reference for all downstream drawings and packaging.',
     ],
     exploded: [

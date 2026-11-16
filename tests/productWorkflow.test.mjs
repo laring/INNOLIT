@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createServer } from 'node:http'
 import { deflateSync } from 'node:zlib'
 import { generateConceptBatch } from '../src/concepts.ts'
-import { engineeringContext, engineeringProblems, packagingContext, printResolution, sketchCell, workflowContext, workflowImagePrompt, workflowOf, selectedSketchMatches } from '../src/productWorkflow.ts'
+import { engineeringContext, engineeringProblems, packagingContext, printResolution, sketchCell, workflowContext, workflowImagePrompt, workflowOf, selectedSketchMatches, heroUsesSketch } from '../src/productWorkflow.ts'
 import { cartonGeometry, crc32, engineeringEnvelope, packagingFiles, packagingProblem, pngDensity, zipFiles } from '../src/productionFiles.ts'
 import { analyzeEngineering, engineeringInput, engineeringPrompt } from '../src/engineeringModel.ts'
 import { getProjectStudio, loadProjects } from '../src/projects.ts'
@@ -219,4 +219,28 @@ test('engineering tasks use the existing local authenticated model relay', async
   const origin = `http://127.0.0.1:${server.address().port}`
   const response = await fetch(origin + '/api/inno-lit/develop', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Authorization: 'Bearer test-only-key' }, body: JSON.stringify({ ...engineeringInput(packagedConcept(), 'dfm'), baseUrl: 'https://api.example.com', model: 'fixture-engineer' }) })
   assert.equal(response.status, 200); assert.equal(called, true)
+})
+
+
+test('product rendering supports explicit free generation without a sketch and preserves legacy sketch mode', () => {
+  const concept = newConcept()
+  assert.equal(heroUsesSketch(concept), false)
+  assert.match(workflowImagePrompt(concept, 'hero'), /No sketch or reference image is supplied/)
+  const data = workflowOf(concept)
+  concept.productWorkflow = { ...data, assets: { sheet: 'sheet1', selected: 'crop1' }, selection: 0 }
+  assert.equal(heroUsesSketch(concept), true)
+  const legacy = workflowContext(concept, 'hero')
+  assert.match(workflowImagePrompt(concept, 'hero'), /Develop ONLY that chosen design/)
+  concept.productWorkflow.heroMode = 'free'
+  assert.equal(heroUsesSketch(concept), false)
+  const free = workflowContext(concept, 'hero')
+  assert.notEqual(free, legacy)
+  concept.productWorkflow.selection = 7
+  concept.productWorkflow.assets.selected = 'crop8'
+  assert.equal(workflowContext(concept, 'hero'), free)
+  assert.doesNotMatch(workflowImagePrompt(concept, 'hero'), /Preserve its silhouette|reference is ONE selected/)
+  concept.productWorkflow.renderNotes = '增加轻盈的支撑结构'
+  assert.notEqual(workflowContext(concept, 'hero'), free)
+  concept.productWorkflow.heroMode = 'sketch'
+  assert.equal(heroUsesSketch(concept), true)
 })
