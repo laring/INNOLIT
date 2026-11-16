@@ -78,7 +78,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
   const workflowSettings = resolveWorkflowModels(workflowRouting, routing, settings, imageSettings)
   const conceptSettings = workflowSettings.conceptStudio
   const refinementSettings = workflowSettings.notes
-  const translationSettings = workflowSettings.translation
+  const engineeringSettings = workflowSettings.engineering
   const routedImageSettings = workflowSettings.visual
   const configured = hasModelSettings(conceptSettings)
   const unchanged = latest && !latest.origin && !latest.generation && !customModel && (
@@ -198,7 +198,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
             concept={selected}
             onChange={update => editConcept(selected.id, update)}
              imageSettings={routedImageSettings}
-            translationSettings={translationSettings}
+            engineeringSettings={engineeringSettings}
             workflowSettings={workflowSettings}
             imageConfiguration={imageConfigurationLabel(workflowRouting, routing, imageSettings)}
 

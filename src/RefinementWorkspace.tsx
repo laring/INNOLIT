@@ -50,7 +50,7 @@ type RefinementProps = {
 
 
 
-  translationSettings: ModelSettings
+  engineeringSettings: ModelSettings
   imageSettings: ImageSettings
 
   settings: ModelSettings
@@ -173,7 +173,7 @@ function ReportPanel({ projectName, round, roundNumber, concept, settings, onCha
   )
 }
 
-export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, translationSettings, workflowSettings, imageConfiguration }: RefinementProps) {
+export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, engineeringSettings, workflowSettings, imageConfiguration }: RefinementProps) {
   const [stage, setStage] = useState<Stage>('notes')
   const locked = Boolean(developmentOf(concept).frozen)
   const currentModel = stage === 'notes' ? workflowSettings.notes : stage === 'validation' ? workflowSettings.feasibility : stage === 'research' ? workflowSettings.originality : stage === 'optimize' ? workflowSettings.optimization : stage === 'report' ? workflowSettings.report : settings
@@ -247,7 +247,7 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}
         imageSettings={imageSettings}
         imageConfiguration={imageConfiguration}
-        modelSettings={translationSettings} 
+        modelSettings={engineeringSettings}
          />}
     </>
   )

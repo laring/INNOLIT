@@ -10,8 +10,7 @@ import { TaskModelCenter } from './TaskModelCenter'
 import type { ChatIdea, ConceptStudioState } from './concepts'
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
-import { createEmptyRouting, resolveTextModel } from './aiModelRouter'
-import type { AIModelRouting, AITask } from './aiModelRouter'
+import { createEmptyRouting } from './aiModelRouter'
 import { deleteProjectVisuals } from './visualStore'
 import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
 import type { Message } from './projects'
@@ -41,7 +40,7 @@ function App() {
   const [saveFailed, setSaveFailed] = useState(false)
   const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
   const [imageSettings, setImageSettings] = useState<ImageSettings>({ baseUrl: '', model: '', apiKey: '', protocol: 'siliconflow', size: '1024x1024' })
-  const [routing, setRouting] = useState<AIModelRouting>(createEmptyRouting)
+  const routing = createEmptyRouting()
 
   const [workflowRouting, setWorkflowRouting] =
     useState<WorkflowModelRouting>(
@@ -78,17 +77,6 @@ function resetWorkflowSettings(task: WorkflowTask) {
 }
 
   const [modelCenterOpen, setModelCenterOpen] = useState(false)
-  function editTaskSettings(task: AITask, change: Partial<ModelSettings> | Partial<ImageSettings>) {
-    setRouting(current => {
-      const previous = current[task] ?? (task === 'image' ? imageSettings : modelSettings)
-      const next = { ...previous, ...change }
-      if (next.baseUrl.trim() !== previous.baseUrl.trim()) next.apiKey = ''
-      return { ...current, [task]: next } as AIModelRouting
-    })
-  }
-  function resetTaskSettings(task: AITask) {
-    setRouting(current => ({ ...current, [task]: null }))
-  }
   const [transfer, setTransfer] = useState<{ projectId: string; idea: ChatIdea } | null>(null)
 
   const activeProject =
@@ -296,7 +284,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
                     AI 模型中心
                   </h2>
                   <p>
-                    按八个产品设计环节分别配置 AI 模型
+                    按设计环节配置文字与图片模型
                   </p>
                 </div>
 
@@ -317,8 +305,6 @@ function resetWorkflowSettings(task: WorkflowTask) {
                   defaultImage={imageSettings}
                   onDefaultTextChange={editModelSettings}
                   onDefaultImageChange={editImageSettings}
-                  onChange={editTaskSettings}
-                  onReset={resetTaskSettings}
                   workflowRouting={workflowRouting}
                   onWorkflowChange={editWorkflowSettings}
                   onWorkflowReset={resetWorkflowSettings}
@@ -373,7 +359,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
           settings={resolveWorkflowTextModel( 
             'home',
             workflowRouting,
-            resolveTextModel('concept', routing, modelSettings),
+            modelSettings,
           )}
             onOpenModelCenter={() => setModelCenterOpen(true)}
           />

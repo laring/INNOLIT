@@ -78,6 +78,7 @@ export const workflowTasks = {
   originality: '原创性检索',
   optimization: '方案优化与定稿',
   visual: '概念图与展板',
+  engineering: '六步产品设计 · 工程文字模型',
   report: '设计报告',
 } as const
 
@@ -140,6 +141,7 @@ export type WorkflowModelRouting = {
   originality: ModelSettings | null
   optimization: ModelSettings | null
   visual: ImageSettings | null
+  engineering: ModelSettings | null
   report: ModelSettings | null
 }
 
@@ -152,6 +154,7 @@ export function createEmptyWorkflowRouting(): WorkflowModelRouting {
     originality: null,
     optimization: null,
     visual: null,
+    engineering: null,
     report: null,
   }
 }
@@ -183,6 +186,7 @@ export function resolveWorkflowModels(workflow: WorkflowModelRouting, legacy: AI
     optimization: resolveWorkflowTextModel('optimization', workflow, refinement),
     report: resolveWorkflowTextModel('report', workflow, refinement),
     visual: resolveWorkflowImageModel(workflow, resolveImageModel(legacy, image)),
-    translation: resolveTextModel('translation', legacy, text),
+    engineering: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
+    translation: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
   }
 }

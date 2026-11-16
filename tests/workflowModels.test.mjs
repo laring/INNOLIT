@@ -1,3 +1,4 @@
+import { analyzeEngineering } from '../src/engineeringModel.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createServer } from 'node:http'
@@ -19,7 +20,7 @@ const image = { ...text, model: 'default-image', protocol: 'siliconflow', size: 
 const signal = () => new AbortController().signal
 const prompt = 'A quiet classroom desk product with one clear interaction and a consistent shape. No unsupported performance claims.'
 
-test('eight workflow models override legacy routes independently and clearing restores the original fallback', () => {
+test('workflow models override legacy routes independently and clearing restores the original fallback', () => {
   const legacy = { ...createEmptyRouting(), concept: { ...text, model: 'old-creative' }, refinement: { ...text, model: 'old-refinement' }, translation: { ...text, model: 'old-translation' }, image: { ...image, model: 'old-image' } }
   const workflow = createEmptyWorkflowRouting()
   const inherited = resolveWorkflowModels(workflow, legacy, text, image)
@@ -29,7 +30,8 @@ test('eight workflow models override legacy routes independently and clearing re
   for (const task of Object.keys(workflowTasks)) workflow[task] = { ...(task === 'visual' ? image : text), model: task }
   const routed = resolveWorkflowModels(workflow, legacy, text, image)
   for (const task of Object.keys(workflowTasks)) assert.equal(routed[task].model, task)
-  assert.equal(routed.translation.model, 'old-translation')
+  assert.equal(routed.engineering.model, 'engineering')
+  assert.equal(routed.translation.model, 'engineering')
   workflow.feasibility = null
   assert.equal(resolveWorkflowModels(workflow, legacy, text, image).feasibility.model, 'old-refinement')
   assert.equal(legacy.refinement.model, 'old-refinement')
@@ -64,7 +66,7 @@ test('visual translation works on drafts and optimized concepts, validates field
   assert.throws(() => visualTranslationPrompt(frozenVisualInput({ ...frozen, identity: { ...frozen.identity, shape: '' } }, 'board', 1600, 1000), 'test-model'), /缺少 shape/)
 })
 
-test('all eight selected models reach their actual clients, with optional freeze and editable report provenance', async context => {
+test('all selected workflow models reach their actual clients, with optional freeze and editable report provenance', async context => {
   const workflow = createEmptyWorkflowRouting()
   for (const task of Object.keys(workflowTasks)) workflow[task] = { ...(task === 'visual' ? image : text), model: `route-${task}` }
   const models = resolveWorkflowModels(workflow, createEmptyRouting(), text, image)
@@ -80,6 +82,7 @@ test('all eight selected models reach their actual clients, with optional freeze
     if (path === modelChatPath) return Response.json({ content: '测试创意' })
     if (path === modelGenerationPath) data = { concepts: round.concepts.map(item => ({ title: item.title, format: item.format, ...item.sentences })) }
     else if (input.stage === 'report') data = { report: '根据现有记录整理；尚未实测，检索与冻结均未完成。' }
+    else if (input.stage === 'product-engineering') data = { analysis: '测试工程分析，尚未校核。', draft: '待人工修正的工程建议。', missing: ['真实工程文件'] }
     else if (input.stage === 'visual-translation') data = { prompt }
     else data = responseFor(input.stage, input)
     return Response.json({ content: JSON.stringify(data) })
@@ -94,13 +97,14 @@ test('all eight selected models reach their actual clients, with optional freeze
   concept.development = { ...developmentOf(concept), final: optimized.final, identity: optimized.identity }
   await translateVisualWithAI(visualConceptOf(concept), 'concept', 1600, 1000, models.translation, signal())
   await generateConceptImage(models.visual, prompt, signal(), { purpose: 'concept' })
+  await analyzeEngineering(concept, 'pcb', models.engineering, signal())
   const report = await draftDesignReport('项目', round, 1, concept, models.report, signal())
   assert.match(report.text, /尚未实测/)
   assert.equal(report.source.model, 'route-report')
   assert.equal(report.contextKey, reportContext(concept))
   concept.notes += '人工新记录'
   assert.notEqual(report.contextKey, reportContext(concept))
-  assert.deepEqual(seen, ['route-home', 'route-conceptStudio', 'route-notes', 'route-feasibility', 'route-originality', 'route-optimization', 'default-text', 'route-visual', 'route-report'])
+  assert.deepEqual(seen, ['route-home', 'route-conceptStudio', 'route-notes', 'route-feasibility', 'route-originality', 'route-optimization', 'route-engineering', 'route-visual', 'route-engineering', 'route-report'])
 })
 
 test('local model relay accepts draft visual translation and report tasks without a frozen snapshot', async context => {

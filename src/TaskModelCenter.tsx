@@ -2,11 +2,10 @@
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { imageSizes } from './imageGeneration'
-import { aiTasks, workflowTasks, resolveWorkflowModels } from './aiModelRouter'
+import { workflowTasks, resolveWorkflowModels } from './aiModelRouter'
 import { imageConfigurationLabel } from './imageConfiguration'
 import type {
   AIModelRouting,
-  AITask,
   WorkflowModelRouting,
   WorkflowTask,
 } from './aiModelRouter'
@@ -17,12 +16,6 @@ type Props = {
   defaultImage: ImageSettings
   onDefaultTextChange: (change: Partial<ModelSettings>) => void
   onDefaultImageChange: (change: Partial<ImageSettings>) => void
-  onChange: (
-    task: AITask,
-    change: Partial<ModelSettings> | Partial<ImageSettings>,
-  ) => void
-  onReset: (task: AITask) => void
-
   workflowRouting: WorkflowModelRouting
   onWorkflowChange: (
     task: WorkflowTask,
@@ -105,7 +98,6 @@ const imageProviders: ProviderPreset[] = [
   },
 ]
 
-const tasks = Object.keys(aiTasks) as AITask[]
 
 function normalizeUrl(url: string): string {
   return url.trim().replace(/\/+$/, '')
@@ -319,7 +311,7 @@ function ImageExtraFields({
           ))}
         </select>
       </label>
-      {settings.protocol === 'openrouter' && <p className="studio-hint">OpenRouter 使用所选模型的默认原图尺寸，避免附加不兼容的尺寸参数。导出尺寸在排版页面设置。</p>}
+      {settings.protocol === 'openrouter' && <p className="studio-hint">OpenRouter 使用所选模型的默认原图尺寸，避免附加不兼容的尺寸参数。导出尺寸在六步设计的各步骤中设置。</p>}
     </>
   )
 }
@@ -330,8 +322,6 @@ export function TaskModelCenter({
   defaultImage,
   onDefaultTextChange,
   onDefaultImageChange,
-  onChange,
-  onReset,
   workflowRouting,
   onWorkflowChange,
   onWorkflowReset,
@@ -342,7 +332,7 @@ export function TaskModelCenter({
       <p className="studio-hint" role="status">当前实际图片配置：{imageConfigurationLabel(workflowRouting, routing, defaultImage)}</p>
       <p>
         在此统一管理 AI 模型。
-        八个设计环节可独立配置；未单独配置时继承原有任务或默认模型。
+        各设计环节可独立配置；未单独配置时继承默认模型。
         API Key 只保留在本次页面会话中。
       </p>
 
@@ -352,7 +342,7 @@ export function TaskModelCenter({
         </legend>
 
         <p className="studio-hint">
-          创意生成、方案深化和视觉提示词生成，
+          创意对话、概念生成、方案深化及六步工程分析，
           默认继承此处的文本模型。
         </p>
 
@@ -385,104 +375,23 @@ export function TaskModelCenter({
 
       {(Object.keys(workflowTasks) as WorkflowTask[]).map(task => {
         const image = task === 'visual'
-        const dedicated = workflowRouting[task] !== null
+        const dedicated = Boolean(workflowRouting[task])
         const active = models[task]
         return <fieldset key={task} className="global-model-defaults">
           <legend><strong>{workflowTasks[task]}</strong></legend>
           <label>配置方式<select aria-label={`${workflowTasks[task]} 配置方式`} value={dedicated ? 'dedicated' : 'fallback'} onChange={event => {
             if (event.target.value === 'fallback') onWorkflowReset(task)
             else onWorkflowChange(task, { ...active })
-          }}><option value="fallback">继承原有或默认配置</option><option value="dedicated">独立模型</option></select></label>
+          }}><option value="fallback">继承默认配置</option><option value="dedicated">独立模型</option></select></label>
           {dedicated && <>
             <CommonModelFields settings={active} image={image} onChange={change => onWorkflowChange(task, change)} />
             {image && <ImageExtraFields settings={active as ImageSettings} onChange={change => onWorkflowChange(task, change)} />}
           </>}
           <p className="studio-hint">当前模型：{active.model || '未配置'}{dedicated ? '（独立配置）' : '（继承配置）'}</p>
-          {image && <p className="studio-hint">专业流程的视觉转译文字模型在下方原有任务配置中管理。</p>}
+          {image && <p className="studio-hint">用于六步产品设计的草图、产品效果图、PCB 示意、爆炸图与包装生图。</p>}
+          {task === 'engineering' && <p className="studio-hint">用于六步设计中的功能与 CMF、PCB、结构、DFM 和包装文字分析，不用于图片生成。</p>}
         </fieldset>
       })}
-      <details><summary>原有四类任务与视觉转译配置</summary>
-      {tasks.map(task => {
-        const isImage = task === 'image'
-        const dedicated = routing[task] !== null
-
-        const fallback = isImage
-          ? defaultImage
-          : defaultText
-
-        const active = routing[task] ?? fallback
-
-        return (
-          <fieldset
-            key={task}
-            style={{
-              border: '1px solid #ddd',
-              borderRadius: 8,
-              padding: 12,
-              marginBottom: 12,
-            }}
-          >
-            <legend>
-              <strong>{aiTasks[task]}</strong>
-            </legend>
-
-            <label>
-              配置方式
-              <select
-                value={
-                  dedicated ? 'dedicated' : 'fallback'
-                }
-                onChange={event => {
-                  if (
-                    event.target.value === 'fallback'
-                  ) {
-                    onReset(task)
-                  } else {
-                    onChange(task, { ...fallback })
-                  }
-                }}
-              >
-                <option value="fallback">
-                  继承默认配置
-                </option>
-                <option value="dedicated">
-                  独立模型
-                </option>
-              </select>
-            </label>
-
-            {dedicated && (
-              <>
-                <CommonModelFields
-                  settings={active}
-                  image={isImage}
-                  onChange={change =>
-                    onChange(task, change)
-                  }
-                />
-
-                {isImage && (
-                  <ImageExtraFields
-                    settings={active as ImageSettings}
-                    onChange={change =>
-                      onChange(task, change)
-                    }
-                  />
-                )}
-              </>
-            )}
-
-            <p className="studio-hint">
-              当前模型：
-              {active.model || '未配置'}
-              {dedicated
-                ? '（独立配置）'
-                : '（继承默认配置）'}
-            </p>
-          </fieldset>
-        )
-      })}
-      </details>
 
       <p className="studio-hint">
         当前仅支持现有后端兼容的云端接口。
