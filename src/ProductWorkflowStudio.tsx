@@ -74,7 +74,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   function imageActions(role: 'sheet' | 'hero' | 'exploded' | 'package', label: string, ready = true) {
     return <div className="studio-actions">
       <button type="button" className="studio-button primary" disabled={pending || loading || !ready || !configured || !referenceSupported && !(role === 'sheet' && !data.assets.style)} onClick={() => generate(role)}>{label}</button>
-      <label className="studio-button visual-upload">上传{role === 'sheet' ? '十款草图' : role === 'hero' ? '产品效果图' : role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>
+      {role !== 'sheet' && <label className="studio-button visual-upload">上传{role === 'hero' ? '产品效果图' : role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
     </div>
   }
   const filename = (record: SavedVisual) => `INNO-LIT-${record.workflowKind ?? '参考图'}.${record.blob.type === 'image/jpeg' ? 'jpg' : record.blob.type === 'image/webp' ? 'webp' : 'png'}`
@@ -99,16 +99,18 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     <p className="studio-hint" role="status">{notice || loadError || (configured ? `图片模型：${imageSettings.model}；工程文字模型：${modelSettings.model || '未配置'}` : '请在顶部 AI 模型中心配置图片模型，或上传已有图片。')}</p>
     {pending && <button type="button" className="studio-button" onClick={cancel}>取消当前操作</button>}
     {active === 'sketches' && <>
-      <p>在一幅图中探索十个不同方案。可选内置风格参考图，或上传自己的风格图片；参考用于绘图风格，不要求抄用其产品造型。</p>
+      <p>由 AI 自动生成 10 款不同的产品设计草图，再从中选择一款深化。选择下方内置风格即可生成，无需上传草图；你也可以额外上传 1 张风格参考图，仅用于参考画风。</p>
       <div className="workflow-style-grid">{(Object.keys(styleDirections) as StyleDirection[]).map(style => <button type="button" key={style} className="workflow-style-card" aria-pressed={data.style === style && !data.assets.style} disabled={pending} onClick={() => edit(current => ({ ...current, style, assets: { ...current.assets, style: undefined } }))}><svg viewBox="0 0 200 100" aria-hidden="true"><rect width="200" height="100" fill="#f4f5f0"/><path d={style === 'organic' ? 'M40 70Q5 20 100 20T150 70Q100 100 40 70' : 'M35 75L55 25L150 20L165 65Z'} fill={styleDirections[style].color + '35'} stroke={styleDirections[style].color} strokeWidth={style === 'minimal' ? 1 : 3}/><path d="M25 85L175 75" stroke={styleDirections[style].color}/></svg><span>{styleDirections[style].name}</span></button>)}</div>
-      <label className="studio-button visual-upload">上传风格参考图<input type="file" aria-label="上传风格参考图" accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload('style', file) }} /></label>
+      <details><summary>使用自己的风格参考图（可选，1 张）</summary><p className="studio-hint">这张图只作为画风参考。10 款产品草图仍由 AI 生成；使用内置风格时无需上传任何图片。</p><label className="studio-button visual-upload">上传 1 张风格参考图<input type="file" aria-label="上传风格参考图" accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload('style', file) }} /></label>
       {asset('style') && imagePreview('style', '风格参考图')}
-      {imageActions('sheet', '生成一图十款草图')}
+      {data.assets.style && <button type="button" className="studio-button" disabled={pending} onClick={() => edit(current => ({ ...current, assets: { ...current.assets, style: undefined } }))}>取消参考图，使用内置风格</button>}</details>
+      {imageActions('sheet', 'AI 生成 10 款设计草图')}
+      <p className="studio-hint">生成结果按 2×5 汇总展示，点击 01–10 选定其中一款。</p>
       {asset('sheet') ? <><div className="workflow-sketch-sheet"><ProductImage key={asset('sheet')!.id} record={asset('sheet')!} label="十款设计草图" /><div className="workflow-sketch-grid">{Array.from({ length: 10 }, (_, index) => <button type="button" key={index} disabled={pending || !current('sheet')} aria-label={`选择草图 ${String(index + 1).padStart(2, '0')}`} aria-pressed={data.selection === index} onClick={() => {
         const selectedConcept = { ...concept, productWorkflow: { ...data, selection: index } }
         void run(async signal => storeImage('selected', await selectedSketch(asset('sheet')!.blob, index), { kind: 'upload' }, `从十款图中提取 ${index + 1}`, workflowContext(selectedConcept, 'selected'), signal), record => adoptAsset('selected', record, index), `已选草图 ${String(index + 1).padStart(2, '0')}。可进入第二步。`)
       }}><span>{String(index + 1).padStart(2, '0')}</span></button>)}</div></div><p className="studio-hint">按 2×5 网格点击选款。若模型未严格分格，可上传已单独截取的草图替换。</p></> : imagePreview('sheet', '十款草图')}
-      <label className="studio-button visual-upload">上传单款草图<input type="file" aria-label="上传单款草图" accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload('selected', file) }} /></label>
+      <details><summary>手动替换选定草图（可选）</summary><label className="studio-button visual-upload">上传单款草图<input type="file" aria-label="上传单款草图" accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload('selected', file) }} /></label></details>
       {asset('selected') && imagePreview('selected', '选定的草图')}
     </>}
     {active === 'render' && <><p>只深化选定草图，强调前沿风格、轻盈造型、人文与情感价值。功能、绿色制造和原创性是待验证的设计目标；不能自动变成产品声明。</p>
