@@ -33,7 +33,7 @@ test('image requests require a real reference for derivative entries and never s
   const reference = 'data:image/png;base64,iVBORw0KGgo='
   assert.throws(() => imageRequest({ ...settings, purpose: 'portrait' }), /必须携带/)
   assert.throws(() => imageRequest({ ...settings, model: 'Qwen/Qwen-Image-Edit-2509' }), /需要.*(?:母版|参考).*图/)
-  assert.throws(() => imageRequest({ ...settings, purpose: 'poster', reference }), /Qwen Image Edit/)
+  assert.throws(() => imageRequest({ ...settings, purpose: 'poster', reference }), /参考图输入/)
   assert.equal(supportsImageReference(settings), false)
   const edited = imageRequest({ ...settings, model: 'Qwen/Qwen-Image-Edit-2509', purpose: 'landscape', reference })
   assert.equal(edited.payload.image, reference)

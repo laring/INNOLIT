@@ -4,6 +4,8 @@
 
 ## 自配模型
 
+OpenRouter 图片通道已接入参考图：查询 `/images/models` 的输入能力，再将原图通过 `input_references` 发送到 `/images`，不再整体禁止 OpenRouter，也不再限制为单个 Recraft 模型。具体模型仍须支持图片输入；能文生图不等于能读取参考图。不会自动切换模型或丢弃参考图。参见 [OpenRouter 官方参考图接口](https://openrouter.ai/docs/guides/overview/multimodal/image-generation#image-to-image-reference-images)。
+
 图片配置的生效顺序为「概念图与展板独立配置 → 原有图像生成任务 → 默认图像模型」，每一层使用完整的地址、协议、模型和密钥，不拼接其他层的密钥。配置中心与概念图页面共用同一份生效摘要。SiliconFlow、Images 兼容、OpenAI、OpenRouter 均发送当前配置的密钥到本机转发服务，且只放在 Authorization 请求头中；转发优先使用该密钥。原有 OpenAI／OpenRouter 环境变量仅保留给旧调用兼容，不再要求页面配置另存服务器密钥。更换服务地址会清空旧服务密钥；刷新后全部模型密钥仍会清除。
 
 在本地开发服务或构建预览中，打开顶部「AI 模型中心」，填写服务的 HTTPS API 地址、模型 ID 和自己的密钥；各任务可以覆盖默认模型。创意对话使用 Chat Completions，Concept Studio 另需 JSON 输出支持。DeepSeek 示例使用 `https://api.deepseek.com` 和 `deepseek-flash`。

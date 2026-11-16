@@ -15,7 +15,7 @@ export type VisualSource = { kind: 'local' } | { kind: 'upload' } | { kind: 'mod
 export function supportsImageReference(
   settings: Pick<ImageSettings, 'protocol' | 'model'>,
 ) : boolean {
-  if (settings.protocol === 'openai') {
+  if (settings.protocol === 'openai' || settings.protocol === 'openrouter') {
     return true
   }
 
@@ -64,17 +64,7 @@ if (data.protocol === 'openrouter') {
     throw new Error('OpenRouter API 地址不正确。')
   }
 
-  if (data.reference) {
-    throw new Error(
-      '当前 Recraft 模型不支持参考图编辑，请使用文生图创建母版。'
-    )
-  }
 
-  if (data.purpose && data.purpose !== 'master') {
-    throw new Error(
-      '当前 Recraft 模型仅用于生成产品母版。'
-    )
-  }
 }
 
 
@@ -93,7 +83,7 @@ if (data.protocol === 'openrouter') {
   if (reference !== undefined && (typeof reference !== 'string' || reference.length > imageByteLimit * 1.4
     || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/u.test(reference))) throw new Error('产品母版参考图格式无效。')
   if (reference && !supportsImageReference({ protocol: data.protocol as ImageSettings['protocol'], model: data.model })) {
-    throw new Error('延展图片需使用支持母版参考的 Qwen Image Edit 接口；Kolors 可用于制作产品母版。')
+    throw new Error('当前接口尚未接入参考图输入。请核对接口协议或选择支持参考图的图像编辑模型。')
   }
 
   const requiresReference =

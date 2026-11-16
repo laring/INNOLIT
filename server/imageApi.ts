@@ -166,6 +166,7 @@ export function imageApi(
             model: String(input.model),
             prompt: String(input.prompt),
             size: String(input.size),
+            ...(typeof input.reference === 'string' ? { reference: input.reference } : {}),
           },
           key,
           signal,
