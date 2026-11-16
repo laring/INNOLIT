@@ -1,3 +1,5 @@
+import { safeImageFailure, imageConnectionMessage, ImageConnectionError } from './imageConnection.ts'
+import type { ImageRequestStage } from './imageConnection.ts'
 import { generateOpenRouterImage } from './openrouterImageAdapter.ts'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
@@ -65,7 +67,12 @@ async function imageBytes(
   }
 
   const url = new URL(first.url)
-  const result = await download(url, signal)
+  let result: Awaited<ReturnType<DownloadImage>>
+  try { result = await download(url, signal) } catch (error) {
+    const message = imageConnectionMessage(error, url, '下载生成结果', signal)
+    if (message) throw new ImageConnectionError(message)
+    throw error
+  }
 
   if (result.status < 200 || result.status >= 300) {
     throw new Error('图片下载失败。')
@@ -146,7 +153,7 @@ export function imageApi(
 
     if (!key) {
       return send(response, 400, {
-        error: '当前图片请求没有有效密钥。请在 AI 模型中心检查「概念图与展板」的生效配置（独立配置优先，其次原有图像任务，最后默认图像模型）。',
+        error: '当前图片请求没有有效密钥。请在 AI 模型中心检查「概念图与展板」的生效配置（独立配置优先，其次默认图像模型）。',
       })
     }
 
@@ -158,6 +165,7 @@ export function imageApi(
       AbortSignal.timeout(120000),
     ])
 
+    let requestStage: ImageRequestStage = '请求模型绘图'
     try {
       let bytes: Uint8Array
       if (isOpenRouter) {
@@ -202,6 +210,7 @@ export function imageApi(
           })
         }
 
+        requestStage = '下载生成结果'
         bytes = await imageBytes(
           result.data,
           signal,
@@ -227,10 +236,7 @@ export function imageApi(
       if (response.destroyed) return
 
       return send(response, 502, {
-        error:
-          error instanceof Error
-            ? error.message
-            : '概念图生成失败。',
+        error: safeImageFailure(error, spec.url, requestStage, key, signal),
       })
     }
   }

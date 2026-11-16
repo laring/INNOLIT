@@ -1,3 +1,4 @@
+import { fetchImageService } from './imageConnection.ts'
 
 import { imageByteLimit, imageMime } from '../src/imageGeneration.ts'
 
@@ -90,13 +91,13 @@ export async function generateOpenAIImage(
     }
   }
 
-  const response = await fetch(endpoint, {
+  const response = await fetchImageService(endpoint, {
     method: 'POST',
     headers,
     body,
     signal,
     redirect: 'error',
-  })
+  }, '请求模型绘图')
 
   if (!response.ok) {
     throw new Error(

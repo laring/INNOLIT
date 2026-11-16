@@ -138,7 +138,8 @@ export async function generateConceptImage(
   headers.Authorization = `Bearer ${apiKey.trim()}`
 
   // 4. 调用 INNO LIT 本地服务端
-  const response = await fetch(imageGenerationPath, {
+  let response: Response
+  try { response = await fetch(imageGenerationPath, {
     method: 'POST',
     headers,
     credentials: 'omit',
@@ -150,7 +151,10 @@ export async function generateConceptImage(
       prompt,
       ...options,
     }),
-  })
+  }) } catch (error) {
+    if (signal.aborted) throw error
+    throw new Error('页面无法连接本机图片转发服务。请确认本地演示服务仍在运行，并从该服务地址打开页面；本次未自动重试。')
+  }
 
   // 5. 处理服务端错误
   if (!response.ok) {

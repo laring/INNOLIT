@@ -1,3 +1,4 @@
+import { fetchImageService } from './imageConnection.ts'
 
 import { imageByteLimit, imageMime } from '../src/imageGeneration.ts'
 
@@ -14,7 +15,7 @@ export async function generateOpenRouterImage(
   signal: AbortSignal,
 ): Promise<Uint8Array> {
   if (input.reference) {
-    const metadata = await fetch('https://openrouter.ai/api/v1/images/models', { headers: { Authorization: `Bearer ${apiKey}` }, signal, redirect: 'error', cache: 'no-store' })
+    const metadata = await fetchImageService('https://openrouter.ai/api/v1/images/models', { headers: { Authorization: `Bearer ${apiKey}` }, signal, redirect: 'error', cache: 'no-store' }, '查询参考图能力')
     if (!metadata.ok) throw new Error('OpenRouter 图片模型能力查询暂时失败，请稍后重试。')
     const catalog = await metadata.json() as { data?: Array<{ id?: string; architecture?: { input_modalities?: string[]; output_modalities?: string[] } }> }
     if (!Array.isArray(catalog.data)) throw new Error('OpenRouter 返回的模型能力目录无效，请稍后重试。')
@@ -22,7 +23,7 @@ export async function generateOpenRouterImage(
     if (entry && !entry.architecture?.input_modalities?.includes('image')) throw new Error(`OpenRouter 的 ${input.model} 支持绘图，但服务商登记它不接收参考图片。请在模型中心选择同时支持图片输入和输出的模型。`)
   }
 
-  const response = await fetch(
+  const response = await fetchImageService(
     'https://openrouter.ai/api/v1/images',
     {
       method: 'POST',
@@ -38,6 +39,7 @@ export async function generateOpenRouterImage(
       signal,
       redirect: 'error',
     },
+    '请求模型绘图',
   )
 
   if (!response.ok) {
