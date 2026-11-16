@@ -321,7 +321,7 @@ export function SimpleVisualGenerator({
     }
 
     if (
-      (settings.protocol !== 'openai' && !settings.apiKey.trim()) ||
+      !settings.apiKey.trim() ||
       !settings.baseUrl.trim() ||
       !settings.model.trim()
     ) {

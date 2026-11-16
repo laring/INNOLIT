@@ -3,6 +3,7 @@ import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { imageSizes } from './imageGeneration'
 import { aiTasks, workflowTasks, resolveWorkflowModels } from './aiModelRouter'
+import { imageConfigurationLabel } from './imageConfiguration'
 import type {
   AIModelRouting,
   AITask,
@@ -77,7 +78,7 @@ const imageProviders: ProviderPreset[] = [
     id: 'siliconflow',
     name: '硅基流动 SiliconFlow',
     baseUrl: 'https://api.siliconflow.cn/v1',
-    models: [],
+    models: ['Kwai-Kolors/Kolors', 'Qwen/Qwen-Image-Edit-2509'],
   },
 
 
@@ -152,7 +153,7 @@ function CommonModelFields({
     if (selected.id === 'custom') {
       // Preserve the current model ID and API Key.
       // Only switch the endpoint to custom mode.
-      onChange({ baseUrl: '' })
+      onChange({ baseUrl: '', ...(image ? { protocol: 'images' as const } : {}) })
       return
     }
 
@@ -238,7 +239,7 @@ function CommonModelFields({
         />
       </label>
 
-      {!(image && 'protocol' in settings && settings.protocol === 'openai') && (
+      {(
         <label>
           API Key
           <input
@@ -253,11 +254,6 @@ function CommonModelFields({
         </label>
       )}
 
-      {image && 'protocol' in settings && settings.protocol === 'openai' && (
-        <p className="studio-hint">
-          OpenAI API Key 由本地服务端环境变量 OPENAI_API_KEY 提供。
-        </p>
-      )}
     </>
   )
 }
@@ -341,6 +337,7 @@ export function TaskModelCenter({
   const models = resolveWorkflowModels(workflowRouting, routing, defaultText, defaultImage)
   return (
     <div className="model-settings">
+      <p className="studio-hint" role="status">当前实际图片配置：{imageConfigurationLabel(workflowRouting, routing, defaultImage)}</p>
       <p>
         在此统一管理 AI 模型。
         八个设计环节可独立配置；未单独配置时继承原有任务或默认模型。

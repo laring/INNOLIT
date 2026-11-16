@@ -32,6 +32,14 @@ type DownloadImage = (
   signal: AbortSignal,
 ) => Promise<{ status: number; bytes: Uint8Array }>
 
+export function imageServiceKey(protocol: string, authorization: string | undefined, environment: Record<string, string | undefined> = process.env) {
+  const browserKey = authorization?.match(/^Bearer ([!-~]{1,2048})$/u)?.[1]
+  if (browserKey) return browserKey
+  if (protocol === 'openai') return environment.OPENAI_API_KEY?.trim() || undefined
+  if (protocol === 'openrouter') return environment.OPENROUTER_API_KEY?.trim() || undefined
+  return undefined
+}
+
 async function imageBytes(
   data: unknown,
   signal: AbortSignal,
@@ -133,22 +141,12 @@ export function imageApi(
 
     const isOpenAI = input.protocol === 'openai'
 
-    const browserKey = request.headers.authorization
-      ?.match(/^Bearer ([!-~]{1,2048})$/u)?.[1]
-
     const isOpenRouter = input.protocol === 'openrouter'
-
-    const key = isOpenRouter
-      ? process.env.OPENROUTER_API_KEY?.trim()
-      : isOpenAI
-        ? process.env.OPENAI_API_KEY?.trim()
-        : browserKey
+    const key = imageServiceKey(String(input.protocol), request.headers.authorization)
 
     if (!key) {
       return send(response, 400, {
-        error: isOpenAI
-          ? '服务器尚未配置 OPENAI_API_KEY。'
-          : '请填写图片服务的 API 密钥。',
+        error: '当前图片请求没有有效密钥。请在 AI 模型中心检查「概念图与展板」的生效配置（独立配置优先，其次原有图像任务，最后默认图像模型）。',
       })
     }
 

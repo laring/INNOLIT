@@ -27,6 +27,7 @@ type VisualProps = {
   roundNumber: number
   concept: Concept
   imageSettings: ImageSettings
+  imageConfiguration: string
   modelSettings: ModelSettings
   onChange: (
     update: (current: Concept) => Concept,
@@ -386,6 +387,7 @@ function AdvancedVisualStudio({
 export function VisualStudio(props: VisualProps) {
   const [mode, setMode] = useState<'workflow' | 'layout' | 'advanced'>('workflow')
   return <>
+    <p className="studio-hint" role="status">当前实际图片配置：{props.imageConfiguration}（与顶部 AI 模型中心同步）</p>
     <nav className="studio-actions" aria-label="概念图工作方式">
       <button type="button" className="studio-button" aria-pressed={mode === 'workflow'} onClick={() => setMode('workflow')}>五步产品设计</button>
       <button type="button" className="studio-button" aria-pressed={mode === 'layout'} onClick={() => setMode('layout')}>自由排版与三图</button>

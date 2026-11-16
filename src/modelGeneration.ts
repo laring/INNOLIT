@@ -15,26 +15,8 @@ export function canUseCustomModel(hostname: string): boolean {
 
 
 export function hasModelSettings(settings: ModelSettings): boolean {
-  const imageSettings = settings as ModelSettings & {
-    protocol?: string
-  }
-
-  // OpenAI 图像模型使用服务端 API Key
-  if (imageSettings.protocol === 'openai') {
-    return Boolean(
-      settings.baseUrl.trim() &&
-      settings.model.trim()
-    )
-  }
-
-  // 原有文本模型和其他图像服务商保持原有校验
-  return Boolean(
-    settings.baseUrl.trim() &&
-    settings.model.trim() &&
-    settings.apiKey.trim()
-  )
+  return Boolean(settings.baseUrl.trim() && settings.model.trim() && /^[!-~]{1,2048}$/u.test(settings.apiKey.trim()))
 }
-
 
 export const conceptContentFields = ['idea', 'interaction', 'difference', 'value', 'risk', 'test'] as const
 const modelFields = ['title', 'format', ...conceptContentFields] as const

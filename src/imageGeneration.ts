@@ -83,6 +83,7 @@ if (data.protocol === 'openrouter') {
   data.protocol === 'openai'
     ? new URL('https://api.openai.com/v1/images/generations')
     : providerUrl(data.baseUrl, '/images/generations')
+  if (data.protocol === 'openai' && providerUrl(data.baseUrl, '/images/generations').href !== url.href) throw new Error('OpenAI 协议请使用官方 API 地址；自定义服务请选择 Images 兼容接口。')
 
   const size = data.size as string
   const purpose = data.purpose ?? 'master'
@@ -143,14 +144,8 @@ export async function generateConceptImage(
     'Content-Type': 'application/json',
   }
 
-  // OpenAI 使用服务器端 OPENAI_API_KEY
-  // 原有模型继续使用浏览器配置的 API Key
-  if (
-  settings.protocol !== 'openai' &&
-  settings.protocol !== 'openrouter'
-) {
-    headers.Authorization = `Bearer ${apiKey.trim()}`
-  }
+  if (!/^[!-~]{1,2048}$/u.test(apiKey.trim())) throw new Error('请在 AI 模型中心为当前图片配置填写有效的 API 密钥。')
+  headers.Authorization = `Bearer ${apiKey.trim()}`
 
   // 4. 调用 INNO LIT 本地服务端
   const response = await fetch(imageGenerationPath, {

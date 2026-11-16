@@ -14,6 +14,7 @@ import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelG
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { resolveWorkflowModels } from './aiModelRouter'
+import { imageConfigurationLabel } from './imageConfiguration'
 import type { AIModelRouting, WorkflowModelRouting } from './aiModelRouter'
 import { ModelControls } from './ModelControls'
 import { ChatConceptImport } from './ChatConceptImport'
@@ -199,6 +200,7 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
              imageSettings={routedImageSettings}
             translationSettings={translationSettings}
             workflowSettings={workflowSettings}
+            imageConfiguration={imageConfigurationLabel(workflowRouting, routing, imageSettings)}
 
 
 
