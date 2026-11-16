@@ -1,3 +1,5 @@
+import { emptyPcb } from './pcbDrawing.ts'
+import type { PcbSpec } from './pcbDrawing.ts'
 import type { PageLayout } from './visualStudioTypes.ts'
 import type { Concept } from './concepts.ts'
 import { visualSubjectOf } from './conceptVisuals.ts'
@@ -5,12 +7,13 @@ import { visualSubjectOf } from './conceptVisuals.ts'
 export const productStages = {
   sketches: { title: '十款设计草图', role: '资深工业设计师' },
   render: { title: '产品效果图（草图可选）', role: '资深工业设计师' },
+  pcb: { title: '二维 PCB 工程图', role: '资深电子工程师' },
   structure: { title: '结构爆炸图', role: '资深结构、模具工程师' },
   tooling: { title: '注塑模具与 DFM', role: '资深结构与注塑模具工程师' },
   packaging: { title: '品牌与包装打样', role: '资深品牌视觉传达设计师' },
 } as const
 export type ProductStage = keyof typeof productStages
-export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'exploded' | 'package'
+export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'pcb' | 'exploded' | 'package'
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
 export type ProductWorkflow = {
   outputSizes?: Partial<Record<ProductStage, { layout: PageLayout; width: number; height: number }>>
@@ -27,6 +30,8 @@ export type ProductWorkflow = {
   selection?: number
   confirmedHero?: string
   components: string
+  pcb: PcbSpec
+  pcbPrintWidth?: number
   printWidth: number
   engineering: { length: number; width: number; height: number; material: string; wall: number; shrinkage: string; tolerance: string; cavities: number; notes: string; files: EngineeringFile[]; review: string; reviewer: string; confirmedContext?: string }
   packaging: { length: number; width: number; height: number; glue: number; flap: number; bleed: number; stock: string; copy: string; notes: string; reviewer: string; confirmedContext?: string }
@@ -38,11 +43,11 @@ export function workflowOf(concept: Concept): ProductWorkflow {
   const defaults: ProductWorkflow = {
     stage: 'sketches', productName: subject.title, brand: '', brandColor: '#193c32', functions: subject.sentences.interaction,
     direction: '时尚、前卫、年轻、轻盈、独特的太空风格；重视独创、绿色制造、情感、人文、美学、社会与环境责任。', renderNotes: '',
-    assets: {}, components: '', printWidth: 80,
+    assets: {}, components: '', printWidth: 80, pcb: { ...emptyPcb },
     engineering: { length: 0, width: 0, height: 0, material: '', wall: 0, shrinkage: '', tolerance: '', cavities: 1, notes: '', files: [], review: '', reviewer: '' },
     packaging: { length: 0, width: 0, height: 0, glue: 15, flap: 20, bleed: 3, stock: '', copy: '', notes: '', reviewer: '' },
   }
-  return { ...defaults, ...saved, assets: { ...saved?.assets }, engineering: { ...defaults.engineering, ...saved?.engineering }, packaging: { ...defaults.packaging, ...saved?.packaging } }
+  return { ...defaults, ...saved, assets: { ...saved?.assets }, pcb: { ...emptyPcb, ...saved?.pcb }, engineering: { ...defaults.engineering, ...saved?.engineering }, packaging: { ...defaults.packaging, ...saved?.packaging } }
 }
 
 export function heroUsesSketch(concept: Concept): boolean {
@@ -57,6 +62,7 @@ export function workflowContext(concept: Concept, step: ProductAsset): string {
   if (step === 'sheet') return JSON.stringify({ ...common, styleImage: data.assets.style })
   if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection })
   if (step === 'hero') return JSON.stringify(heroUsesSketch(concept) ? { ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes } : { ...common, mode: 'free', renderNotes: data.renderNotes })
+  if (step === 'pcb') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), pcb: { ...data.pcb, analysis: undefined } })
   if (step === 'exploded') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), components: data.components, engineering: { ...data.engineering, files: undefined, review: undefined, reviewer: undefined, confirmedContext: undefined } })
   if (step === 'package') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), packaging: packagingContext(data) })
   return ''
@@ -80,9 +86,22 @@ export function packagingContext(data: ProductWorkflow) {
   return JSON.stringify({ name: data.productName, brand: data.brand, brandColor: data.brandColor, hero: data.assets.hero, spec })
 }
 
-export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | 'exploded' | 'package') {
+export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | 'pcb' | 'exploded' | 'package') {
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
+  if (step === 'pcb') {
+    const prompt = [
+    'ROLE: Senior electronics engineer. Generate a strictly orthographic TWO-DIMENSIONAL PCB top-view engineering assembly drawing. Vector-style technical linework, BLACK LINES ONLY on pure WHITE background. Absolutely NO 3D, perspective, shadows, gradients, photorealism, product hero rendering or decorative space-age styling.',
+    `PRODUCT: ${data.productName}; exact brand/name: ${data.brand}. FUNCTIONS: ${data.functions}.`,
+    'The reference is the approved exterior product, used ONLY to maintain product identity, enclosure interfaces and plausible PCB fit. It is NOT an existing PCB, schematic, netlist or measured interior. Do not redraw the exterior product as the PCB. Do not invent verified circuit connections or manufacturing readiness.',
+    'Show PCB outline and supplied dimensions/tolerances, separately identify PTH plated through holes and NPTH non-plated holes, pads, supplied TOP-layer traces, silkscreen reference designators and component polarity. Use different line weights for outline, copper, silkscreen and dimension lines, tidy leaders and no overlapping callouts. Equal X/Y scale, top orthographic projection only.',
+    'Place a clean engineering title block in the BOTTOM RIGHT with drawing number, revision, board thickness, copper thickness, surface finish and designer. Use only supplied values; unknown values must say TO BE CONFIRMED. Do not fabricate dimensions, tolerances, pads, tracks, component values or electrical validation.',
+    'High native resolution, legible fine linework. 300 dpi depends on native pixels and print size, not a text label. Mark incomplete input as ENGINEERING REVIEW DRAFT, NOT FOR FABRICATION. Final manufacturing requires verified EDA design, netlist, ERC/DRC, Gerber and drill data.',
+    `Supplied PCB data (millimetres, x right/y down, rectangular board; only explicitly supplied entities are authoritative): ${JSON.stringify({ ...data.pcb, analysis: undefined })}`,
+  ].join('\n')
+    if (prompt.length > 13000) throw new Error('PCB资料过长，请精简后生成示意图，完整图元可通过矢量线稿导出。')
+    return prompt
+  }
   const common = [
     `ROLE: ${step === 'exploded' ? 'Senior product structure and mould engineer' : step === 'package' ? 'Senior brand and visual communication designer' : 'Senior industrial designer'}.`,
     `PRODUCT: ${data.productName}. BRAND / LOGO TEXT (exact spelling, do not invent): ${data.brand || 'No brand mark supplied; do not invent a logo'}.`,

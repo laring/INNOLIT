@@ -66,3 +66,16 @@ export async function sizedProductImage(blob: Blob, size: ProductOutputSize) {
     return canvasBlob(canvas)
   } finally { bitmap.close() }
 }
+
+
+export async function nativePcbPrint(blob: Blob, widthMm: number) {
+  const bitmap=await createImageBitmap(blob)
+  try {
+    const dpi=printResolution(bitmap.width,widthMm)
+    if(dpi<300)throw new Error('PCB原图在当前印刷宽度下不足300dpi。')
+    const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height
+    const context=canvas.getContext('2d');if(!context)throw new Error('无法读取PCB图纸。')
+    context.drawImage(bitmap,0,0)
+    return new Blob([pngDensity(new Uint8Array(await(await canvasBlob(canvas)).arrayBuffer()),dpi)],{type:'image/png'})
+  }finally{bitmap.close()}
+}

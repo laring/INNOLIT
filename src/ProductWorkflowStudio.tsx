@@ -1,3 +1,4 @@
+import { PcbDrawingPanel } from './PcbDrawingPanel'
 import { pageLayouts, pageSizeProblem } from './conceptVisuals'
 import type { PageLayout } from './visualStudioTypes'
 import { productOutputSize, productOutputLayout, productSizePrompt } from './productImageLayout'
@@ -13,7 +14,7 @@ import type { ProductAsset, ProductStage, ProductWorkflow } from './productWorkf
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
 import { downloadBlob } from './conceptBoard'
-import { explodedPrint, imageDataUrl, imageDigest, selectedSketch, validateProductImage, sizedProductImage } from './productWorkflowImages'
+import { explodedPrint, imageDataUrl, imageDigest, selectedSketch, validateProductImage, sizedProductImage, nativePcbPrint } from './productWorkflowImages'
 import { EngineeringPanel, PackagingPanel } from './ProductEngineeringPanels'
 import { analyzeEngineering } from './engineeringModel'
 import { useModelTask } from './useModelTask'
@@ -62,7 +63,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   function upload(role: ProductAsset, file: File) {
     void run(signal => storeImage(role, file, { kind: 'upload' }, '用户上传', workflowContext(concept, role), signal), record => adoptAsset(role, record), '图片已保存。后续步骤会使用当前图片。')
   }
-  function generate(role: 'sheet' | 'hero' | 'exploded' | 'package') {
+  function generate(role: 'sheet' | 'hero' | 'pcb' | 'exploded' | 'package') {
     setGenerationRole(role)
     void run(async signal => {
       if (!data.productName.trim()) throw new Error('请先填写产品名称。')
@@ -82,10 +83,10 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       return storeImage(role, blob, { kind: 'model', model: imageSettings.model.trim(), provider: new URL(imageSettings.baseUrl).hostname }, prompt, workflowContext(concept, role), signal)
     }, record => adoptAsset(role, record), '当前步骤的图片已生成并保存，请核对设计与标注。')
   }
-  function imageActions(role: 'sheet' | 'hero' | 'exploded' | 'package', label: string, ready = true) {
+  function imageActions(role: 'sheet' | 'hero' | 'pcb' | 'exploded' | 'package', label: string, ready = true) {
     return <div className="studio-refinement"><div className="studio-actions">
       <button type="button" className="studio-button primary" disabled={pending || loading || Boolean(sizeProblem)} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成，请稍候…' : label}</button>
-      {role !== 'sheet' && role !== 'hero' && <label className="studio-button visual-upload">上传{role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
+      {role !== 'sheet' && role !== 'hero' && <label className="studio-button visual-upload">上传{role === 'pcb' ? 'PCB 工程参考图' : role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
     </div><p className="studio-hint" role="status" aria-live="polite">{generationRole === role && (pending || notice) ? pending ? '正在请求图片模型，生成结果会保存在下方。' : notice : !configured ? '请先在 AI 模型中心配置当前图片模型和密钥。' : !ready ? role === 'hero' ? '请先在第一步点击数字编号选款。修改名称、品牌及功能说明不会取消已有选款。' : '请先确认第二步的产品外观。' : role === 'hero' ? useSketch ? '将使用选定草图生成产品效果图，无需上传效果图。' : '当前不使用草图，根据概念和产品说明自由生成效果图。' : ''}</p></div>
   }
   const filename = (record: SavedVisual) => `INNO-LIT-${record.workflowKind ?? '参考图'}.${record.blob.type === 'image/jpeg' ? 'jpg' : record.blob.type === 'image/webp' ? 'webp' : 'png'}`
@@ -104,7 +105,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     </div> : <p className="workflow-empty">{label}将在这里显示。可调用自己的图片模型，或上传已有图片。</p>
   }
   return <section className="studio-surface studio-refinement product-workflow">
-    <header><h2>概念图与展板 · 五步产品设计</h2><p>可选十款草图 → 产品效果图 → 结构爆炸图 → 模具 DFM → 品牌包装。确认一次产品外观，后续步骤沿用同一产品。</p></header>
+    <header><h2>概念图与展板 · 六步产品设计</h2><p>可选十款草图 → 产品效果图 → 二维 PCB 工程图 → 结构爆炸图 → 模具 DFM → 品牌包装。确认一次产品外观，后续步骤沿用同一产品。</p></header>
     <nav className="product-step-nav" aria-label="产品设计步骤">{(Object.keys(productStages) as ProductStage[]).map((stage, index) => <button type="button" key={stage} className="studio-button" disabled={pending} aria-pressed={active === stage} onClick={() => change({ stage })}><span>{index + 1}</span>{productStages[stage].title}</button>)}</nav>
     <div className="workflow-role"><span>步骤 {stageIndex + 1}</span><h3>{productStages[active].title}</h3><p>角色：{productStages[active].role}</p></div>
     <div className="visual-layout-controls">
@@ -119,7 +120,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <label className="studio-field">实际功能与关键交互<textarea rows={3} maxLength={2000} value={data.functions} onChange={event => change({ functions: event.target.value })} /></label>
       <label className="studio-field">设计方向与价值目标<textarea rows={3} maxLength={2000} value={data.direction} onChange={event => change({ direction: event.target.value })} /></label>
     </fieldset></details>
-    {!referenceSupported && needsReference && <p className="studio-hint" role="alert">当前配置的图片模型不支持参考图输入，不能读取上传图片。请在 AI 模型中心切换支持参考图的模型；本页面不会忽略参考图或自动改用其他模型。</p>}
+    {configured && !referenceSupported && needsReference && <p className="studio-hint" role="alert">当前配置的图片模型不支持参考图输入，不能读取上传图片。请在 AI 模型中心切换支持参考图的模型；本页面不会忽略参考图或自动改用其他模型。</p>}
     <p className="studio-hint" role="status">{notice || loadError || (configured ? `图片模型：${imageSettings.model}；工程文字模型：${modelSettings.model || '未配置'}` : '请在顶部 AI 模型中心配置图片模型，或上传已有图片。')}</p>
     {pending && <button type="button" className="studio-button" onClick={cancel}>取消当前操作</button>}
     {active === 'sketches' && <>
@@ -143,6 +144,13 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <button type="button" className="studio-button" disabled={pending || !hasModelSettings(modelSettings)} onClick={() => void run(signal => analyzeEngineering(concept, 'industrial', modelSettings, signal), renderNotes => change({ renderNotes: `模型建议（${modelSettings.model}，基于文字，待人工核对）：\n${renderNotes}` }), '功能与 CMF 建议已保存，可修正后用于效果图。')}>AI 功能与 CMF 深化建议</button>
       <label className="studio-field">效果图深化说明<textarea rows={5} maxLength={8000} value={data.renderNotes} disabled={pending} onChange={event => change({ renderNotes: event.target.value })} /></label>
       {useSketch && imagePreview('selected', '选定的草图')}{imageActions('hero', useSketch ? '生成选定产品效果图' : '自由生成产品效果图', !useSketch || current('selected'))}{imagePreview('hero', '产品效果图')}<button type="button" className="studio-button primary" disabled={pending || !current('hero')} onClick={() => change({ confirmedHero: data.assets.hero })}>{heroReady ? '当前产品外观已确认为统一基准' : '确认此产品外观，供后续步骤使用'}</button><p className="studio-hint">核对造型、比例、材质、配色、交互、产品名称及 Logo。产品资料或上游选款改变后，旧图会标为待更新。</p></>}
+    {active === 'pcb' && <><p>资深电子工程师视角：以第二步已确认的产品为外观与装配参考，生成二维 PCB 顶视工程示意，保持产品名称和接口约束一致。仅黑白线框，禁止三维效果、光影和照片质感。</p>
+      {!heroReady && <p className="studio-hint">请先在第二步确认当前产品外观。外观图片不能提供真实电气连接或内部尺寸。</p>}
+      <label className="studio-field">PCB 图纸印刷宽度（mm）<input type="number" min={1} max={2000} value={data.pcbPrintWidth || 80} disabled={pending} onChange={event=>change({pcbPrintWidth:event.target.valueAsNumber||0})}/></label>
+      <PcbDrawingPanel concept={concept} settings={modelSettings} outputSize={outputSize} disabled={pending} heroReady={heroReady} onEdit={onChange}/>
+      {imageActions('pcb', 'AI 生成二维 PCB 工程示意图', heroReady)}{imagePreview('pcb', '二维 PCB 工程示意图')}
+      {asset('pcb') && <PcbPrint record={asset('pcb')!} widthMm={data.pcbPrintWidth || 80} fresh={current('pcb') && heroReady} disabled={pending}/>}
+    </>}
     {active === 'structure' && <><p>沿用第二步产品外观，制作带编号的详细结构爆炸示意。内部结构、连接和尺寸需工程核对；模型图片不作为加工图。</p>
       <label className="studio-field">编号、组件、材料与连接说明<textarea rows={7} maxLength={8000} value={data.components} disabled={pending} placeholder="01 | 上壳 | 材料牌号待定 | 连接方式待工程确认" onChange={event => change({ components: event.target.value })} /></label>
       <button type="button" className="studio-button" disabled={pending || !hasModelSettings(modelSettings)} onClick={() => void run(signal => analyzeEngineering(concept, 'structure', modelSettings, signal), components => change({ components: `模型结构建议（${modelSettings.model}，待人工核对）：\n${components}` }), '结构建议已保存，请核对组件与编号。')}>AI 组件与装配建议</button>
@@ -151,7 +159,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     </>}
     {active === 'tooling' && <EngineeringPanel concept={concept} settings={modelSettings} projectId={projectId} heroReady={heroReady} hero={asset('hero')} onEdit={edit} />}
     {active === 'packaging' && <>{imageActions('package', '生成外包装效果预览', heroReady)}{asset('package') && imagePreview('package', '外包装效果预览')}<PackagingPanel concept={concept} settings={modelSettings} projectId={projectId} heroReady={heroReady} hero={asset('hero')} onEdit={edit} /></>}
-    <div className="studio-actions workflow-step-footer">{stageIndex > 0 && <button type="button" className="studio-button" disabled={pending} onClick={() => change({ stage: (Object.keys(productStages) as ProductStage[])[stageIndex - 1] })}>上一步</button>}{stageIndex < 4 && <button type="button" className="studio-button" disabled={pending} onClick={() => change({ stage: (Object.keys(productStages) as ProductStage[])[stageIndex + 1] })}>下一步 · {productStages[(Object.keys(productStages) as ProductStage[])[stageIndex + 1]].title}</button>}</div>
+    <div className="studio-actions workflow-step-footer">{stageIndex > 0 && <button type="button" className="studio-button" disabled={pending} onClick={() => change({ stage: (Object.keys(productStages) as ProductStage[])[stageIndex - 1] })}>上一步</button>}{stageIndex < Object.keys(productStages).length - 1 && <button type="button" className="studio-button" disabled={pending} onClick={() => change({ stage: (Object.keys(productStages) as ProductStage[])[stageIndex + 1] })}>下一步 · {productStages[(Object.keys(productStages) as ProductStage[])[stageIndex + 1]].title}</button>}</div>
     <details onToggle={event => { if (event.currentTarget.open) void projectVisuals(projectId).then(items => setHistory(items.filter(item => item.id.includes('"product-workflow"') && JSON.parse(item.id)[1] === roundNumber && JSON.parse(item.id)[2] === concept.id))).catch(() => setLoadError('历史图片暂时无法读取。')) }}><summary>本流程已保存的图片与历史版本</summary><ul className="studio-evidence-list">{history.map(record => <li key={record.id}><span>{record.workflowKind} · {record.source.kind === 'model' ? record.source.model : '上传／提取'}</span><button type="button" className="studio-button" onClick={() => downloadBlob(record.blob, filename(record))}>下载图片</button></li>)}</ul></details>
   </section>
 }
@@ -166,4 +174,13 @@ function PrintExport({ record, data, fresh, disabled, onWidth }: { record: Saved
   useEffect(() => { let active = true; void createImageBitmap(record.blob).then(bitmap => { if (active) setWidth(bitmap.width); bitmap.close() }).catch(() => setWidth(0)); return () => { active = false } }, [record.blob])
   const dpi = width && data.printWidth > 0 ? printResolution(width, data.printWidth) : 0
   return <div className="studio-surface studio-refinement"><label className="studio-field">印刷宽度（mm）<input type="number" min={1} max={2000} value={data.printWidth || ''} disabled={disabled || pending} onChange={event => onWidth(event.target.valueAsNumber || 0)} /></label><p className="studio-hint">原图宽 {width} px；当前有效分辨率 {dpi.toFixed(1)} dpi。300 dpi 的最大印刷宽度 {(width * 25.4 / 300).toFixed(1)} mm，不放大补像素。</p><button type="button" className="studio-button primary" disabled={disabled || pending || !fresh || dpi < 300} onClick={() => void run(async () => downloadBlob(await explodedPrint(record.blob, data.printWidth, data.productName, data.components), 'INNO-LIT-结构爆炸图-300dpi以上.png'), () => {}, '已按原生像素和实际印刷尺寸导出。')}>导出带标注 PNG（≥300 dpi）</button><p role="status" className="studio-hint">{notice || (dpi < 300 ? '当前原图不足 300 dpi，请缩小印刷宽度或换用更高分辨率原图。' : '文件写入实际印刷分辨率，结构与标注仍需工程核对。')}</p></div>
+}
+
+
+function PcbPrint({record,widthMm,fresh,disabled}:{record:SavedVisual;widthMm:number;fresh:boolean;disabled:boolean}){
+  const [pixels,setPixels]=useState(0)
+  const task=useModelTask()
+  useEffect(()=>{let live=true;void createImageBitmap(record.blob).then(bitmap=>{if(live)setPixels(bitmap.width);bitmap.close()}).catch(()=>setPixels(0));return()=>{live=false}},[record.blob])
+  const dpi=pixels&&widthMm>0?printResolution(pixels,widthMm):0
+  return <div className="studio-refinement"><p className="studio-hint">原图宽 {pixels} px，按此印刷宽度为 {dpi.toFixed(1)} dpi；放大补像素不计作真实清晰度。</p><button type="button" className="studio-button" disabled={disabled||task.pending||!fresh||dpi<300} onClick={()=>void task.run(async()=>downloadBlob(await nativePcbPrint(record.blob,widthMm),'INNO-LIT-PCB-工程示意图-300dpi以上.png'),()=>{},'已按原图像素写入有效印刷分辨率。')}>导出 PCB 示意图 PNG（≥300 dpi）</button><p role="status" className="studio-hint">{task.notice||(dpi<300?'请缩小印刷宽度，或使用更高原生分辨率图片。':'图像与标注仍须电子工程师逐项核对。')}</p></div>
 }

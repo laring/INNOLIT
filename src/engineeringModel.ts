@@ -5,21 +5,22 @@ import { modelDevelopmentPath, requestModel, objectRecord, structuredModelPrompt
 import type { ModelSettings } from './modelGeneration.ts'
 import { parseModelObject } from './modelJson.ts'
 
-export type EngineeringAction = 'industrial' | 'structure' | 'dfm' | 'packaging'
+export type EngineeringAction = 'industrial' | 'pcb' | 'structure' | 'dfm' | 'packaging'
 export function engineeringInput(concept: Concept, action: EngineeringAction) {
   const data = workflowOf(concept)
   return { stage: 'product-engineering', action, product: { name: data.productName, brand: data.brand, idea: visualSubjectOf(concept).sentences.idea, functions: data.functions, direction: data.direction, developmentNotes: data.renderNotes },
-    components: data.components, engineering: { ...data.engineering, review: undefined, reviewer: undefined, confirmedContext: undefined, files: data.engineering.files.map(file => ({ name: file.name, role: file.role, bytes: file.size })) }, packaging: { ...data.packaging, confirmedContext: undefined, reviewer: undefined } }
+    pcb: data.pcb, components: data.components, engineering: { ...data.engineering, review: undefined, reviewer: undefined, confirmedContext: undefined, files: data.engineering.files.map(file => ({ name: file.name, role: file.role, bytes: file.size })) }, packaging: { ...data.packaging, confirmedContext: undefined, reviewer: undefined } }
 }
 export function engineeringPrompt(input: unknown, model: string) {
   const data = objectRecord(input)
-  if (data.stage !== 'product-engineering' || !['industrial', 'structure', 'dfm', 'packaging'].includes(String(data.action))) throw new Error('未知的产品工程任务。')
+  if (data.stage !== 'product-engineering' || !['industrial', 'pcb', 'structure', 'dfm', 'packaging'].includes(String(data.action))) throw new Error('未知的产品工程任务。')
   const product = objectRecord(data.product)
   if (typeof product.name !== 'string' || !product.name.trim() || product.name.length > 100) throw new Error('请填写有效的产品名称。')
-  const context = JSON.stringify({ product: data.product, components: data.components, engineering: data.engineering, packaging: data.packaging })
+  const context = JSON.stringify({ product: data.product, pcb: data.pcb, components: data.components, engineering: data.engineering, packaging: data.packaging })
   if (context.length > 50000) throw new Error('工程输入过长，请精简记录。')
   const task = {
     industrial: '资深工业设计师：围绕选定产品的功能与外观提出有区分度的功能、CMF 和交互深化方向。考虑年轻、轻盈、太空风格、情感、人文、美学、绿色制造、社会与环境责任。市场趋势属于待调研假设，不能宣称已检索市场或保证独创。不得改变既定核心轮廓，不把未验证功能写成实际性能。',
+    pcb: '资深电子工程师：基于产品实际功能与已填写PCB资料审查二维正交装配图需求。列出缺失原理图、供电、器件选型、网表、板框、叠层、阻抗、线宽间距、PTH/NPTH孔位、焊盘、极性、丝印、EMC、散热与DFM校核。分析外壳装配与连接接口一致性。不得凭外观推定真实电气连接，不得宣称通过ERC/DRC或可投产。已确认事实、假设建议与待核实项分别说明，不能自动改写输入几何或实测记录。',
     structure: '资深结构、模具工程师：提出组件清单、装配关系和爆炸图标注建议。组件一行一个，编号|名称|材料|连接与说明。未知的内部结构必须标明假设。',
     dfm: '资深结构与注塑模具工程师：协助注塑 DFM 审查，覆盖材料牌号与收缩、壁厚、拔模、分型、倒扣与滑块、进胶流道、排气、冷却、顶出、模架、穴数、钢材热处理、尺寸链公差和机台匹配。指出缺失的三维几何、详细加工图和验证资料。不能凭外观图片生成或宣称全套可加工模具图。',
     packaging: '资深品牌视觉传达设计师：提出与实际功能及品牌一致的外包装设计说明、版面、信息层级和打样检查建议。保持产品名、logo文字及产品外观一致。不要编造认证、性能、环保承诺或法规文案。',
