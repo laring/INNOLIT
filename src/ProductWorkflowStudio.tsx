@@ -4,7 +4,7 @@ import type { ImageSettings, VisualSource } from './imageGeneration'
 import { generateConceptImage, supportsImageReference } from './imageGeneration'
 import { hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
-import { productStages, workflowContext, workflowImagePrompt, workflowOf, printResolution } from './productWorkflow'
+import { productStages, workflowContext, workflowImagePrompt, workflowOf, printResolution, selectedSketchMatches } from './productWorkflow'
 import type { ProductAsset, ProductStage, ProductWorkflow } from './productWorkflow'
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
@@ -22,6 +22,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   const [history, setHistory] = useState<SavedVisual[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [generationRole, setGenerationRole] = useState<ProductAsset>()
   const { pending, notice, run, cancel } = useModelTask(300000)
   const ids = JSON.stringify(data.assets)
   useEffect(() => {
@@ -33,7 +34,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     return () => { live = false }
   }, [ids, projectId, roundNumber, concept.id])
   const asset = (role: ProductAsset) => data.assets[role] ? records[data.assets[role]!] : undefined
-  const current = (role: ProductAsset) => Boolean(asset(role) && asset(role)!.conceptKey === workflowContext(concept, role))
+  const current = (role: ProductAsset) => Boolean(asset(role) && (role === 'selected' ? selectedSketchMatches(concept, asset(role)!.conceptKey) : asset(role)!.conceptKey === workflowContext(concept, role)))
   const heroReady = current('hero') && data.confirmedHero === data.assets.hero
   const configured = hasModelSettings(imageSettings), referenceSupported = supportsImageReference(imageSettings)
   const stageIndex = Object.keys(productStages).indexOf(active)
@@ -53,6 +54,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     void run(signal => storeImage(role, file, { kind: 'upload' }, '用户上传', workflowContext(concept, role), signal), record => adoptAsset(role, record), '图片已保存。后续步骤会使用当前图片。')
   }
   function generate(role: 'sheet' | 'hero' | 'exploded' | 'package') {
+    setGenerationRole(role)
     void run(async signal => {
       if (!data.productName.trim()) throw new Error('请先填写产品名称。')
       if (!configured) throw new Error('请先在 AI 模型中心配置图片模型。')
@@ -60,7 +62,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       let reference: Blob | undefined
       if (role === 'sheet') reference = asset('style')?.blob
       else if (role === 'hero') {
-        if (!current('selected')) throw new Error('请先选定当前草图。')
+        if (!current('selected')) throw new Error('请先在第一步点击数字编号选定草图；如果重新生成过十款图，请重新选择一次编号。')
         reference = asset('selected')!.blob
       } else {
         if (!heroReady) throw new Error('请先在第二步确认当前产品外观基准。')
@@ -72,10 +74,10 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     }, record => adoptAsset(role, record), '当前步骤的图片已生成并保存，请核对设计与标注。')
   }
   function imageActions(role: 'sheet' | 'hero' | 'exploded' | 'package', label: string, ready = true) {
-    return <div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={pending || loading || !ready || !configured} onClick={() => generate(role)}>{label}</button>
-      {role !== 'sheet' && <label className="studio-button visual-upload">上传{role === 'hero' ? '产品效果图' : role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
-    </div>
+    return <div className="studio-refinement"><div className="studio-actions">
+      <button type="button" className="studio-button primary" disabled={pending || loading} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成，请稍候…' : label}</button>
+      {role !== 'sheet' && role !== 'hero' && <label className="studio-button visual-upload">上传{role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
+    </div><p className="studio-hint" role="status" aria-live="polite">{generationRole === role && (pending || notice) ? pending ? '正在读取所选图片并请求图片模型，生成结果会保存在下方。' : notice : !configured ? '请先在 AI 模型中心配置当前图片模型和密钥。' : !ready ? role === 'hero' ? '请先在第一步点击数字编号选款。修改名称、品牌及功能说明不会取消已有选款。' : '请先确认第二步的产品外观。' : role === 'hero' ? '将自动使用选定草图生成产品效果图，无需上传效果图。' : ''}</p></div>
   }
   const filename = (record: SavedVisual) => `INNO-LIT-${record.workflowKind ?? '参考图'}.${record.blob.type === 'image/jpeg' ? 'jpg' : record.blob.type === 'image/webp' ? 'webp' : 'png'}`
   function imagePreview(role: ProductAsset, label: string) {

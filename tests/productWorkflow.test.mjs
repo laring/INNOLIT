@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createServer } from 'node:http'
 import { deflateSync } from 'node:zlib'
 import { generateConceptBatch } from '../src/concepts.ts'
-import { engineeringContext, engineeringProblems, packagingContext, printResolution, sketchCell, workflowContext, workflowImagePrompt, workflowOf } from '../src/productWorkflow.ts'
+import { engineeringContext, engineeringProblems, packagingContext, printResolution, sketchCell, workflowContext, workflowImagePrompt, workflowOf, selectedSketchMatches } from '../src/productWorkflow.ts'
 import { cartonGeometry, crc32, engineeringEnvelope, packagingFiles, packagingProblem, pngDensity, zipFiles } from '../src/productionFiles.ts'
 import { analyzeEngineering, engineeringInput, engineeringPrompt } from '../src/engineeringModel.ts'
 import { getProjectStudio, loadProjects } from '../src/projects.ts'
@@ -17,6 +17,20 @@ function packagedConcept() {
   return concept
 }
 const productImage = 'data:image/png;base64,iVBORw0KGgo='
+
+test('selected sketch survives second-step branding and function edits, including legacy saved selections', () => {
+  const concept = packagedConcept(), data = concept.productWorkflow
+  data.assets.sheet = 'sheet-original'; data.assets.selected = 'crop-07'; data.selection = 6
+  const selected = workflowContext(concept, 'selected')
+  const legacy = JSON.stringify({ sheet: data.assets.sheet, selection: 6, sheetContext: workflowContext(concept, 'sheet') })
+  data.productName = '优化后的产品名'; data.brand = '新品牌'; data.functions += '完善交互'; data.renderNotes = '增加轻盈的材质细节'
+  assert.equal(workflowContext(concept, 'selected'), selected)
+  assert.equal(selectedSketchMatches(concept, selected), true)
+  assert.equal(selectedSketchMatches(concept, legacy), true)
+  data.assets.sheet = 'regenerated-sheet'
+  assert.equal(selectedSketchMatches(concept, selected), false)
+  assert.equal(selectedSketchMatches(concept, legacy), false)
+})
 
 test('five design steps and engineering inputs persist under the project without changing the original concept or freeze', () => {
   const concept = packagedConcept()

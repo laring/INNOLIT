@@ -47,11 +47,20 @@ export function workflowContext(concept: Concept, step: ProductAsset): string {
   const subject = visualSubjectOf(concept)
   const common = { concept: { title: subject.title, format: subject.format, sentences: subject.sentences, identity: subject.identity }, name: data.productName, brand: data.brand, brandColor: data.brandColor, functions: data.functions, direction: data.direction }
   if (step === 'sheet') return JSON.stringify({ ...common, styleImage: data.assets.style })
-  if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection, sheetContext: workflowContext(concept, 'sheet') })
+  if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection })
   if (step === 'hero') return JSON.stringify({ ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes })
   if (step === 'exploded') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), components: data.components, engineering: { ...data.engineering, files: undefined, review: undefined, reviewer: undefined, confirmedContext: undefined } })
   if (step === 'package') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), packaging: packagingContext(data) })
   return ''
+}
+
+export function selectedSketchMatches(concept: Concept, savedContext: string | undefined) {
+  if (!savedContext) return false
+  try {
+    const saved = JSON.parse(savedContext) as { sheet?: string; selection?: number }
+    const current = workflowOf(concept)
+    return saved.sheet === current.assets.sheet && saved.selection === current.selection
+  } catch { return false }
 }
 
 export function engineeringContext(data: ProductWorkflow) {
