@@ -1,3 +1,4 @@
+import type { PageLayout } from './visualStudioTypes.ts'
 import type { Concept } from './concepts.ts'
 import { visualSubjectOf } from './conceptVisuals.ts'
 
@@ -12,6 +13,7 @@ export type ProductStage = keyof typeof productStages
 export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'exploded' | 'package'
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
 export type ProductWorkflow = {
+  outputSizes?: Partial<Record<ProductStage, { layout: PageLayout; width: number; height: number }>>
   stage: ProductStage
   style?: string // Legacy saved preference; no built-in style generator.
   productName: string

@@ -1,3 +1,5 @@
+import { containProductImage } from './productImageLayout'
+import type { ProductOutputSize } from './productImageLayout'
 import { canvasBlob, wrapBoardText } from './conceptBoard'
 import { imageByteLimit, imageMime } from './imageGeneration'
 import { printResolution, sketchCell } from './productWorkflow'
@@ -49,5 +51,18 @@ export async function explodedPrint(blob: Blob, widthMm: number, productName: st
     for (const [index, line] of lines.entries()) context.fillText(line, margin, bitmap.height + margin * 1.5 + index * font * 1.5, canvas.width - margin * 2)
     context.fillText('装配与内部结构需工程核对 · 非加工图', margin, canvas.height - font * 2, canvas.width - margin * 2)
     return new Blob([pngDensity(new Uint8Array(await (await canvasBlob(canvas)).arrayBuffer()), dpi)], { type: 'image/png' })
+  } finally { bitmap.close() }
+}
+
+
+export async function sizedProductImage(blob: Blob, size: ProductOutputSize) {
+  const bitmap = await createImageBitmap(blob)
+  try {
+    const rect = containProductImage(bitmap.width, bitmap.height, size)
+    const canvas = document.createElement('canvas'); canvas.width = size.width; canvas.height = size.height
+    const context = canvas.getContext('2d'); if (!context) throw new Error('当前浏览器无法按尺寸导出图片。')
+    context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(bitmap, rect.left, rect.top, rect.width, rect.height)
+    return canvasBlob(canvas)
   } finally { bitmap.close() }
 }

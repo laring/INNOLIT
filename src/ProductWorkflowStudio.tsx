@@ -1,3 +1,7 @@
+import { pageLayouts, pageSizeProblem } from './conceptVisuals'
+import type { PageLayout } from './visualStudioTypes'
+import { productOutputSize, productOutputLayout, productSizePrompt } from './productImageLayout'
+import type { ProductOutputSize } from './productImageLayout'
 import { useEffect, useState } from 'react'
 import type { Concept } from './concepts'
 import type { ImageSettings, VisualSource } from './imageGeneration'
@@ -9,7 +13,7 @@ import type { ProductAsset, ProductStage, ProductWorkflow } from './productWorkf
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
 import { downloadBlob } from './conceptBoard'
-import { explodedPrint, imageDataUrl, imageDigest, selectedSketch, validateProductImage } from './productWorkflowImages'
+import { explodedPrint, imageDataUrl, imageDigest, selectedSketch, validateProductImage, sizedProductImage } from './productWorkflowImages'
 import { EngineeringPanel, PackagingPanel } from './ProductEngineeringPanels'
 import { analyzeEngineering } from './engineeringModel'
 import { useModelTask } from './useModelTask'
@@ -18,6 +22,8 @@ import './ProductWorkflowStudio.css'
 type Props = { projectId: string; roundNumber: number; concept: Concept; imageSettings: ImageSettings; modelSettings: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }
 export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSettings, modelSettings, onChange }: Props) {
   const data = workflowOf(concept), active = productStages[data.stage] ? data.stage : 'sketches'
+  const outputSize = productOutputSize(concept, active)
+  const sizeProblem = pageSizeProblem(outputSize)
   const [records, setRecords] = useState<Record<string, SavedVisual>>({})
   const [history, setHistory] = useState<SavedVisual[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,6 +48,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   const stageIndex = Object.keys(productStages).indexOf(active)
   function edit(update: (current: ProductWorkflow) => ProductWorkflow) { onChange(current => ({ ...current, productWorkflow: update(workflowOf(current)) })) }
   function change(patch: Partial<ProductWorkflow>) { edit(current => ({ ...current, ...patch })) }
+  function updateSize(patch: Partial<ProductOutputSize>) { edit(current => ({ ...current, outputSizes: { ...current.outputSizes, [active]: { ...productOutputSize({ ...concept, productWorkflow: current }, active), ...patch } } })) }
   async function storeImage(role: ProductAsset, blob: Blob, source: VisualSource, prompt: string, context: string, signal: AbortSignal) {
     const checked = await validateProductImage(blob), digest = await imageDigest(checked)
     const record = await putVisual({ id: JSON.stringify([projectId, roundNumber, concept.id, 'product-workflow', role, crypto.randomUUID()]), projectId, blob: checked, source, prompt, digest, conceptKey: context, workflowKind: role }, signal)
@@ -70,30 +77,43 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
         reference = asset('hero')!.blob
       }
       if (reference && !referenceSupported) throw new Error('当前图片模型不支持参考图输入。请切换支持参考图的模型；生成效果图也可以选择自由生成，不使用草图。')
-      const prompt = workflowImagePrompt(concept, role)
+      const prompt = workflowImagePrompt(concept, role).slice(0, 13400) + '\n' + productSizePrompt(outputSize)
       const blob = await generateConceptImage(imageSettings, prompt, signal, { purpose: imageSettings.protocol === 'openrouter' ? 'master' : 'concept', ...(referenceSupported && reference ? { reference: await imageDataUrl(reference) } : {}) })
       return storeImage(role, blob, { kind: 'model', model: imageSettings.model.trim(), provider: new URL(imageSettings.baseUrl).hostname }, prompt, workflowContext(concept, role), signal)
     }, record => adoptAsset(role, record), '当前步骤的图片已生成并保存，请核对设计与标注。')
   }
   function imageActions(role: 'sheet' | 'hero' | 'exploded' | 'package', label: string, ready = true) {
     return <div className="studio-refinement"><div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={pending || loading} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成，请稍候…' : label}</button>
+      <button type="button" className="studio-button primary" disabled={pending || loading || Boolean(sizeProblem)} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成，请稍候…' : label}</button>
       {role !== 'sheet' && role !== 'hero' && <label className="studio-button visual-upload">上传{role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
     </div><p className="studio-hint" role="status" aria-live="polite">{generationRole === role && (pending || notice) ? pending ? '正在请求图片模型，生成结果会保存在下方。' : notice : !configured ? '请先在 AI 模型中心配置当前图片模型和密钥。' : !ready ? role === 'hero' ? '请先在第一步点击数字编号选款。修改名称、品牌及功能说明不会取消已有选款。' : '请先确认第二步的产品外观。' : role === 'hero' ? useSketch ? '将使用选定草图生成产品效果图，无需上传效果图。' : '当前不使用草图，根据概念和产品说明自由生成效果图。' : ''}</p></div>
   }
   const filename = (record: SavedVisual) => `INNO-LIT-${record.workflowKind ?? '参考图'}.${record.blob.type === 'image/jpeg' ? 'jpg' : record.blob.type === 'image/webp' ? 'webp' : 'png'}`
+  function imageDownloads(record: SavedVisual) {
+    return (
+      <div className="studio-actions"><button type="button" className="studio-button" disabled={pending} onClick={() => downloadBlob(record.blob, filename(record))}>下载原图</button>
+      {record.workflowKind !== 'style' && <button type="button" className="studio-button" disabled={pending || Boolean(sizeProblem)} onClick={() => { setGenerationRole(undefined); void run(async () => downloadBlob(await sizedProductImage(record.blob, outputSize), `INNO-LIT-${record.workflowKind ?? '图片'}-${outputSize.width}x${outputSize.height}.png`), () => {}, `已按 ${outputSize.width} × ${outputSize.height} px 导出 PNG，保留完整画面。`) }}>按设定尺寸下载 PNG</button>}</div>
+    )
+  }
   function imagePreview(role: ProductAsset, label: string) {
     const record = asset(role)
     return record ? <div className="studio-refinement">
       {role !== 'style' && !current(role) && <p className="studio-hint">上游选择或产品资料已变化，这张图是先前版本，请重新生成或上传。</p>}
       <ProductImage key={record.id} record={record} label={label} />
-      <button type="button" className="studio-button" disabled={pending} onClick={() => downloadBlob(record.blob, filename(record))}>下载原图</button>
+      {imageDownloads(record)}
     </div> : <p className="workflow-empty">{label}将在这里显示。可调用自己的图片模型，或上传已有图片。</p>
   }
   return <section className="studio-surface studio-refinement product-workflow">
     <header><h2>概念图与展板 · 五步产品设计</h2><p>可选十款草图 → 产品效果图 → 结构爆炸图 → 模具 DFM → 品牌包装。确认一次产品外观，后续步骤沿用同一产品。</p></header>
     <nav className="product-step-nav" aria-label="产品设计步骤">{(Object.keys(productStages) as ProductStage[]).map((stage, index) => <button type="button" key={stage} className="studio-button" disabled={pending} aria-pressed={active === stage} onClick={() => change({ stage })}><span>{index + 1}</span>{productStages[stage].title}</button>)}</nav>
     <div className="workflow-role"><span>步骤 {stageIndex + 1}</span><h3>{productStages[active].title}</h3><p>角色：{productStages[active].role}</p></div>
+    <div className="visual-layout-controls">
+      <label className="studio-field">版式<select value={outputSize.layout} disabled={pending} onChange={event => updateSize(productOutputLayout(outputSize, event.target.value as PageLayout))}>{Object.entries(pageLayouts).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      <label className="studio-field">宽度（px）<input type="number" min={320} max={6000} step={1} value={outputSize.width || ''} disabled={pending} onChange={event => updateSize({ layout: 'custom', width: event.target.valueAsNumber || 0 })} /></label>
+      <label className="studio-field">高度（px）<input type="number" min={320} max={6000} step={1} value={outputSize.height || ''} disabled={pending} onChange={event => updateSize({ layout: 'custom', height: event.target.valueAsNumber || 0 })} /></label>
+    </div>
+    <p className="studio-hint" role="status">{sizeProblem || `当前步骤独立保存：${outputSize.width} × ${outputSize.height} px。生成时参考此画幅；“按设定尺寸下载 PNG”保证输出尺寸，等比适配并补白，不裁切或拉伸。放大不增加原图细节。`}</p>
+    {active === 'tooling' && <p className="studio-hint">像素尺寸用于示意图片；模具工程附件仍保留原始格式、实际尺寸及工程比例。</p>}
     <details open={active === 'sketches' || active === 'render'}><summary>统一产品与品牌资料</summary><fieldset className="development-fields studio-refinement" disabled={pending}>
       <div className="workflow-parameter-grid"><label className="studio-field">产品名称<input maxLength={100} value={data.productName} onChange={event => change({ productName: event.target.value })} /></label><label className="studio-field">品牌／Logo 文字<input maxLength={100} value={data.brand} onChange={event => change({ brand: event.target.value })} /></label><label className="studio-field">品牌主色<input type="color" value={data.brandColor} onChange={event => change({ brandColor: event.target.value })} /></label></div>
       <label className="studio-field">实际功能与关键交互<textarea rows={3} maxLength={2000} value={data.functions} onChange={event => change({ functions: event.target.value })} /></label>
@@ -109,7 +129,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       {data.assets.style && <button type="button" className="studio-button" disabled={pending} onClick={() => edit(current => ({ ...current, assets: { ...current.assets, style: undefined } }))}>不使用参考图</button>}
       {!asset('style') && <p className="studio-hint">当前不使用参考图，可直接点击生成。</p>}
       {imageActions('sheet', 'AI 生成 10 款设计草图')}
-      {asset('sheet') ? <><ProductImage key={asset('sheet')!.id} record={asset('sheet')!} label="十款设计草图" />
+      {asset('sheet') ? <><ProductImage key={asset('sheet')!.id} record={asset('sheet')!} label="十款设计草图" />{imageDownloads(asset('sheet')!)}
       {!current('sheet') && <p className="studio-hint">参考图或产品资料已改变，请重新生成当前十款草图后选款。</p>}
       <fieldset className="workflow-number-choice" disabled={pending || !current('sheet')}><legend>选择草图编号</legend><div className="workflow-number-buttons">{Array.from({ length: 10 }, (_, index) => <button type="button" className="studio-button" key={index} aria-label={`选择草图 ${String(index + 1).padStart(2, '0')}`} aria-pressed={data.selection === index} onClick={() => {
         const selectedConcept = { ...concept, productWorkflow: { ...data, selection: index } }
