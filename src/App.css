@@ -1067,3 +1067,19 @@ figcaption,
   }
 }
 
+
+.global-model-center-dialog-body .model-settings .model-memory-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.global-model-center-dialog-body .model-settings .model-memory-toggle input[type="checkbox"] {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: #355b3b;
+}

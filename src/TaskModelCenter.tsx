@@ -343,7 +343,7 @@ export function TaskModelCenter({
       </p>
 
       <section className="studio-refinement" aria-label="配置保存设置">
-        <label><input type="checkbox" checked={remember} onChange={event=>onRememberChange(event.target.checked)}/> 记住配置与 API Key（仅此浏览器）</label>
+        <label className="model-memory-toggle"><input type="checkbox" checked={remember} onChange={event=>onRememberChange(event.target.checked)}/> 记住配置与 API Key（仅此浏览器）</label>
         <p className="studio-hint">开启后自动加密保存，刷新或重新打开后恢复。建议仅在自己的电脑开启；清理浏览器数据会丢失配置。不同浏览器或访问地址各自保存。</p>
         <div className="studio-actions"><button type="button" className="studio-button" onClick={()=>void onSave()}>保存配置</button><button type="button" className="studio-button" onClick={onForget}>清除已保存配置</button></div>
         <p className="studio-hint" role="status">{saveNotice}</p>
