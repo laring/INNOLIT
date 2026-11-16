@@ -8,7 +8,7 @@ import { parseModelObject } from './modelJson.ts'
 export type EngineeringAction = 'industrial' | 'structure' | 'dfm' | 'packaging'
 export function engineeringInput(concept: Concept, action: EngineeringAction) {
   const data = workflowOf(concept)
-  return { stage: 'product-engineering', action, product: { name: data.productName, brand: data.brand, idea: visualSubjectOf(concept).sentences.idea, functions: data.functions, direction: data.direction, style: data.style, developmentNotes: data.renderNotes },
+  return { stage: 'product-engineering', action, product: { name: data.productName, brand: data.brand, idea: visualSubjectOf(concept).sentences.idea, functions: data.functions, direction: data.direction, developmentNotes: data.renderNotes },
     components: data.components, engineering: { ...data.engineering, review: undefined, reviewer: undefined, confirmedContext: undefined, files: data.engineering.files.map(file => ({ name: file.name, role: file.role, bytes: file.size })) }, packaging: { ...data.packaging, confirmedContext: undefined, reviewer: undefined } }
 }
 export function engineeringPrompt(input: unknown, model: string) {

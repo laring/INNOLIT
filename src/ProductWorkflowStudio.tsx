@@ -4,12 +4,12 @@ import type { ImageSettings, VisualSource } from './imageGeneration'
 import { generateConceptImage, supportsImageReference } from './imageGeneration'
 import { hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
-import { productStages, styleDirections, workflowContext, workflowImagePrompt, workflowOf, printResolution } from './productWorkflow'
-import type { ProductAsset, ProductStage, ProductWorkflow, StyleDirection } from './productWorkflow'
+import { productStages, workflowContext, workflowImagePrompt, workflowOf, printResolution } from './productWorkflow'
+import type { ProductAsset, ProductStage, ProductWorkflow } from './productWorkflow'
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
 import { downloadBlob } from './conceptBoard'
-import { explodedPrint, imageDataUrl, imageDigest, presetStyleImage, selectedSketch, validateProductImage } from './productWorkflowImages'
+import { explodedPrint, imageDataUrl, imageDigest, selectedSketch, validateProductImage } from './productWorkflowImages'
 import { EngineeringPanel, PackagingPanel } from './ProductEngineeringPanels'
 import { analyzeEngineering } from './engineeringModel'
 import { useModelTask } from './useModelTask'
@@ -56,9 +56,10 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     void run(async signal => {
       if (!data.productName.trim()) throw new Error('请先填写产品名称。')
       if (!configured) throw new Error('请先在 AI 模型中心配置图片模型。')
-      if (!referenceSupported && (role !== 'sheet' || asset('style'))) throw new Error('这一步需要参考图编辑能力。请在 AI 模型中心使用已支持的参考图模型，或上传你在外部制作的图片。')
+      if (role === 'sheet' && !asset('style')) throw new Error('请先上传 1 张自己的风格参考图。')
+      if (!referenceSupported) throw new Error('当前图片模型不支持参考图输入，无法读取你上传的风格或产品图片。请在 AI 模型中心切换支持参考图的模型，再点击生成。')
       let reference: Blob | undefined
-      if (role === 'sheet') reference = asset('style')?.blob ?? await presetStyleImage(data.style)
+      if (role === 'sheet') reference = asset('style')!.blob
       else if (role === 'hero') {
         if (!current('selected')) throw new Error('请先选定当前草图。')
         reference = asset('selected')!.blob
@@ -73,7 +74,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   }
   function imageActions(role: 'sheet' | 'hero' | 'exploded' | 'package', label: string, ready = true) {
     return <div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={pending || loading || !ready || !configured || !referenceSupported && !(role === 'sheet' && !data.assets.style)} onClick={() => generate(role)}>{label}</button>
+      <button type="button" className="studio-button primary" disabled={pending || loading || !ready || !configured} onClick={() => generate(role)}>{label}</button>
       {role !== 'sheet' && <label className="studio-button visual-upload">上传{role === 'hero' ? '产品效果图' : role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
     </div>
   }
@@ -95,22 +96,22 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <label className="studio-field">实际功能与关键交互<textarea rows={3} maxLength={2000} value={data.functions} onChange={event => change({ functions: event.target.value })} /></label>
       <label className="studio-field">设计方向与价值目标<textarea rows={3} maxLength={2000} value={data.direction} onChange={event => change({ direction: event.target.value })} /></label>
     </fieldset></details>
-    {!referenceSupported && <p className="studio-hint">当前图片模型按内置风格描述生成十款草图，不能读取上传的风格图。第二步起若要自动沿用选款与外观，请在模型中心切换支持参考图的模型；也可逐步上传外部完成的图片。</p>}
+    {!referenceSupported && <p className="studio-hint" role="alert">当前配置的图片模型不支持参考图输入，不能读取上传图片。请在 AI 模型中心切换支持参考图的模型；本页面不会忽略参考图或自动改用其他模型。</p>}
     <p className="studio-hint" role="status">{notice || loadError || (configured ? `图片模型：${imageSettings.model}；工程文字模型：${modelSettings.model || '未配置'}` : '请在顶部 AI 模型中心配置图片模型，或上传已有图片。')}</p>
     {pending && <button type="button" className="studio-button" onClick={cancel}>取消当前操作</button>}
     {active === 'sketches' && <>
-      <p>由 AI 自动生成 10 款不同的产品设计草图，再从中选择一款深化。选择下方内置风格即可生成，无需上传草图；你也可以额外上传 1 张风格参考图，仅用于参考画风。</p>
-      <div className="workflow-style-grid">{(Object.keys(styleDirections) as StyleDirection[]).map(style => <button type="button" key={style} className="workflow-style-card" aria-pressed={data.style === style && !data.assets.style} disabled={pending} onClick={() => edit(current => ({ ...current, style, assets: { ...current.assets, style: undefined } }))}><svg viewBox="0 0 200 100" aria-hidden="true"><rect width="200" height="100" fill="#f4f5f0"/><path d={style === 'organic' ? 'M40 70Q5 20 100 20T150 70Q100 100 40 70' : 'M35 75L55 25L150 20L165 65Z'} fill={styleDirections[style].color + '35'} stroke={styleDirections[style].color} strokeWidth={style === 'minimal' ? 1 : 3}/><path d="M25 85L175 75" stroke={styleDirections[style].color}/></svg><span>{styleDirections[style].name}</span></button>)}</div>
-      <details><summary>使用自己的风格参考图（可选，1 张）</summary><p className="studio-hint">这张图只作为画风参考。10 款产品草图仍由 AI 生成；使用内置风格时无需上传任何图片。</p><label className="studio-button visual-upload">上传 1 张风格参考图<input type="file" aria-label="上传风格参考图" accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload('style', file) }} /></label>
+      <p>上传 1 张自己的风格参考图，AI 依据该画风生成 10 款不同的产品草图。生成后只需选择数字编号，无需上传或手动截取设计草图。</p>
+      <label className="studio-button visual-upload">上传风格参考图<input type="file" aria-label="上传风格参考图" accept="image/png,image/jpeg,image/webp" disabled={pending || loading} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload('style', file) }} /></label>
       {asset('style') && imagePreview('style', '风格参考图')}
-      {data.assets.style && <button type="button" className="studio-button" disabled={pending} onClick={() => edit(current => ({ ...current, assets: { ...current.assets, style: undefined } }))}>取消参考图，使用内置风格</button>}</details>
+      {!asset('style') && <p className="studio-hint">先上传风格参考图，再点击生成。</p>}
       {imageActions('sheet', 'AI 生成 10 款设计草图')}
-      <p className="studio-hint">生成结果按 2×5 汇总展示，点击 01–10 选定其中一款。</p>
-      {asset('sheet') ? <><div className="workflow-sketch-sheet"><ProductImage key={asset('sheet')!.id} record={asset('sheet')!} label="十款设计草图" /><div className="workflow-sketch-grid">{Array.from({ length: 10 }, (_, index) => <button type="button" key={index} disabled={pending || !current('sheet')} aria-label={`选择草图 ${String(index + 1).padStart(2, '0')}`} aria-pressed={data.selection === index} onClick={() => {
+      {asset('sheet') ? <><ProductImage key={asset('sheet')!.id} record={asset('sheet')!} label="十款设计草图" />
+      {!current('sheet') && <p className="studio-hint">参考图或产品资料已改变，请重新生成当前十款草图后选款。</p>}
+      <fieldset className="workflow-number-choice" disabled={pending || !current('sheet')}><legend>选择草图编号</legend><div className="workflow-number-buttons">{Array.from({ length: 10 }, (_, index) => <button type="button" className="studio-button" key={index} aria-label={`选择草图 ${String(index + 1).padStart(2, '0')}`} aria-pressed={data.selection === index} onClick={() => {
         const selectedConcept = { ...concept, productWorkflow: { ...data, selection: index } }
         void run(async signal => storeImage('selected', await selectedSketch(asset('sheet')!.blob, index), { kind: 'upload' }, `从十款图中提取 ${index + 1}`, workflowContext(selectedConcept, 'selected'), signal), record => adoptAsset('selected', record, index), `已选草图 ${String(index + 1).padStart(2, '0')}。可进入第二步。`)
-      }}><span>{String(index + 1).padStart(2, '0')}</span></button>)}</div></div><p className="studio-hint">按 2×5 网格点击选款。若模型未严格分格，可上传已单独截取的草图替换。</p></> : imagePreview('sheet', '十款草图')}
-      <details><summary>手动替换选定草图（可选）</summary><label className="studio-button visual-upload">上传单款草图<input type="file" aria-label="上传单款草图" accept="image/png,image/jpeg,image/webp" disabled={pending} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload('selected', file) }} /></label></details>
+      }}>{String(index + 1).padStart(2, '0')}</button>)}</div></fieldset>
+      <p className="studio-hint">点击编号即自动提取对应草图，供第二步生成效果图。</p></> : <p className="workflow-empty">AI 生成的 10 款产品草图将在这里显示。</p>}
       {asset('selected') && imagePreview('selected', '选定的草图')}
     </>}
     {active === 'render' && <><p>只深化选定草图，强调前沿风格、轻盈造型、人文与情感价值。功能、绿色制造和原创性是待验证的设计目标；不能自动变成产品声明。</p>

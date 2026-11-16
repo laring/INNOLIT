@@ -40,6 +40,19 @@ test('ten crop cells partition odd-sized sketch sheets without gaps or overlaps'
   assert.throws(() => sketchCell(-1, 1000, 1000))
 })
 
+test('uploaded reference is the only sketch style source and obsolete built-in preferences do not change generation', () => {
+  const concept = packagedConcept()
+  concept.productWorkflow.assets.style = 'uploaded-style-image'
+  const key = workflowContext(concept, 'sheet'), prompt = workflowImagePrompt(concept, 'sheet')
+  assert.match(prompt, /Follow the uploaded style reference only/)
+  assert.ok(key.includes('uploaded-style-image'))
+  concept.productWorkflow.style = 'marker'
+  assert.equal(workflowContext(concept, 'sheet'), key)
+  assert.equal(workflowImagePrompt(concept, 'sheet'), prompt)
+  concept.productWorkflow.assets.style = 'replacement-upload'
+  assert.notEqual(workflowContext(concept, 'sheet'), key)
+})
+
 test('product identity and upstream choices invalidate downstream images while display-only navigation does not', () => {
   const concept = packagedConcept(), data = concept.productWorkflow
   data.assets.sheet = 'sheet-a'; data.assets.selected = 'selected-3'; data.selection = 2

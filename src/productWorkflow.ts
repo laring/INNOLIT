@@ -10,17 +10,10 @@ export const productStages = {
 } as const
 export type ProductStage = keyof typeof productStages
 export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'exploded' | 'package'
-export const styleDirections = {
-  marker: { name: '工业马克笔', color: '#517e92', description: 'Professional pencil and cool grey marker sketches, subtle blue shading, white paper, precise contour lines.' },
-  space: { name: '轻盈太空风', color: '#7a70ae', description: 'Youthful space-age industrial design, lightweight floating volumes, restrained silver and pale violet accents, precise sketch lines.' },
-  organic: { name: '自然与人文', color: '#76875c', description: 'Human-centered organic shapes, warm paper, muted green accents, visible material-conscious construction, refined hand-drawn lines.' },
-  minimal: { name: '极简工程线稿', color: '#465258', description: 'Minimal black technical pencil linework, clean perspective, restrained shading, crisp readable white background.' },
-} as const
-export type StyleDirection = keyof typeof styleDirections
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
 export type ProductWorkflow = {
   stage: ProductStage
-  style: StyleDirection
+  style?: string // Legacy saved preference; no built-in style generator.
   productName: string
   brand: string
   brandColor: string
@@ -40,7 +33,7 @@ export function workflowOf(concept: Concept): ProductWorkflow {
   const subject = visualSubjectOf(concept)
   const saved = concept.productWorkflow
   const defaults: ProductWorkflow = {
-    stage: 'sketches', style: 'space', productName: subject.title, brand: '', brandColor: '#193c32', functions: subject.sentences.interaction,
+    stage: 'sketches', productName: subject.title, brand: '', brandColor: '#193c32', functions: subject.sentences.interaction,
     direction: '时尚、前卫、年轻、轻盈、独特的太空风格；重视独创、绿色制造、情感、人文、美学、社会与环境责任。', renderNotes: '',
     assets: {}, components: '', printWidth: 80,
     engineering: { length: 0, width: 0, height: 0, material: '', wall: 0, shrinkage: '', tolerance: '', cavities: 1, notes: '', files: [], review: '', reviewer: '' },
@@ -53,7 +46,7 @@ export function workflowContext(concept: Concept, step: ProductAsset): string {
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
   const common = { concept: { title: subject.title, format: subject.format, sentences: subject.sentences, identity: subject.identity }, name: data.productName, brand: data.brand, brandColor: data.brandColor, functions: data.functions, direction: data.direction }
-  if (step === 'sheet') return JSON.stringify({ ...common, style: data.style, styleImage: data.assets.style })
+  if (step === 'sheet') return JSON.stringify({ ...common, styleImage: data.assets.style })
   if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection, sheetContext: workflowContext(concept, 'sheet') })
   if (step === 'hero') return JSON.stringify({ ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes })
   if (step === 'exploded') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), components: data.components, engineering: { ...data.engineering, files: undefined, review: undefined, reviewer: undefined, confirmedContext: undefined } })
@@ -86,7 +79,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     sheet: [
       'Create ONE single sketch sheet containing EXACTLY TEN genuinely differentiated product designs, arranged in EXACTLY 2 rows by 5 columns, equal cells, no header or outer margins. Label cells 01–10 at the top left. Keep each product inside its cell, with gutters between cells.',
       'The input reference is ONLY a visual style board, not a product to copy. Explore ten different silhouettes while following the same brief. Professional, readable industrial design sketches.',
-      styleDirections[data.style].description,
+      'Follow the uploaded style reference only. No built-in visual style is applied.',
     ],
     hero: [
       `Development notes (proposals, not verified claims): ${data.renderNotes}`,

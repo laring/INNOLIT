@@ -1,7 +1,6 @@
 import { canvasBlob, wrapBoardText } from './conceptBoard'
 import { imageByteLimit, imageMime } from './imageGeneration'
-import { printResolution, sketchCell, styleDirections } from './productWorkflow'
-import type { StyleDirection } from './productWorkflow'
+import { printResolution, sketchCell } from './productWorkflow'
 import { pngDensity } from './productionFiles'
 
 export function imageDataUrl(blob: Blob): Promise<string> {
@@ -29,27 +28,6 @@ export async function selectedSketch(blob: Blob, index: number) {
     context.drawImage(bitmap, rect.left, rect.top, rect.width, rect.height, 0, 0, rect.width, rect.height)
     return canvasBlob(canvas)
   } finally { bitmap.close() }
-}
-export async function presetStyleImage(style: StyleDirection) {
-  const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 800
-  const context = canvas.getContext('2d'); if (!context) throw new Error('风格参考图无法创建。')
-  const direction = styleDirections[style]
-  context.fillStyle = style === 'organic' ? '#f6f0e6' : '#f9fafb'; context.fillRect(0, 0, 1200, 800)
-  context.fillStyle = '#253a42'; context.font = '600 32px sans-serif'; context.fillText('VISUAL STYLE REFERENCE — NOT A PRODUCT DESIGN', 48, 64)
-  context.strokeStyle = direction.color; context.fillStyle = direction.color + '24'; context.lineWidth = style === 'minimal' ? 2 : 6
-  for (let index = 0; index < 4; index++) {
-    const x = 120 + index * 270, y = 280 + (index % 2) * 90
-    context.beginPath()
-    if (style === 'organic') context.ellipse(x + 70, y, 95, 65, -.4, 0, Math.PI * 2)
-    else context.roundRect(x - 35, y - 70, 190, 130, style === 'space' ? 65 : 15)
-    context.fill(); context.stroke()
-    context.beginPath(); context.moveTo(x - 50, y + 110); context.lineTo(x + 170, y + 72); context.stroke()
-  }
-  for (let index = 0; index < 5; index++) {
-    context.fillStyle = [direction.color, '#eff2f4', '#aebcc4', '#243a47', '#d8dfd2'][index]
-    context.fillRect(80 + index * 220, 600, 150, 95)
-  }
-  return canvasBlob(canvas)
 }
 export async function explodedPrint(blob: Blob, widthMm: number, productName: string, components: string) {
   const bitmap = await createImageBitmap(blob)
