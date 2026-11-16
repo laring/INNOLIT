@@ -301,9 +301,10 @@ function ImageExtraFields({
       </label>
 
       <label>
-        母版尺寸
+        模型原图尺寸
         <select
           value={settings.size}
+          disabled={settings.protocol === 'openrouter'}
           onChange={event =>
             onChange({
               size: event.target
@@ -318,6 +319,7 @@ function ImageExtraFields({
           ))}
         </select>
       </label>
+      {settings.protocol === 'openrouter' && <p className="studio-hint">OpenRouter 使用所选模型的默认原图尺寸，避免附加不兼容的尺寸参数。导出尺寸在排版页面设置。</p>}
     </>
   )
 }

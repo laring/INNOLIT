@@ -8,30 +8,13 @@ type OpenRouterImageInput = {
   reference?: string
 }
 
-function aspectRatio(size: string): string {
-  const [width, height] = size.split('x').map(Number)
-
-  if (!width || !height) {
-    throw new Error('图像尺寸无效。')
-  }
-
-  const ratio = width / height
-
-  if (ratio >= 1.6) return '16:9'
-  if (ratio >= 1.15) return '4:3'
-  if (ratio <= 0.625) return '9:16'
-  if (ratio <= 0.87) return '3:4'
-
-  return '1:1'
-}
-
 export async function generateOpenRouterImage(
   input: OpenRouterImageInput,
   apiKey: string,
   signal: AbortSignal,
 ): Promise<Uint8Array> {
   if (input.reference) {
-    const metadata = await fetch('https://openrouter.ai/api/v1/images/models', { signal, redirect: 'error', cache: 'no-store' })
+    const metadata = await fetch('https://openrouter.ai/api/v1/images/models', { headers: { Authorization: `Bearer ${apiKey}` }, signal, redirect: 'error', cache: 'no-store' })
     if (!metadata.ok) throw new Error('OpenRouter 图片模型能力查询暂时失败，请稍后重试。')
     const catalog = await metadata.json() as { data?: Array<{ id?: string; architecture?: { input_modalities?: string[]; output_modalities?: string[] } }> }
     if (!Array.isArray(catalog.data)) throw new Error('OpenRouter 返回的模型能力目录无效，请稍后重试。')
@@ -50,8 +33,6 @@ export async function generateOpenRouterImage(
       body: JSON.stringify({
         model: input.model,
         prompt: input.prompt,
-        aspect_ratio: aspectRatio(input.size),
-        n: 1,
         ...(input.reference ? { input_references: [{ type: 'image_url', image_url: { url: input.reference } }] } : {}),
       }),
       signal,
@@ -60,9 +41,10 @@ export async function generateOpenRouterImage(
   )
 
   if (!response.ok) {
-    throw new Error(
-      `OpenRouter 图片请求失败（HTTP ${response.status}）。${input.reference ? '已提交参考图，请核对该模型是否支持图片输入以及账户权限。' : '请核对模型 ID、额度及账户权限。'}`
-    )
+    const failure = await response.json().catch(() => null) as { error?: { message?: unknown; code?: unknown }; message?: unknown } | null
+    const detail = typeof failure?.error?.message === 'string' ? failure.error.message : typeof failure?.message === 'string' ? failure.message : ''
+    const safe = detail.replaceAll(apiKey, '[密钥已隐藏]').replace(/data:image\/[a-z+.-]+;base64,[A-Za-z0-9+/=]+/giu, '[参考图已隐藏]').replace(/Bearer\s+[!-~]+/giu, 'Bearer [已隐藏]').slice(0, 400)
+    throw new Error(`OpenRouter 图片请求失败（HTTP ${response.status}，模型 ${input.model}）。${safe || '服务商未提供具体原因，请核对模型及该模型支持的请求参数。'}${input.reference ? ' 可移除风格参考图后主动选择文生图；本次未自动重试。' : ''}`)
   }
 
   const result: unknown = await response.json()

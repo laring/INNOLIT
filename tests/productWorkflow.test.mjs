@@ -53,6 +53,13 @@ test('uploaded reference is the only sketch style source and obsolete built-in p
   assert.notEqual(workflowContext(concept, 'sheet'), key)
 })
 
+test('sketch prompts support explicitly drawing without a reference and do not pretend to see an absent image', () => {
+  const concept = newConcept()
+  const prompt = workflowImagePrompt(concept, 'sheet')
+  assert.match(prompt, /No style reference image is supplied/)
+  assert.doesNotMatch(prompt, /Follow the uploaded style reference only/)
+})
+
 test('product identity and upstream choices invalidate downstream images while display-only navigation does not', () => {
   const concept = packagedConcept(), data = concept.productWorkflow
   data.assets.sheet = 'sheet-a'; data.assets.selected = 'selected-3'; data.selection = 2

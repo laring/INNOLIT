@@ -78,8 +78,8 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
   const tasks = {
     sheet: [
       'Create ONE single sketch sheet containing EXACTLY TEN genuinely differentiated product designs, arranged in EXACTLY 2 rows by 5 columns, equal cells, no header or outer margins. Label cells 01–10 at the top left. Keep each product inside its cell, with gutters between cells.',
-      'The input reference is ONLY a visual style board, not a product to copy. Explore ten different silhouettes while following the same brief. Professional, readable industrial design sketches.',
-      'Follow the uploaded style reference only. No built-in visual style is applied.',
+      data.assets.style ? 'The input reference is ONLY a visual style board, not a product to copy. Explore ten different silhouettes while following the same brief.' : 'No style reference image is supplied. Generate ten differentiated designs directly from the product brief.',
+      data.assets.style ? 'Follow the uploaded style reference only. No built-in visual style is applied.' : 'Use professional, readable industrial design sketch linework. No built-in style preset is applied.',
     ],
     hero: [
       `Development notes (proposals, not verified claims): ${data.renderNotes}`,

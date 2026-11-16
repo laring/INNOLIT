@@ -15,6 +15,34 @@ test('OpenRouter reference support is no longer blocked by the client or restric
   assert.doesNotThrow(() => imageRequest({ ...settings, reference, prompt: 'Preserve the chosen product.', purpose: 'portrait' }))
 })
 
+test('no-reference drawing sends only required fields and does not query reference capabilities', async context => {
+  let calls = 0
+  context.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls++
+    assert.equal(url, 'https://openrouter.ai/api/v1/images')
+    assert.deepEqual(JSON.parse(options.body), { model: settings.model, prompt: 'ten sketches without any image' })
+    return Response.json({ data: [{ b64_json: png.toString('base64') }] })
+  })
+  await generateOpenRouterImage({ ...settings, prompt: 'ten sketches without any image' }, settings.apiKey, new AbortController().signal)
+  assert.equal(calls, 1)
+})
+
+test('400 errors retain the actual provider reason, redact private inputs and never retry generation automatically', async context => {
+  let calls = 0
+  context.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/images/models')) return Response.json({ data: [] })
+    calls++
+    return Response.json({ error: { message: `input_references is not supported by this endpoint; token=${settings.apiKey}; image=${reference}` } }, { status: 400 })
+  })
+  await assert.rejects(generateOpenRouterImage({ ...settings, prompt: 'style', reference }, settings.apiKey, new AbortController().signal), error => {
+    assert.match(error.message, /input_references is not supported/)
+    assert.ok(!error.message.includes(settings.apiKey)); assert.ok(!error.message.includes(reference))
+    assert.match(error.message, /未自动重试/)
+    return true
+  })
+  assert.equal(calls, 1)
+})
+
 test('OpenRouter forwards the exact reference with the official input_references schema and selected credentials', async context => {
   let count = 0
   context.mock.method(globalThis, 'fetch', async (url, options) => {
