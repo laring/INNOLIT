@@ -1,4 +1,4 @@
-.product-workflow { gap: 22px; }
+.product-workflow { gap: 16px; }
 .workflow-number-choice { min-width: 0; padding: 16px; border: 1px solid #d3dcd2; border-radius: 12px; }
 .workflow-number-buttons { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .workflow-number-buttons button[aria-pressed="true"] { background: #e8f0e5; border-color: #6e8b74; }
@@ -26,3 +26,11 @@
   .product-step-nav button { padding: 10px; }
   .workflow-parameter-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.workflow-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; background: #f1f5ed; border-radius: 12px; }
+.workflow-progress > span { padding: 4px 8px; }
+.workflow-progress > button { margin-left: auto; }
+.product-workflow details > summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+.workflow-options { border: 1px solid #d3dcd2; border-radius: 12px; padding: 0 16px; }
+.workflow-download-options > summary { padding: 10px !important; }
+.product-workflow .studio-hint:empty { display: none; }

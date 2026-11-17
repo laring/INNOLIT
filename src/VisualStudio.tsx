@@ -11,7 +11,7 @@ type VisualProps = {
 }
 export function VisualStudio(props: VisualProps) {
   return <>
-    <p className="studio-hint" role="status">当前实际图片配置：{props.imageConfiguration}（与顶部 AI 模型中心同步）</p>
+    <details><summary>查看当前图片模型配置</summary><p className="studio-hint">{props.imageConfiguration}</p></details>
     <ProductWorkflowStudio {...props} />
   </>
 }

@@ -59,32 +59,31 @@ export function PlanningReportPanel({ concept, settings, onChange, initialKind =
     finally { setExporting(false) }
   }
   return <section aria-labelledby="planning-report-heading" className="studio-report-section">
-    <h3 id="planning-report-heading">产品策划与市场合规报告</h3>
-    <p>以资深产品经理、市场与法务经理视角编制内部评审草稿。填写产品及目标地区，AI 使用模型中心的“设计报告”配置。</p>
-    <div className="studio-validation-fields">{Object.entries(planningFields).map(([key, label]) => <label className="studio-field" key={key}>{label}<textarea rows={3} maxLength={4000} disabled={task.pending} value={inputs[key as keyof typeof inputs]} placeholder="未确定的内容可留空，报告会列为待确认。" onChange={event => {
+    <h3 id="planning-report-heading">{onlyKind ? planningTitles[kind] : '产品策划与市场合规报告'}</h3>
+    <p>填写产品与目标地区，生成后可逐章修改。未确定的内容可留空。</p>
+    <div className="studio-validation-fields">{Object.entries(planningFields).map(([key, label]) => <label className="studio-field" key={key}>{label}<textarea rows={2} maxLength={4000} disabled={task.pending} value={inputs[key as keyof typeof inputs]} placeholder="未确定的内容可留空，报告会列为待确认。" onChange={event => {
       const value = event.target.value
       onChange(current => ({ ...current, planningReport: { ...current.planningReport, inputs: { ...emptyPlanningInputs, ...current.planningReport?.inputs, [key]: value } } }))
     }} /></label>)}</div>
-    <div className="studio-actions">{(['product', 'compliance'] as const).filter(value => !onlyKind || value === initialKind).map(value => <button type="button" className="studio-button" aria-pressed={kind === value} disabled={task.pending || exporting} key={value} onClick={() => { setKind(value); setExportNotice('') }}>{planningTitles[value]}</button>)}</div>
-    <p className="studio-hint">{kind === 'product' ? '12 章：从项目背景、定位与竞品，到 PCB 工程、供应链及版本落地。' : '第一部分：市场推广与法务预审。第二部分：国内外标准、认证、知识产权、贸易与数据合规。'}</p>
+    {!onlyKind && <div className="studio-actions">{(['product', 'compliance'] as const).filter(value => !onlyKind || value === initialKind).map(value => <button type="button" className="studio-button" aria-pressed={kind === value} disabled={task.pending || exporting} key={value} onClick={() => { setKind(value); setExportNotice('') }}>{planningTitles[value]}</button>)}</div>}
     <div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={task.pending || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '12 章草稿已保存，请逐章核对与修正。')}>{draft ? '重新生成 AI 草稿' : 'AI 编制完整草稿'}</button>
-      {!draft && <button type="button" className="studio-button" disabled={task.pending} onClick={() => saveDraft(planningTemplate(kind, contextKey))}>建立本地评审提纲</button>}
+      <button type="button" className="studio-button primary" disabled={task.pending || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '12 章草稿已保存，请逐章核对与修正。')}>{draft ? '重新生成报告' : 'AI 生成报告'}</button>
+      {!draft && <button type="button" className="studio-button" disabled={task.pending} onClick={() => saveDraft(planningTemplate(kind, contextKey))}>手动填写提纲</button>}
       {task.pending && <button type="button" className="studio-button" onClick={task.cancel}>取消</button>}
       <button type="button" className="studio-button" disabled={!draft || task.pending || exporting} onClick={() => void exportPptx()}>导出图文 PPTX</button>
     </div>
     {!hasModelSettings(settings) && <p className="studio-hint">请在 AI 模型中心配置设计报告模型，或先建立本地提纲并人工填写。</p>}
-    {draft && <p className="studio-hint">{draft.source} · 保存于 {new Date(draft.updatedAt).toLocaleString()}。重新生成会覆盖当前这一份草稿，请先导出需要保留的修改。</p>}
+    {draft && <details><summary>来源与保存信息</summary><p>{draft.source} · {new Date(draft.updatedAt).toLocaleString()}。重新生成会覆盖本稿，请先导出修改。</p></details>}
     {stale && <p role="status">产品、概念或分析依据已变化，请复核或重新生成。导出也会标注此状态。</p>}
     <p role="status" className="studio-hint">{task.notice || exportNotice}</p>
-    {draft?.sections.map((section, index) => <label className="studio-field" key={section.title}>{index + 1}. {section.title}<textarea rows={7} maxLength={1600} disabled={task.pending} value={section.body} onChange={event => {
+    {draft?.sections.map((section, index) => <details key={section.title}><summary>{index + 1}. {section.title}</summary><label className="studio-field">内容<textarea rows={7} maxLength={1600} disabled={task.pending} value={section.body} onChange={event => {
       const body = event.target.value
       onChange(current => {
         const previous = current.planningReport?.[kind]
         if (!previous || !current.planningReport) return current
         return { ...current, planningReport: { ...current.planningReport, [kind]: { ...previous, updatedAt: new Date().toISOString(), sections: previous.sections.map((item, i) => i === index ? { ...item, body } : item) } } }
       })
-    }} /></label>)}
+    }} /></label></details>)}
     <details><summary>官方法规核查入口与报告边界</summary><p>未进行实时法规检索。CCC、CE、FCC 等是否适用，应按产品类别、供电、无线能力与目标市场确认。限值、标准版本、豁免和认证费用须有原文或询价依据。AI 不能代替测试与法律审查。</p>{officialReferences.map(item => <p key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></p>)}</details>
   </section>
 }
