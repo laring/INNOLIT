@@ -65,7 +65,7 @@ const textProviders: ProviderPreset[] = [
   },
   {
     id: 'custom',
-    name: '其他服务（OpenAI 兼容）',
+    name: 'OpenAI 兼容接口（自定义文字服务）',
     baseUrl: '',
     models: [],
   },
@@ -97,7 +97,7 @@ const imageProviders: ProviderPreset[] = [
 
   {
     id: 'custom',
-    name: '自定义图像接口',
+    name: 'OpenAI 兼容接口（自定义图片服务）',
     baseUrl: '',
     models: [],
   },
@@ -138,7 +138,9 @@ function CommonModelFields({
   image = false,
 }: CommonFieldsProps) {
   const providers = image ? imageProviders : textProviders
-  const provider = findProvider(settings.baseUrl, providers)
+  const provider = image && (settings as ImageSettings).protocol === 'images'
+    ? providers.find(item => item.id === 'custom')!
+    : findProvider(settings.baseUrl, providers)
 
   const knownModel = provider.models.includes(settings.model)
 
@@ -150,7 +152,7 @@ function CommonModelFields({
     if (selected.id === 'custom') {
       // Preserve the current model ID and API Key.
       // Only switch the endpoint to custom mode.
-      onChange({ baseUrl: '', ...(image ? { protocol: 'images' as const } : {}) })
+      onChange(image ? { protocol: 'images' as const } : { baseUrl: '' })
       return
     }
 
@@ -288,7 +290,7 @@ function ImageExtraFields({
 
 
           <option value="images">
-            Images 兼容接口
+            OpenAI 兼容 Images API
           </option>
 
           <option value="openai">
@@ -316,6 +318,7 @@ function ImageExtraFields({
           ))}
         </select>
       </label>
+      {settings.protocol === 'images' && <p className="studio-hint">填写兼容服务的地址、模型和密钥，文生图通过 /images/generations 调用。参考图编辑需要服务专用适配，不能仅凭兼容名称保证支持。</p>}
       {settings.protocol === 'openrouter' && <p className="studio-hint">OpenRouter 使用所选模型的默认原图尺寸，避免附加不兼容的尺寸参数。导出尺寸在六步设计的各步骤中设置。</p>}
     </>
   )
