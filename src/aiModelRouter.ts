@@ -78,7 +78,7 @@ export const workflowTasks = {
   originality: '原创性检索',
   optimization: '方案优化与定稿',
   visual: '概念图与展板',
-  engineering: '六步产品设计 · 工程文字模型',
+  engineering: '七步产品设计 · 工程文字模型',
   report: '设计报告',
 } as const
 

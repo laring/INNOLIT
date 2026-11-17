@@ -10,8 +10,8 @@ import { getVisual } from './visualStore'
 import { workflowOf, workflowContext } from './productWorkflow'
 import { useModelTask } from './useModelTask'
 
-export function PlanningReportPanel({ concept, settings, onChange }: { concept: Concept; settings: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }) {
-  const [kind, setKind] = useState<PlanningKind>('product')
+export function PlanningReportPanel({ concept, settings, onChange, initialKind = 'product', onlyKind = false }: { initialKind?: PlanningKind; onlyKind?: boolean; concept: Concept; settings: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }) {
+  const [kind, setKind] = useState<PlanningKind>(initialKind)
   const [exportNotice, setExportNotice] = useState('')
   const [exporting, setExporting] = useState(false)
   const task = useModelTask()
@@ -65,7 +65,7 @@ export function PlanningReportPanel({ concept, settings, onChange }: { concept: 
       const value = event.target.value
       onChange(current => ({ ...current, planningReport: { ...current.planningReport, inputs: { ...emptyPlanningInputs, ...current.planningReport?.inputs, [key]: value } } }))
     }} /></label>)}</div>
-    <div className="studio-actions">{(['product', 'compliance'] as const).map(value => <button type="button" className="studio-button" aria-pressed={kind === value} disabled={task.pending || exporting} key={value} onClick={() => { setKind(value); setExportNotice('') }}>{planningTitles[value]}</button>)}</div>
+    <div className="studio-actions">{(['product', 'compliance'] as const).filter(value => !onlyKind || value === initialKind).map(value => <button type="button" className="studio-button" aria-pressed={kind === value} disabled={task.pending || exporting} key={value} onClick={() => { setKind(value); setExportNotice('') }}>{planningTitles[value]}</button>)}</div>
     <p className="studio-hint">{kind === 'product' ? '12 章：从项目背景、定位与竞品，到 PCB 工程、供应链及版本落地。' : '第一部分：市场推广与法务预审。第二部分：国内外标准、认证、知识产权、贸易与数据合规。'}</p>
     <div className="studio-actions">
       <button type="button" className="studio-button primary" disabled={task.pending || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '12 章草稿已保存，请逐章核对与修正。')}>{draft ? '重新生成 AI 草稿' : 'AI 编制完整草稿'}</button>

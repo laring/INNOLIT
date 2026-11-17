@@ -5,19 +5,30 @@ import type { Concept } from './concepts.ts'
 import { visualSubjectOf } from './conceptVisuals.ts'
 
 export const productStages = {
-  sketches: { title: '十款设计草图', role: '资深工业设计师' },
-  render: { title: '产品效果图（草图可选）', role: '资深工业设计师' },
-  pcb: { title: '二维 PCB 工程图', role: '资深电子工程师' },
+  design: { title: '工业设计与视觉定义', role: '工业设计师、产品经理' },
   structure: { title: '结构爆炸图', role: '资深结构、模具工程师' },
-  tooling: { title: '注塑模具与 DFM', role: '资深结构与注塑模具工程师' },
-  packaging: { title: '品牌与包装打样', role: '资深品牌视觉传达设计师' },
+  drawings: { title: '五张结构工程图', role: '资深结构工程师' },
+  pcb: { title: '二维 PCB 工程图', role: '资深电子工程师' },
+  firmware: { title: '嵌入式软件与工程文档', role: '硬件、嵌入式工程师' },
+  packaging: { title: '视觉包装与量产成本', role: '视觉设计师、量产产品经理' },
+  compliance: { title: '全球推广与合规', role: '市场、法务经理' },
 } as const
+export const engineeringViews = { orthographic: '三视图', axonometric: '轴测图', assembly: '装配结构图', section: '局部剖视图', detail: '关键连接与局部详图' } as const
+export type EngineeringView = keyof typeof engineeringViews
+export type LegacyProductStage = 'sketches' | 'render' | 'tooling'
+export function activeProductStage(stage: ProductStage | LegacyProductStage): ProductStage {
+  return stage === 'sketches' || stage === 'render' ? 'design' : stage === 'tooling' ? 'structure' : stage in productStages ? stage : 'design'
+}
 export type ProductStage = keyof typeof productStages
-export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'pcb' | 'exploded' | 'package'
+export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'pcb' | 'exploded' | 'package' | EngineeringView
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
 export type ProductWorkflow = {
-  outputSizes?: Partial<Record<ProductStage, { layout: PageLayout; width: number; height: number }>>
-  stage: ProductStage
+  outputSizes?: Partial<Record<ProductStage | LegacyProductStage, { layout: PageLayout; width: number; height: number }>>
+  stage: ProductStage | LegacyProductStage
+  designPhase?: 'sketches' | 'render'
+  costs?: { values: string[]; fixed: string; quantity: string; yield: string; price: string; notes: string }
+  drawingNotes?: string
+  firmware?: { mcu: string; toolchain: string; pinMap: string; interfaces: string; requirements: string; draft: string; contextKey?: string; files?: { name: string; data: string }[] }
   style?: string // Legacy saved preference; no built-in style generator.
   productName: string
   brand: string
@@ -41,7 +52,7 @@ export function workflowOf(concept: Concept): ProductWorkflow {
   const subject = visualSubjectOf(concept)
   const saved = concept.productWorkflow
   const defaults: ProductWorkflow = {
-    stage: 'sketches', productName: subject.title, brand: '', brandColor: '#193c32', functions: subject.sentences.interaction,
+    stage: 'sketches', designPhase: saved?.stage === 'render' ? 'render' : 'sketches', productName: subject.title, brand: '', brandColor: '#193c32', functions: subject.sentences.interaction,
     direction: '时尚、前卫、年轻、轻盈、独特的太空风格；重视独创、绿色制造、情感、人文、美学、社会与环境责任。', renderNotes: '',
     assets: {}, components: '', printWidth: 80, pcb: { ...emptyPcb },
     engineering: { length: 0, width: 0, height: 0, material: '', wall: 0, shrinkage: '', tolerance: '', cavities: 1, notes: '', files: [], review: '', reviewer: '' },
@@ -62,6 +73,7 @@ export function workflowContext(concept: Concept, step: ProductAsset): string {
   if (step === 'sheet') return JSON.stringify({ ...common, styleImage: data.assets.style })
   if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection })
   if (step === 'hero') return JSON.stringify(heroUsesSketch(concept) ? { ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes } : { ...common, mode: 'free', renderNotes: data.renderNotes })
+  if (step in engineeringViews) return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), drawingNotes: data.drawingNotes, engineering: data.engineering, view: step })
   if (step === 'pcb') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), pcb: { ...data.pcb, analysis: undefined } })
   if (step === 'exploded') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), components: data.components, engineering: { ...data.engineering, files: undefined, review: undefined, reviewer: undefined, confirmedContext: undefined } })
   if (step === 'package') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), packaging: packagingContext(data) })
@@ -86,9 +98,16 @@ export function packagingContext(data: ProductWorkflow) {
   return JSON.stringify({ name: data.productName, brand: data.brand, brandColor: data.brandColor, hero: data.assets.hero, spec })
 }
 
-export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | 'pcb' | 'exploded' | 'package') {
+export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | 'pcb' | 'exploded' | 'package' | EngineeringView | EngineeringView) {
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
+  if (step in engineeringViews) return [
+    'ROLE: Senior mechanical and mould engineer. Produce ONE independent black-and-white mechanical engineering drawing file. White background, black technical linework, clear line weights, orthographic proportions, legible annotations. No collage combining the five deliverables.',
+    `VIEW: ${engineeringViews[step as EngineeringView]}. Orthographic sheet: aligned front/top/side views in this single file; axonometric: line-only isometric; assembly: assembly relationships; section: a labelled local cutaway; detail: critical joints and interfaces. Render only the selected VIEW.`,
+    `PRODUCT: ${data.productName}. Reference is the exact approved exterior. Preserve shape, proportions, construction, interfaces and materials. No redesign.`,
+    `Supplied dimensions, materials, tolerances: ${JSON.stringify(data.engineering)}. Components: ${data.components}. Additional drawing instructions: ${data.drawingNotes || 'Not supplied'}.`,
+    'Annotate supplied dimensions and materials only. Missing internal geometry and dimensions must be marked TO BE VERIFIED, not invented as measurements. High native resolution; actual 300dpi is checked against print width. ENGINEERING REVIEW DRAFT, not verified machining CAD.',
+  ].join('\n').slice(0,13000)
   if (step === 'pcb') {
     const prompt = [
     'ROLE: Senior electronics engineer. Generate a strictly orthographic TWO-DIMENSIONAL PCB top-view engineering assembly drawing. Vector-style technical linework, BLACK LINES ONLY on pure WHITE background. Absolutely NO 3D, perspective, shadows, gradients, photorealism, product hero rendering or decorative space-age styling.',
@@ -104,7 +123,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
   }
   const common = [
     `ROLE: ${step === 'exploded' ? 'Senior product structure and mould engineer' : step === 'package' ? 'Senior brand and visual communication designer' : 'Senior industrial designer'}.`,
-    `PRODUCT: ${data.productName}. BRAND / LOGO TEXT (exact spelling, do not invent): ${data.brand || 'No brand mark supplied; do not invent a logo'}.`,
+    `PRODUCT: ${data.productName}. ${step === 'sheet' || step === 'hero' ? 'No logos, brand marks or title logos anywhere on this industrial-design image.' : `BRAND / LOGO TEXT: ${data.brand || 'No brand mark supplied'}.`}`,
     `Shared brand accent color: ${data.brandColor}. Keep branding consistent across product and packaging.`,
     `BRIEF: ${subject.sentences.idea}. USER: ${subject.sentences.audience}. SCENE: ${subject.sentences.scenario}.`,
     `FUNCTIONS AND INTERACTION: ${data.functions}. DESIGN DIRECTION: ${data.direction}.`,
@@ -135,7 +154,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
       'Fashionable, beautiful, avant-garde brand communication. Show a clear box mockup. This is a visual preview only; manufacturing artwork and dielines are exported separately as editable vector files.',
     ],
   }
-  return [...common, ...tasks[step]].join('\n').slice(0, 13800)
+  return [...common, ...tasks[step as keyof typeof tasks]].join('\n').slice(0, 13800)
 }
 
 export function sketchCell(index: number, width: number, height: number) {

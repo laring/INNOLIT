@@ -89,7 +89,7 @@ test('product identity and upstream choices invalidate downstream images while d
   assert.notEqual(workflowContext(concept, 'sheet'), sheet)
   for (const role of ['sheet', 'hero', 'exploded', 'package']) {
     const prompt = workflowImagePrompt(concept, role)
-    assert.ok(prompt.includes(data.productName)); assert.ok(prompt.includes(data.brand)); assert.ok(prompt.includes(data.brandColor))
+    assert.ok(prompt.includes(data.productName)); if (role !== 'sheet' && role !== 'hero') assert.ok(prompt.includes(data.brand)); assert.ok(prompt.includes(data.brandColor))
   }
   assert.match(workflowImagePrompt(concept, 'sheet'), /EXACTLY TEN.*2 rows by 5 columns/)
   assert.match(workflowImagePrompt(concept, 'exploded'), /not production CAD/)

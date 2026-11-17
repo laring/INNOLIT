@@ -1,10 +1,10 @@
 import type { Concept } from './concepts.ts'
-import type { ProductStage } from './productWorkflow.ts'
+import type { ProductStage, LegacyProductStage } from './productWorkflow.ts'
 import type { PageLayout } from './visualStudioTypes.ts'
 import { pageSizeProblem, layoutSizes } from './conceptVisuals.ts'
 export type ProductOutputSize = { layout: PageLayout; width: number; height: number }
-export function productOutputSize(concept: Concept, stage: ProductStage): ProductOutputSize {
-  return { layout: 'landscape', width: 1600, height: 1000, ...concept.productWorkflow?.outputSizes?.[stage] }
+export function productOutputSize(concept: Concept, stage: ProductStage | LegacyProductStage): ProductOutputSize {
+  return { layout: 'landscape', width: 1600, height: 1000, ...(concept.productWorkflow?.outputSizes?.[stage] ?? (stage === 'design' ? concept.productWorkflow?.outputSizes?.[concept.productWorkflow.designPhase === 'render' || concept.productWorkflow.stage === 'render' ? 'render' : 'sketches'] : undefined)) }
 }
 export function productOutputLayout(size: ProductOutputSize, layout: PageLayout): ProductOutputSize {
   if (layout === 'custom') return { ...size, layout }

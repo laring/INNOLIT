@@ -9,7 +9,7 @@ const size = { layout:'landscape',width:1600,height:1000 }
 const pcb = () => ({...emptyPcb,length:80,width:40,thickness:'1.6 mm（测试）',copper:'35 µm（测试）',finish:'ENIG（待核实）',tolerance:'±0.2 mm（测试）',drawingNo:'TEST-PCB-001',revision:'A',designer:'测试工程师',holes:'H1|PTH|5|5|1|2\nH2|NPTH|75|35|2|0',pads:'U1.1|30|20|2|1|+|VCC\nU1.2|35|20|2|1|-|GND',tracks:'VCC|0.3|30,20;30,10;50,10',components:'U1|32|25|10|5|+'})
 const concept = () => generateConceptBatch({problem:'休息计时',audience:'学生',scenario:'桌面',count:3}).concepts[0]
 test('six-step order inserts PCB between product rendering and exploded structure and restores older stages',()=>{
-  assert.deepEqual(Object.keys(productStages),['sketches','render','pcb','structure','tooling','packaging'])
+  assert.deepEqual(Object.keys(productStages),['design','structure','drawings','pcb','firmware','packaging','compliance'])
   const current=concept();current.productWorkflow={...workflowOf(current),stage:'packaging'}
   delete current.productWorkflow.pcb
   assert.deepEqual(workflowOf(current).pcb,emptyPcb)

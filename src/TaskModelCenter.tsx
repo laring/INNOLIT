@@ -319,7 +319,7 @@ function ImageExtraFields({
         </select>
       </label>
       {settings.protocol === 'images' && <p className="studio-hint">填写兼容服务的地址、模型和密钥，文生图通过 /images/generations 调用。参考图编辑需要服务专用适配，不能仅凭兼容名称保证支持。</p>}
-      {settings.protocol === 'openrouter' && <p className="studio-hint">OpenRouter 使用所选模型的默认原图尺寸，避免附加不兼容的尺寸参数。导出尺寸在六步设计的各步骤中设置。</p>}
+      {settings.protocol === 'openrouter' && <p className="studio-hint">OpenRouter 使用所选模型的默认原图尺寸，避免附加不兼容的尺寸参数。导出尺寸在七步设计的各步骤中设置。</p>}
     </>
   )
 }
@@ -357,7 +357,7 @@ export function TaskModelCenter({
         </legend>
 
         <p className="studio-hint">
-          创意对话、概念生成、方案深化及六步工程分析，
+          创意对话、概念生成、方案深化及七步工程分析，
           默认继承此处的文本模型。
         </p>
 
@@ -403,8 +403,8 @@ export function TaskModelCenter({
             {image && <ImageExtraFields settings={active as ImageSettings} onChange={change => onWorkflowChange(task, change)} />}
           </>}
           <p className="studio-hint">当前模型：{active.model || '未配置'}{dedicated ? '（独立配置）' : '（继承配置）'}</p>
-          {image && <p className="studio-hint">用于六步产品设计的草图、产品效果图、PCB 示意、爆炸图与包装生图。</p>}
-          {task === 'engineering' && <p className="studio-hint">用于六步设计中的功能与 CMF、PCB、结构、DFM 和包装文字分析，不用于图片生成。</p>}
+          {image && <p className="studio-hint">用于七步产品设计的草图、产品效果图、PCB 示意、爆炸图与包装生图。</p>}
+          {task === 'engineering' && <p className="studio-hint">用于七步设计中的功能与 CMF、PCB、结构、DFM 和包装文字分析，不用于图片生成。</p>}
         </fieldset>
       })}
 

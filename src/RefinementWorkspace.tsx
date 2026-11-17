@@ -247,6 +247,7 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}
         imageSettings={imageSettings}
         imageConfiguration={imageConfiguration}
+        reportSettings={workflowSettings.report}
         modelSettings={engineeringSettings}
          />}
     </>

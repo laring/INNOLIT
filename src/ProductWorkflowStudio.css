@@ -2,7 +2,7 @@
 .workflow-number-choice { min-width: 0; padding: 16px; border: 1px solid #d3dcd2; border-radius: 12px; }
 .workflow-number-buttons { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .workflow-number-buttons button[aria-pressed="true"] { background: #e8f0e5; border-color: #6e8b74; }
-.product-step-nav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.product-step-nav { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
 .product-step-nav button { display: grid; align-content: start; justify-items: start; gap: 10px; min-width: 0; text-align: left; padding: 14px 12px; }
 .product-step-nav button > span { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #b6c4b9; border-radius: 50%; }
 .product-step-nav button[aria-pressed="true"] { background: #e8f0e5; border-color: #6e8b74; }
