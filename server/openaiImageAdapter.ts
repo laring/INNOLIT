@@ -100,6 +100,18 @@ export async function generateOpenAIImage(
   }, '请求模型绘图')
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Upstream messages can echo credentials. Use only recognized error codes.
+      const detail: unknown = await response.json().catch(() => null)
+      const error = detail && typeof detail === 'object' && 'error' in detail ? detail.error : undefined
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
+      const reason = code === 'ip_not_authorized'
+        ? '当前出口 IP 未获授权，请检查 OpenAI 项目的 IP 白名单与代理出口。'
+        : code === 'invalid_api_key'
+        ? '当前 API 密钥无效、已撤销或不属于 OpenAI 官方服务。'
+        : '密钥或项目认证未通过。'
+      throw new Error(`OpenAI 认证失败（HTTP 401）：${reason}请在 AI 模型中心核对当前生效的图片配置；官方地址 https://api.openai.com/v1 需要对应的 OpenAI API 密钥。第三方密钥请使用 OpenAI 兼容接口及该服务商地址。`)
+    }
     throw new Error(
       `OpenAI 图像生成失败：HTTP ${response.status}`,
     )

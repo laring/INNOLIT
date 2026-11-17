@@ -28,3 +28,32 @@ test('a disconnected local image relay produces a local-service message rather t
  context.mock.method(globalThis,'fetch',async()=>{throw new TypeError('Failed to fetch')})
  await assert.rejects(generateConceptImage({baseUrl:'https://api.example.com/v1',model:'fixture',apiKey:'fixture-key',size:'1024x1024',protocol:'images'},'sketch',signal()),/本机图片转发服务/)
 })
+
+test('OpenAI image authentication errors explain the active provider and never disclose upstream credentials or retry',async context=>{
+ const key='fixture-private-api-key'
+ const reference='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ZkAAAAASUVORK5CYII='
+ let calls=0,code='invalid_api_key',isJson=true
+ context.mock.method(globalThis,'fetch',async(url,options)=>{
+  calls++
+  assert.equal(options.headers.Authorization,`Bearer ${key}`)
+  assert.equal(url,options.body instanceof FormData?'https://api.openai.com/v1/images/edits':'https://api.openai.com/v1/images/generations')
+  return isJson?Response.json({error:{code,message:`Incorrect API key ${key}, private provider details`}},{status:401}):new Response('private proxy response '+key,{status:401})
+ })
+ const input={model:'gpt-image-1.5',prompt:'test',size:'1024x1024'}
+ for(const value of [undefined,reference]){
+  await assert.rejects(generateOpenAIImage({...input,reference:value},key,signal()),error=>{
+   assert.match(error.message,/认证失败.*401.*密钥无效/)
+   assert.match(error.message,/当前生效.*OpenAI 兼容接口/)
+   assert.doesNotMatch(error.message,new RegExp(key+'|private provider'))
+   return true
+  })
+ }
+ assert.equal(calls,2)
+ code='ip_not_authorized'
+ await assert.rejects(generateOpenAIImage(input,key,signal()),/出口 IP.*白名单/)
+ isJson=false
+ await assert.rejects(generateOpenAIImage(input,key,signal()),error=>{
+  assert.match(error.message,/认证失败.*401/);assert.doesNotMatch(error.message,/fixture-private|private proxy/);return true
+ })
+ assert.equal(calls,4)
+})
