@@ -47,3 +47,21 @@ test('automatic English prompt fill preserves manual edits, changed source and o
  c.productWorkflow={...workflowOf(c),useEnglishPrompt:false};assert.equal(fillEnglishPrompt(c,source,'Ignored'),c)
  c.productWorkflow.useEnglishPrompt=true;c.productWorkflow.functions='changed';assert.equal(fillEnglishPrompt(c,source,'Stale'),c)
 })
+
+test('drawing parameter recommendations include the real image and keep estimates distinct from measured engineering data',async context=>{
+ const {engineeringInput,engineeringPrompt,recommendDrawingParameters}=await import('../src/engineeringModel.ts')
+ const c=concept(),reference='data:image/jpeg;base64,/9j/AA=='
+ const request={...engineeringInput(c,'drawing-parameters'),reference}
+ const payload=engineeringPrompt(request,'vision-fixture')
+ assert.equal(payload.messages[1].content[1].image_url.url,reference)
+ assert.match(payload.messages[1].content[0].text,/建议估算，非实测/)
+ assert.throws(()=>engineeringPrompt({...request,reference:'https://example.com/private.jpg'},'fixture'))
+ assert.throws(()=>engineeringPrompt({...request,reference:reference+'A'.repeat(250000)},'fixture'))
+ context.mock.method(globalThis,'fetch',async(_url,options)=>{
+  assert.equal(JSON.parse(options.body).reference,reference)
+  return Response.json({content:JSON.stringify({recommendations:'长宽高建议范围待验证；材料候选 PLA；公差由工程师核对。'})})
+ })
+ const result=await recommendDrawingParameters(c,reference,{baseUrl:'https://example.com/v1',model:'vision-fixture',apiKey:'fixture'},new AbortController().signal)
+ assert.match(result,/AI 推荐估算，非实测/)
+ assert.equal(c.productWorkflow,undefined)
+})

@@ -15,7 +15,7 @@ import { readJson, requestProviderJson } from './providerHttp.ts'
 
 
 
-type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt>
+type ModelPayload = ReturnType<typeof modelPrompt> | ReturnType<typeof chatPrompt> | ReturnType<typeof engineeringPrompt>
 
 type ModelTransport = (
   url: URL, key: string, payload: ModelPayload, signal: AbortSignal,
@@ -62,7 +62,7 @@ export function modelApi(transport: ModelTransport = requestProviderJson): Plugi
     let url: URL
     let payload: ModelPayload
     try {
-      const input = objectRecord(await readJson(request, request.url === modelDevelopmentPath ? 192 * 1024 : request.url === modelReviewPath ? 128 * 1024 : 64 * 1024))
+      const input = objectRecord(await readJson(request, request.url === modelDevelopmentPath ? 384 * 1024 : request.url === modelReviewPath ? 128 * 1024 : 64 * 1024))
       const { baseUrl, model, brief, messages } = input
       if (typeof baseUrl !== 'string' || baseUrl.length > 1000 || typeof model !== 'string' || !model.trim() || model.length > 200) {
         throw new Error('请填写 API 地址和模型 ID。')

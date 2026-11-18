@@ -80,3 +80,16 @@ export async function nativePcbPrint(blob: Blob, widthMm: number) {
     return new Blob([pngDensity(new Uint8Array(await(await canvasBlob(canvas)).arrayBuffer()),dpi)],{type:'image/png'})
   }finally{bitmap.close()}
 }
+
+export async function engineeringReference(blob: Blob) {
+  const bitmap=await createImageBitmap(blob)
+  try {
+    const scale=Math.min(1,800/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas')
+    canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale))
+    const context=canvas.getContext('2d');if(!context)throw new Error('无法读取产品图。')
+    context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0,canvas.width,canvas.height)
+    const reference=canvas.toDataURL('image/jpeg',0.65)
+    if(reference.length>250000)throw new Error('产品参考图过大，请换用更简洁的效果图。')
+    return reference
+  }finally{bitmap.close()}
+}

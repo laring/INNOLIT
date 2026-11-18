@@ -126,7 +126,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     `VIEW: ${engineeringViews[step as EngineeringView]}. Orthographic sheet: aligned front/top/side views in this single file; axonometric: line-only isometric; assembly: assembly relationships; section: a labelled local cutaway; detail: critical joints and interfaces. Render only the selected VIEW.`,
     `PRODUCT: ${data.productName}. Reference is the exact approved exterior. Preserve shape, proportions, construction, interfaces and materials. No redesign.`,
     `Supplied dimensions, materials, tolerances: ${JSON.stringify(data.engineering)}. Components: ${data.components}. Additional drawing instructions: ${data.drawingNotes || 'Not supplied'}.`,
-    'Annotate supplied dimensions and materials only. Missing internal geometry and dimensions must be marked TO BE VERIFIED, not invented as measurements. High native resolution; actual 300dpi is checked against print width. ENGINEERING REVIEW DRAFT, not verified machining CAD.',
+    'Values marked AI recommendations or estimates are NOT verified dimensions: label them ESTIMATED / TO BE VERIFIED on the drawing and do not present them as manufacturing tolerances. Annotate supplied dimensions and materials only. Missing internal geometry and dimensions must be marked TO BE VERIFIED, not invented as measurements. High native resolution; actual 300dpi is checked against print width. ENGINEERING REVIEW DRAFT, not verified machining CAD.',
   ].join('\n').slice(0,13000)
   if (step === 'pcb') {
     const prompt = [

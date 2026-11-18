@@ -17,9 +17,9 @@ import type { ProductAsset, ProductStage, ProductWorkflow, EngineeringView, Sket
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
 import { downloadBlob } from './conceptBoard'
-import { imageDataUrl, imageDigest, selectedSketch, validateProductImage, sizedProductImage } from './productWorkflowImages'
+import { imageDataUrl, imageDigest, selectedSketch, validateProductImage, sizedProductImage, engineeringReference } from './productWorkflowImages'
 import { EngineeringPanel, PackagingPanel } from './ProductEngineeringPanels'
-import { analyzeEngineering, translateImagePrompt } from './engineeringModel'
+import { analyzeEngineering, translateImagePrompt, recommendDrawingParameters } from './engineeringModel'
 import { useModelTask } from './useModelTask'
 import './ProductWorkflowStudio.css'
 
@@ -36,6 +36,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   const [history, setHistory] = useState<SavedVisual[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [parameterProposal,setParameterProposal]=useState<{text:string;source:string}>()
   const [generationRole, setGenerationRole] = useState<ProductAsset>()
   const { pending, notice, run, cancel } = useModelTask(300000)
   const [promptStatus,setPromptStatus]=useState('')
@@ -205,7 +206,15 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       {imageActions('exploded', '生成结构爆炸图', heroReady)}{imagePreview('exploded', '结构爆炸图')}
     </>}
     {active === 'structure' && <details><summary>模具 DFM 与已有工程附件</summary><EngineeringPanel concept={concept} settings={modelSettings} projectId={projectId} heroReady={heroReady} hero={asset('hero')} onEdit={edit} /></details>}
-    {active === 'drawings' && <><p>一键生成五张独立图，也可展开单张操作。尺寸与结构需工程核对。</p><label className="studio-field">真实尺寸、材料、公差与制图补充<textarea rows={3} maxLength={8000} disabled={pending} value={data.drawingNotes??''} onChange={event=>change({drawingNotes:event.target.value})}/></label><button className="studio-button primary" disabled={pending||loading||!heroReady||!configured||!referenceSupported||Boolean(sizeProblem)} onClick={()=>void run(async signal=>{for(const role of Object.keys(engineeringViews) as EngineeringView[]){setGenerationRole(role);const reference=asset('hero');if(!reference||!heroReady)throw new Error('请确认产品外观基准。');if(!referenceSupported)throw new Error('当前模型不支持产品参考图。');const prompt=workflowImagePrompt(concept,role)+'\n'+productSizePrompt(outputSize);const blob=await generateConceptImage(requestSettings(),prompt,signal,{purpose:'master',reference:await imageDataUrl(reference.blob)});const record=await storeImage(role,blob,{kind:'model',model:imageSettings.model,provider:new URL(imageSettings.baseUrl).hostname},prompt,workflowContext(concept,role),signal);adoptAsset(role,record)}},()=>{},'五张独立工程图已生成，尺寸和结构仍需工程核对。')}>生成全部五张图</button>{(Object.keys(engineeringViews) as EngineeringView[]).map(role=><details key={role}><summary>{engineeringViews[role]} · {current(role)?'已生成':asset(role)?'待更新':'待生成'}</summary>{imageActions(role,`生成${engineeringViews[role]}`,heroReady)}{imagePreview(role,engineeringViews[role])}</details>)}</>}
+    {active === 'drawings' && <><p>一键生成五张独立图，也可展开单张操作。尺寸与结构需工程核对。</p><button className="studio-button" disabled={pending||!heroReady||!hasModelSettings(modelSettings)} onClick={()=>{
+      const source=JSON.stringify([data.assets.hero,workflowContext(concept,'hero')]),heroId=data.assets.hero,previous=data.drawingNotes??''
+      void run(async signal=>recommendDrawingParameters(concept,await engineeringReference(asset('hero')!.blob),modelSettings,signal),text=>{
+        if(previous.trim())setParameterProposal({text,source})
+        else onChange(current=>JSON.stringify([workflowOf(current).assets.hero,workflowContext(current,'hero')])===source&&workflowOf(current).assets.hero===heroId&&!(workflowOf(current).drawingNotes??'').trim()?{...current,productWorkflow:{...workflowOf(current),drawingNotes:text}}:current)
+      },'推荐参数已整理，请核对后修正。')
+    }}>AI 根据产品图推荐参数</button><p className="studio-hint">需使用支持图片输入的工程文字模型。推荐参数不等于实测值。</p>
+    {parameterProposal&&<details open><summary>新的参数推荐（保留原填写内容）</summary><pre style={{whiteSpace:'pre-wrap'}}>{parameterProposal.text}</pre><button className="studio-button" disabled={pending||parameterProposal.source!==JSON.stringify([data.assets.hero,workflowContext(concept,'hero')])} onClick={()=>{change({drawingNotes:parameterProposal.text});setParameterProposal(undefined)}}>用推荐替换当前内容</button><button className="studio-button" onClick={()=>setParameterProposal(undefined)}>保留原内容</button></details>}
+    <label className="studio-field">真实尺寸、材料、公差与制图补充<textarea rows={3} maxLength={8000} disabled={pending} value={data.drawingNotes??''} onChange={event=>change({drawingNotes:event.target.value})}/></label><button className="studio-button primary" disabled={pending||loading||!heroReady||!configured||!referenceSupported||Boolean(sizeProblem)} onClick={()=>void run(async signal=>{for(const role of Object.keys(engineeringViews) as EngineeringView[]){setGenerationRole(role);const reference=asset('hero');if(!reference||!heroReady)throw new Error('请确认产品外观基准。');if(!referenceSupported)throw new Error('当前模型不支持产品参考图。');const prompt=workflowImagePrompt(concept,role)+'\n'+productSizePrompt(outputSize);const blob=await generateConceptImage(requestSettings(),prompt,signal,{purpose:'master',reference:await imageDataUrl(reference.blob)});const record=await storeImage(role,blob,{kind:'model',model:imageSettings.model,provider:new URL(imageSettings.baseUrl).hostname},prompt,workflowContext(concept,role),signal);adoptAsset(role,record)}},()=>{},'五张独立工程图已生成，尺寸和结构仍需工程核对。')}>生成全部五张图</button>{(Object.keys(engineeringViews) as EngineeringView[]).map(role=><details key={role}><summary>{engineeringViews[role]} · {current(role)?'已生成':asset(role)?'待更新':'待生成'}</summary>{imageActions(role,`生成${engineeringViews[role]}`,heroReady)}{imagePreview(role,engineeringViews[role])}</details>)}</>}
     {active === 'firmware' && <FirmwarePanel concept={concept} settings={modelSettings} onChange={onChange}/>}
     {active === 'compliance' && <PlanningReportPanel concept={concept} settings={reportSettings ?? modelSettings} onChange={onChange} initialKind="compliance" onlyKind/>}
     {active === 'packaging' && <><h4>包装设计</h4>{imageActions('package', '生成外包装效果预览', heroReady)}{asset('package') && imagePreview('package', '外包装效果预览')}<details><summary>包装展开稿与打样文件</summary><PackagingPanel concept={concept} settings={modelSettings} projectId={projectId} heroReady={heroReady} hero={asset('hero')} onEdit={edit} /></details><details><summary>量产成本与评审 PPT</summary><CostPanel concept={concept} onChange={onChange}/></details></>}
