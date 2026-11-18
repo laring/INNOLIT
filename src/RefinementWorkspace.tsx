@@ -118,6 +118,7 @@ function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' 
 }
 
 function ReportPanel({ projectName, round, roundNumber, concept, settings, onChange }: Pick<RefinementProps, 'projectName' | 'round' | 'roundNumber' | 'concept' | 'settings' | 'onChange'>) {
+  const [reportView,setReportView]=useState<'planning'|'summary'|'records'>('planning')
   const { pending, notice, run, cancel } = useModelTask()
   const report = buildDesignReport(projectName, round, roundNumber, concept)
   const stale = Boolean(concept.aiReport && concept.aiReport.contextKey !== reportContext(concept))
@@ -140,12 +141,15 @@ function ReportPanel({ projectName, round, roundNumber, concept, settings, onCha
       <header className="studio-report-header">
         <div>
           <h2 id="report-heading">设计报告</h2>
-          <p>报告使用当前轮次和选定方案的最新记录。</p>
+          <p>先完成策划报告；设计总结和过程记录可按需查看。</p>
         </div>
         <button type="button" className="studio-button primary" onClick={download}>
-          <Download size={16} aria-hidden="true" /> 下载 Markdown
+          <Download size={16} aria-hidden="true" /> 导出全部记录（Markdown）
         </button>
       </header>
+      <nav className="studio-actions" aria-label="报告内容">{([['planning','策划与合规'],['summary','设计总结'],['records','过程记录']] as const).map(([value,label])=><button key={value} className="studio-button" aria-pressed={reportView===value} onClick={()=>setReportView(value)}>{label}</button>)}</nav>
+      {reportView==='planning'&&<PlanningReportPanel concept={concept} settings={settings} onChange={onChange}/>}
+      {reportView==='summary'&&<>
       <div className="studio-actions"><button type="button" className="studio-button primary" disabled={pending || !hasModelSettings(settings)} onClick={() => {
         void run(signal => draftDesignReport(projectName, round, roundNumber, concept, settings, signal), aiReport => onChange(current => reportContext(current) === aiReport.contextKey ? { ...current, aiReport } : current), 'AI 报告草稿已保存，请核对并修正。')
       }}>AI 整理设计报告</button>{pending && <button type="button" className="studio-button" onClick={cancel}>取消整理</button>}</div>
@@ -154,10 +158,10 @@ function ReportPanel({ projectName, round, roundNumber, concept, settings, onCha
       {concept.aiReport && <label className="studio-field">AI 报告草稿 · {modelSourceLabel(concept.aiReport.source)}<textarea rows={14} maxLength={16000} disabled={pending} value={concept.aiReport.text} onChange={event => {
         const text = event.target.value; onChange(current => current.aiReport ? { ...current, aiReport: { ...current.aiReport, text } } : current)
       }} /></label>}
-      <PlanningReportPanel concept={concept} settings={settings} onChange={onChange} />
-      {report.sections.map(section => (
-        <section className="studio-report-section" key={section.heading}>
-          <h3>{section.heading}</h3>
+      </>}
+      {reportView==='records'&&report.sections.map(section => (
+        <details className="studio-report-section" key={section.heading}>
+          <summary>{section.heading}</summary>
           <dl>
             {section.entries.map(entry => (
               <div key={entry.url ?? entry.label}>
@@ -167,7 +171,7 @@ function ReportPanel({ projectName, round, roundNumber, concept, settings, onCha
               </div>
             ))}
           </dl>
-        </section>
+        </details>
       ))}
     </section>
   )

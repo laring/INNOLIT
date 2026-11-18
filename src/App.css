@@ -1089,3 +1089,14 @@ figcaption,
 @media (max-width: 800px) {
   .results-panel { display: block; position: fixed; z-index: 30; top: 68px; bottom: 0; right: 0; width: min(320px, calc(100vw - 30px)); box-shadow: -8px 0 24px #00000012; }
 }
+
+.sidebar .global-model-center-toggle { padding: 0; margin-bottom: 12px; }
+.sidebar .global-model-center-toggle button { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; padding: 12px; }
+@media (max-width: 540px) {
+  .sidebar .global-model-center-toggle button { font-size: 0; padding: 12px; }
+  .sidebar .global-model-center-toggle button svg { flex-shrink: 0; }
+}
+.report-step { border-top: 1px solid #e3e9df; padding-top: 18px; margin-top: 18px; }
+.report-step > h4 { margin: 0 0 12px; }
+.report-chapter-group { margin: 18px 0; }
+.report-chapter-group > h5 { color: #526b58; font-size: 1rem; margin-bottom: 8px; }

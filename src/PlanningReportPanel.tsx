@@ -24,6 +24,11 @@ export function PlanningReportPanel({ concept, settings, onChange, initialKind =
     onChange(current => planningContext(current, { ...emptyPlanningInputs, ...current.planningReport?.inputs }) === result.contextKey
       ? { ...current, planningReport: { ...(current.planningReport ?? { inputs }), [kind]: result } } : current)
   }
+  function renderFields(keys: string[]) {return (
+<div className="studio-validation-fields">{Object.entries(planningFields).filter(([key])=>keys.includes(key)).map(([key, label]) => <label className="studio-field" key={key}>{label}<textarea rows={2} maxLength={4000} disabled={task.pending} value={inputs[key as keyof typeof inputs]} placeholder="未确定的内容可留空，报告会列为待确认。" onChange={event => {
+      const value = event.target.value
+      onChange(current => ({ ...current, planningReport: { ...current.planningReport, inputs: { ...emptyPlanningInputs, ...current.planningReport?.inputs, [key]: value } } }))
+    }} /></label>)}</div> )}
   async function exportPptx() {
     if (!draft || exporting) return
     setExporting(true); setExportNotice('正在整理报告与已保存的产品图…')
@@ -61,29 +66,29 @@ export function PlanningReportPanel({ concept, settings, onChange, initialKind =
   return <section aria-labelledby="planning-report-heading" className="studio-report-section">
     <h3 id="planning-report-heading">{onlyKind ? planningTitles[kind] : '产品策划与市场合规报告'}</h3>
     <p>填写产品与目标地区，生成后可逐章修改。未确定的内容可留空。</p>
-    <div className="studio-validation-fields">{Object.entries(planningFields).map(([key, label]) => <label className="studio-field" key={key}>{label}<textarea rows={2} maxLength={4000} disabled={task.pending} value={inputs[key as keyof typeof inputs]} placeholder="未确定的内容可留空，报告会列为待确认。" onChange={event => {
-      const value = event.target.value
-      onChange(current => ({ ...current, planningReport: { ...current.planningReport, inputs: { ...emptyPlanningInputs, ...current.planningReport?.inputs, [key]: value } } }))
-    }} /></label>)}</div>
+    <div className="report-step"><h4>1 · 填写报告资料</h4>{renderFields(['product','markets','audience'])}<details><summary>补充技术、商业与证据资料（可选）</summary>{renderFields(['hardware','positioning','manufacturing','evidence'])}</details></div>
+    <div className="report-step"><h4>2 · 选择报告并生成</h4>
     {!onlyKind && <div className="studio-actions">{(['product', 'compliance'] as const).filter(value => !onlyKind || value === initialKind).map(value => <button type="button" className="studio-button" aria-pressed={kind === value} disabled={task.pending || exporting} key={value} onClick={() => { setKind(value); setExportNotice('') }}>{planningTitles[value]}</button>)}</div>}
     <div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={task.pending || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '12 章草稿已保存，请逐章核对与修正。')}>{draft ? '重新生成报告' : 'AI 生成报告'}</button>
+      <button type="button" className="studio-button primary" disabled={task.pending || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '报告已生成，请核对章节后导出。')}>{draft ? '重新生成报告' : 'AI 生成报告'}</button>
       {!draft && <button type="button" className="studio-button" disabled={task.pending} onClick={() => saveDraft(planningTemplate(kind, contextKey))}>手动填写提纲</button>}
       {task.pending && <button type="button" className="studio-button" onClick={task.cancel}>取消</button>}
-      <button type="button" className="studio-button" disabled={!draft || task.pending || exporting} onClick={() => void exportPptx()}>导出图文 PPTX</button>
     </div>
     {!hasModelSettings(settings) && <p className="studio-hint">请在 AI 模型中心配置设计报告模型，或先建立本地提纲并人工填写。</p>}
     {draft && <details><summary>来源与保存信息</summary><p>{draft.source} · {new Date(draft.updatedAt).toLocaleString()}。重新生成会覆盖本稿，请先导出修改。</p></details>}
     {stale && <p role="status">产品、概念或分析依据已变化，请复核或重新生成。导出也会标注此状态。</p>}
     <p role="status" className="studio-hint">{task.notice || exportNotice}</p>
-    {draft?.sections.map((section, index) => <details key={section.title}><summary>{index + 1}. {section.title}</summary><label className="studio-field">内容<textarea rows={7} maxLength={1600} disabled={task.pending} value={section.body} onChange={event => {
+    </div>
+    {draft && <div className="report-step"><h4>3 · 核对章节并导出</h4><p className="studio-hint">展开章节即可修改；未确认内容请保留待核实标记。</p>
+    {(kind==='product'?[{title:'定位与市场',start:0,end:4},{title:'产品与体验',start:4,end:7},{title:'商业与落地',start:7,end:12}]:[{title:'市场推广',start:0,end:4},{title:'标准与风险',start:4,end:10},{title:'执行与应急',start:10,end:12}]).map(group=><section className="report-chapter-group" key={group.title}><h5>{group.title}</h5>{draft.sections.slice(group.start,group.end).map((section, offset) => {const index=group.start+offset;return <details key={section.title}><summary>{index + 1}. {section.title}</summary><label className="studio-field">内容<textarea rows={7} maxLength={1600} disabled={task.pending} value={section.body} onChange={event => {
       const body = event.target.value
       onChange(current => {
         const previous = current.planningReport?.[kind]
         if (!previous || !current.planningReport) return current
         return { ...current, planningReport: { ...current.planningReport, [kind]: { ...previous, updatedAt: new Date().toISOString(), sections: previous.sections.map((item, i) => i === index ? { ...item, body } : item) } } }
       })
-    }} /></label></details>)}
+    }} /></label></details>})}</section>)}
+    <button type="button" className="studio-button primary" disabled={task.pending||exporting} onClick={()=>void exportPptx()}>{exporting?'正在导出…':'导出图文 PPTX'}</button></div>}
     <details><summary>官方法规核查入口与报告边界</summary><p>未进行实时法规检索。CCC、CE、FCC 等是否适用，应按产品类别、供电、无线能力与目标市场确认。限值、标准版本、豁免和认证费用须有原文或询价依据。AI 不能代替测试与法律审查。</p>{officialReferences.map(item => <p key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></p>)}</details>
   </section>
 }

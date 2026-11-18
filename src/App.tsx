@@ -163,6 +163,18 @@ function resetWorkflowSettings(task: WorkflowTask) {
           <span>INNO LIT</span>
         </div>
 
+        <div className="global-model-center-toggle">
+          <button
+            type="button"
+            aria-expanded={modelCenterOpen}
+            aria-controls="global-ai-model-center"
+            onClick={() => setModelCenterOpen(open => !open)}
+          >
+            <Settings2 size={16} />
+            AI 模型中心
+          </button>
+        </div>
+
         <button
           className="new-project"
           onClick={addProject}
@@ -362,17 +374,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
             <span>Workspace</span>
           </div>
 
-        <div className="global-model-center-toggle">
-          <button
-            type="button"
-            aria-expanded={modelCenterOpen}
-            aria-controls="global-ai-model-center"
-            onClick={() => setModelCenterOpen(open => !open)}
-          >
-            <Settings2 size={16} />
-            AI 模型中心
-          </button>
-        </div>
+
 
           <div className="result-section">
             <div className="section-label">当前概念</div>
