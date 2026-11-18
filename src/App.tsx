@@ -224,7 +224,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
             工作台 <span>/</span> {activeProject.name}
           </div>
 
-          {view === 'workspace' && (
+          {(
             <button
               className="icon-button"
               title="切换成果面板"
@@ -243,17 +243,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
           <button type="button" aria-pressed={view === 'workspace'} onClick={() => setView('workspace')}>创意对话</button>
           <button type="button" aria-pressed={view === 'studio'} onClick={() => setView('studio')}>Concept Studio</button>
         </nav>
-        <div className="global-model-center-toggle">
-          <button
-            type="button"
-            aria-expanded={modelCenterOpen}
-            aria-controls="global-ai-model-center"
-            onClick={() => setModelCenterOpen(open => !open)}
-          >
-            <Settings2 size={16} />
-            AI 模型中心
-          </button>
-        </div>
+
 
         {modelCenterOpen && (
           <div
@@ -365,12 +355,24 @@ function resetWorkflowSettings(task: WorkflowTask) {
         )}
       </main>
 
-      {view === 'workspace' && showResults && (
+      {showResults && (
         <aside className="results-panel">
           <div className="results-header">
             <h2>设计成果</h2>
             <span>Workspace</span>
           </div>
+
+        <div className="global-model-center-toggle">
+          <button
+            type="button"
+            aria-expanded={modelCenterOpen}
+            aria-controls="global-ai-model-center"
+            onClick={() => setModelCenterOpen(open => !open)}
+          >
+            <Settings2 size={16} />
+            AI 模型中心
+          </button>
+        </div>
 
           <div className="result-section">
             <div className="section-label">当前概念</div>

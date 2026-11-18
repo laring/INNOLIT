@@ -1083,3 +1083,9 @@ figcaption,
   flex-shrink: 0;
   accent-color: #355b3b;
 }
+
+.results-panel .global-model-center-toggle { padding: 16px 0 0; }
+.results-panel .global-model-center-toggle button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+@media (max-width: 800px) {
+  .results-panel { display: block; position: fixed; z-index: 30; top: 68px; bottom: 0; right: 0; width: min(320px, calc(100vw - 30px)); box-shadow: -8px 0 24px #00000012; }
+}
