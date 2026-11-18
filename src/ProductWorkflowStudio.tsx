@@ -12,7 +12,7 @@ import type { ImageSettings, VisualSource } from './imageGeneration'
 import { generateConceptImage, supportsImageReference } from './imageGeneration'
 import { hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
-import { productStages, workflowContext, workflowImagePrompt, workflowOf, selectedSketchMatches, heroUsesSketch, activeProductStage, engineeringViews, englishPromptSource } from './productWorkflow'
+import { productStages, workflowContext, workflowImagePrompt, workflowOf, selectedSketchMatches, heroUsesSketch, activeProductStage, engineeringViews, englishPromptSource, fillEnglishPrompt } from './productWorkflow'
 import type { ProductAsset, ProductStage, ProductWorkflow, EngineeringView, SketchArea } from './productWorkflow'
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
@@ -38,6 +38,27 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   const [loadError, setLoadError] = useState('')
   const [generationRole, setGenerationRole] = useState<ProductAsset>()
   const { pending, notice, run, cancel } = useModelTask(300000)
+  const [promptStatus,setPromptStatus]=useState('')
+  const [autoPromptPending,setAutoPromptPending]=useState(false)
+  const promptAttempts=useRef(new Set<string>())
+  const promptSource=englishPromptSource(concept)
+  useEffect(()=>{
+    if(active!=='design'||data.useEnglishPrompt===false||data.englishPrompt?.trim()||!hasModelSettings(modelSettings))return
+    const attemptKey=JSON.stringify([projectId,concept.id,promptSource,modelSettings.baseUrl,modelSettings.model])
+    if(promptAttempts.current.has(attemptKey))return
+    const attempts=promptAttempts.current
+    const controller=new AbortController()
+    const timer=setTimeout(()=>{
+      attempts.add(attemptKey)
+      setAutoPromptPending(true);setPromptStatus('AI 正在转译专业英文 Prompt…')
+      void translateImagePrompt(concept,modelSettings,controller.signal).then(englishPrompt=>{
+        if(controller.signal.aborted)return
+        onChange(current=>fillEnglishPrompt(current,promptSource,englishPrompt))
+        setPromptStatus('英文 Prompt 已填入，可直接修改。')
+      }).catch(error=>{if(!controller.signal.aborted)setPromptStatus(error instanceof Error?error.message:'自动转译失败，可点击重新翻译。')}).finally(()=>{setAutoPromptPending(false)})
+    },1200)
+    return()=>{clearTimeout(timer);controller.abort();attempts.delete(attemptKey);}
+  },[active,projectId,concept,promptSource,data.englishPrompt,data.useEnglishPrompt,modelSettings,onChange])
   const ids = JSON.stringify(data.assets)
   useEffect(() => {
     let live = true
@@ -98,7 +119,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       if (reference && !referenceSupported) throw new Error('当前图片模型不支持参考图输入。请切换支持参考图的模型；生成效果图也可以选择自由生成，不使用草图。')
       let prepared=concept
       let promptUpdate: Partial<ProductWorkflow>={}
-      if((role==='sheet'||role==='hero')&&data.useEnglishPrompt!==false&&(!data.englishPrompt?.trim()||data.englishPromptSource!==englishPromptSource(concept))){
+      if((role==='sheet'||role==='hero')&&data.useEnglishPrompt!==false&&!data.englishPrompt?.trim()){
         if(!hasModelSettings(modelSettings))throw new Error('自动翻译英文 Prompt 需要在 AI 模型中心配置工程文字模型，或手动填写英文 Prompt。')
         promptUpdate={englishPrompt:await translateImagePrompt(concept,modelSettings,signal),englishPromptSource:englishPromptSource(concept)}
         change(promptUpdate)
@@ -112,7 +133,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   }
   function imageActions(role: 'sheet' | 'hero' | 'presentation' | 'pcb' | 'exploded' | 'package' | EngineeringView, label: string, ready = true) {
     return <div className="studio-refinement"><div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={pending || loading || !ready || Boolean(sizeProblem)} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成…' : label}</button>
+      <button type="button" className="studio-button primary" disabled={pending || autoPromptPending || loading || !ready || Boolean(sizeProblem)} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成…' : label}</button>
       {role !== 'sheet' && role !== 'hero' && role !== 'presentation' && <label className="studio-button visual-upload">上传{role in engineeringViews ? engineeringViews[role as EngineeringView] : role === 'pcb' ? 'PCB 工程参考图' : role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
     </div>{!ready && role === 'hero' && <p className="studio-hint">请先框选方案，或切换为自由生成。</p>}</div>
   }
@@ -149,10 +170,11 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <div className="workflow-parameter-grid"><label className="studio-field">产品名称<input maxLength={100} value={data.productName} onChange={event => change({ productName: event.target.value })} /></label><label className="studio-field">品牌／Logo 文字<input maxLength={100} value={data.brand} onChange={event => change({ brand: event.target.value })} /></label><label className="studio-field">品牌主色<input type="color" value={data.brandColor} onChange={event => change({ brandColor: event.target.value })} /></label></div>
       <label className="studio-field">实际功能与关键交互<textarea rows={3} maxLength={2000} value={data.functions} onChange={event => change({ functions: event.target.value })} /></label>
       <label className="studio-field">设计方向与价值目标<textarea rows={3} maxLength={2000} value={data.direction} onChange={event => change({ direction: event.target.value })} /></label>
-      <label className="studio-field">专业英文 Prompt<textarea rows={6} maxLength={6000} placeholder="首次生成草图或效果图时自动翻译，也可手动填写。" value={data.englishPrompt??''} onChange={event=>change({englishPrompt:event.target.value,englishPromptSource:englishPromptSource(concept)})}/></label>
+      <label className="studio-field">专业英文 Prompt<textarea rows={6} maxLength={6000} placeholder="AI 将自动转译并填入，可直接修改或自行填写。" value={data.englishPrompt??''} onChange={event=>change({englishPrompt:event.target.value,englishPromptSource:englishPromptSource(concept)})}/></label>
       <label><input type="checkbox" checked={data.useEnglishPrompt!==false} onChange={event=>change({useEnglishPrompt:event.target.checked})}/> 默认使用英文 Prompt</label>
-      <button type="button" className="studio-button" disabled={pending||!hasModelSettings(modelSettings)} onClick={()=>void run(signal=>translateImagePrompt(concept,modelSettings,signal),englishPrompt=>change({englishPrompt,englishPromptSource:englishPromptSource(concept)}),'英文 Prompt 已更新。')}>翻译并优化 Prompt</button>
-      {data.englishPrompt&&data.englishPromptSource!==englishPromptSource(concept)&&<p className="studio-hint">设计依据已变化，首次生成草图或效果图时会重新翻译。</p>}
+      <button type="button" className="studio-button" disabled={pending||autoPromptPending||!hasModelSettings(modelSettings)} onClick={()=>void run(signal=>translateImagePrompt(concept,modelSettings,signal),englishPrompt=>change({englishPrompt,englishPromptSource:englishPromptSource(concept)}),'英文 Prompt 已更新。')}>{autoPromptPending?'正在自动转译…':'重新翻译并优化 Prompt'}</button>
+      <p className="studio-hint" role="status">{promptStatus||(!hasModelSettings(modelSettings)?'请配置工程文字模型以自动转译，也可手动填写。':'')}</p>
+      {data.englishPrompt&&data.englishPromptSource!==englishPromptSource(concept)&&<p className="studio-hint">设计依据已变化，已保留当前 Prompt；如需更新，请点击重新翻译。</p>}
     </fieldset></details>
     {configured && !referenceSupported && needsReference && <p className="studio-hint" role="alert">后续制图需要支持参考图的图片模型，请在 AI 模型中心切换。</p>}
     <p className="studio-hint" role="status">{notice || loadError || (needsReference && !heroReady ? '请先在第一步确认外观。' : !visualStep ? `当前文字模型：${(active === 'compliance' ? (reportSettings ?? modelSettings).model : modelSettings.model) || '未配置'}` : configured ? `图片模型：${imageSettings.model}` : '请在 AI 模型中心配置图片模型。')}</p>

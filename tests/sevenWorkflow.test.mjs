@@ -37,3 +37,13 @@ test('professional English briefs use frozen-aware context, feed generation and 
  const frozenInput=engineeringInput(c,'image-prompt');assert.equal(frozenInput.product.subject.title,'Frozen product');assert.equal(frozenInput.product.subject.identity.shape,'fixed oval')
  assert.match(englishPromptSource(c),/冻结 V2/)
 })
+
+test('automatic English prompt fill preserves manual edits, changed source and opted-out projects',async()=>{
+ const {englishPromptSource,fillEnglishPrompt}=await import('../src/productWorkflow.ts')
+ const c=concept(),source=englishPromptSource(c)
+ const result=fillEnglishPrompt(c,source,'Professional English product brief')
+ assert.equal(result.productWorkflow.englishPrompt,'Professional English product brief')
+ assert.equal(fillEnglishPrompt(result,source,'Overwrite'),result)
+ c.productWorkflow={...workflowOf(c),useEnglishPrompt:false};assert.equal(fillEnglishPrompt(c,source,'Ignored'),c)
+ c.productWorkflow.useEnglishPrompt=true;c.productWorkflow.functions='changed';assert.equal(fillEnglishPrompt(c,source,'Stale'),c)
+})

@@ -110,6 +110,11 @@ export function englishPromptSource(concept: Concept) {
   return JSON.stringify({subject:visualSubjectOf(concept),name:data.productName,functions:data.functions,direction:data.direction,notes:data.renderNotes})
 }
 
+export function fillEnglishPrompt(current: Concept, source: string, englishPrompt: string): Concept {
+  const data=workflowOf(current)
+  return englishPromptSource(current)===source&&!data.englishPrompt?.trim()&&data.useEnglishPrompt!==false ? {...current,productWorkflow:{...data,englishPrompt,englishPromptSource:source}} : current
+}
+
 export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | 'presentation' | 'pcb' | 'exploded' | 'package' | EngineeringView | EngineeringView) {
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
