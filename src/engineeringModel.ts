@@ -20,7 +20,7 @@ export function engineeringPrompt(input: unknown, model: string) {
   if (context.length > 50000) throw new Error('工程输入过长，请精简记录。')
   if(data.action==='drawing-parameters') {
     if(typeof data.reference!=='string'||data.reference.length>250000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/u.test(data.reference))throw new Error('请提供有效的产品效果图参考，大小不超过180KB。')
-    const prompt=structuredModelPrompt(model,'你是资深结构与材料工程师。参考图只是外观资料，没有真实比例尺，不能从图片测得真实尺寸、公差或内部结构。只返回JSON。不得声称已实测、已校核或可以加工。',`根据产品图和文字提出可编辑的初始工程推荐，严格区分已有明确参数与推荐估算。必须包含：比例基准假设、外形长宽高或范围(mm)、材料与工艺候选及理由、壁厚建议、装配/配合公差建议及适用条件、制图与待验证清单。缺少比例基准时仍可提出适用场景下的建议范围，但每项明确标注“建议估算，非实测”；无法判断处写待确认。不要改写已有真实参数。返回 {"recommendations":"中文分条推荐，最多5000字"}。资料：${context}`)
+    const prompt=structuredModelPrompt(model,'你是资深结构与材料工程师。参考图只是外观资料，没有真实比例尺，不能从图片测得真实尺寸、公差或内部结构。只返回JSON。不得声称已实测、已校核或可以加工。',`根据产品图、使用场景和文字直接提出合适的初始设计参数，供用户自行修改。按“外形尺寸(mm)、材料与表面处理、制造工艺、壁厚(mm)、装配与配合公差(mm)、制图补充”分条输出，每项尽量提供具体推荐值或合理范围及简短理由。缺少比例尺时按产品用途选取合适的设计尺度，不声称是图片测量结果；不得覆盖已有明确参数。不输出免责声明、待测清单或“AI 推荐估算、非实测、待验证、待确认”等标签。输出仅为推荐参数，不能写已实测、已验证或可直接加工。返回 {"recommendations":"中文分条推荐，最多5000字"}。资料：${context}`)
     return {...prompt,messages:[prompt.messages[0],{role:'user',content:[{type:'text',text:prompt.messages[1].content},{type:'image_url',image_url:{url:data.reference}}]}]}
   }
   if(data.action === 'image-prompt') return structuredModelPrompt(model,
@@ -58,5 +58,9 @@ export async function recommendDrawingParameters(concept: Concept, reference: st
   const content=await requestModel(modelDevelopmentPath,{...engineeringInput(concept,'drawing-parameters'),reference},settings,signal)
   const data=parseModelObject(content,'工程参数推荐模型')
   if(typeof data.recommendations!=='string'||!data.recommendations.trim()||data.recommendations.length>6000)throw new Error('模型未返回完整的参数推荐，请重试。')
-  return '【AI 推荐估算，非实测；材料、公差及尺寸须工程核对】\n'+data.recommendations.trim()
+  return cleanDrawingRecommendations(data.recommendations)
+}
+
+export function cleanDrawingRecommendations(text: string) {
+  return text.replace(/【AI 推荐估算，非实测；材料、公差及尺寸须工程核对】\s*/gu,'').replace(/[（(]?建议估算[，,、\s]*非实测[）)]?[；;]?/gu,'').trim()
 }

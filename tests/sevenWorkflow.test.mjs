@@ -54,7 +54,7 @@ test('drawing parameter recommendations include the real image and keep estimate
  const request={...engineeringInput(c,'drawing-parameters'),reference}
  const payload=engineeringPrompt(request,'vision-fixture')
  assert.equal(payload.messages[1].content[1].image_url.url,reference)
- assert.match(payload.messages[1].content[0].text,/建议估算，非实测/)
+ assert.match(payload.messages[1].content[0].text,/输出仅为推荐参数/)
  assert.throws(()=>engineeringPrompt({...request,reference:'https://example.com/private.jpg'},'fixture'))
  assert.throws(()=>engineeringPrompt({...request,reference:reference+'A'.repeat(250000)},'fixture'))
  context.mock.method(globalThis,'fetch',async(_url,options)=>{
@@ -62,6 +62,7 @@ test('drawing parameter recommendations include the real image and keep estimate
   return Response.json({content:JSON.stringify({recommendations:'长宽高建议范围待验证；材料候选 PLA；公差由工程师核对。'})})
  })
  const result=await recommendDrawingParameters(c,reference,{baseUrl:'https://example.com/v1',model:'vision-fixture',apiKey:'fixture'},new AbortController().signal)
- assert.match(result,/AI 推荐估算，非实测/)
+ assert.doesNotMatch(result,/AI 推荐估算，非实测/)
+ assert.match(result,/材料候选 PLA/)
  assert.equal(c.productWorkflow,undefined)
 })
