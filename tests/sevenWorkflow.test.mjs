@@ -19,3 +19,21 @@ test('firmware deliverables require all layers and documents and cannot contain 
  assert.throws(()=>validateFirmwareFiles(JSON.stringify({files:[...files,{name:'../secret',data:'x'}]})))
  assert.throws(()=>validateFirmwareFiles(JSON.stringify({files:[...files,{name:'run.exe',data:'x'}]})))
 })
+
+test('professional English briefs use frozen-aware context, feed generation and invalidate dependent presentation boards',async()=>{
+ const {englishPromptSource,workflowContext}=await import('../src/productWorkflow.ts')
+ const {engineeringInput,engineeringPrompt,translateImagePrompt}=await import('../src/engineeringModel.ts')
+ const c=concept(),source=englishPromptSource(c)
+ c.productWorkflow={...workflowOf(c),englishPrompt:'A compact tactile timer with an ivory enclosure.',englishPromptSource:source,assets:{hero:'approved-hero'},confirmedHero:'approved-hero'}
+ assert.equal(englishPromptSource(c),source)
+ for(const role of ['sheet','hero','pcb','orthographic','presentation'])assert.match(workflowImagePrompt(c,role),/compact tactile timer/)
+ const before=workflowContext(c,'presentation');c.productWorkflow.assets.hero='new-hero';assert.notEqual(workflowContext(c,'presentation'),before)
+ const board=workflowImagePrompt(c,'presentation');assert.match(board,/over 50%/);assert.match(board,/No redesign/);assert.match(board,/No iF logo/)
+ c.productWorkflow.useEnglishPrompt=false;assert.doesNotMatch(workflowImagePrompt(c,'hero'),/compact tactile timer/)
+ const request=engineeringInput(c,'image-prompt');assert.ok(request.product.subject.sentences)
+ assert.ok(JSON.stringify(engineeringPrompt(request,'fixture')).includes('Frozen subject identity'))
+ assert.equal(typeof translateImagePrompt,'function')
+ c.development={frozen:{revision:2,design:{title:'Frozen product',format:c.format,sentences:{...c.sentences,idea:'Frozen idea'}},identity:{shape:'fixed oval'}}}
+ const frozenInput=engineeringInput(c,'image-prompt');assert.equal(frozenInput.product.subject.title,'Frozen product');assert.equal(frozenInput.product.subject.identity.shape,'fixed oval')
+ assert.match(englishPromptSource(c),/冻结 V2/)
+})

@@ -20,7 +20,7 @@ export function activeProductStage(stage: ProductStage | LegacyProductStage): Pr
   return stage === 'sketches' || stage === 'render' ? 'design' : stage === 'tooling' ? 'structure' : stage in productStages ? stage : 'design'
 }
 export type ProductStage = keyof typeof productStages
-export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'pcb' | 'exploded' | 'package' | EngineeringView
+export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'presentation' | 'pcb' | 'exploded' | 'package' | EngineeringView
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
 export type SketchArea = { left: number; top: number; width: number; height: number }
 export type ProductWorkflow = {
@@ -37,6 +37,9 @@ export type ProductWorkflow = {
   functions: string
   direction: string
   heroMode?: 'free' | 'sketch'
+  englishPrompt?: string
+  englishPromptSource?: string
+  useEnglishPrompt?: boolean
   renderNotes: string
   assets: Partial<Record<ProductAsset, string>>
   selection?: number
@@ -72,6 +75,8 @@ export function workflowContext(concept: Concept, step: ProductAsset): string {
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
   const common = { concept: { title: subject.title, format: subject.format, sentences: subject.sentences, identity: subject.identity }, name: data.productName, brand: data.brand, brandColor: data.brandColor, functions: data.functions, direction: data.direction }
+  if (data.useEnglishPrompt !== false && data.englishPrompt) Object.assign(common, { englishPrompt: data.englishPrompt, promptSource: englishPromptSource(concept) })
+  if (step === 'presentation') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero') })
   if (step === 'sheet') return JSON.stringify({ ...common, styleImage: data.assets.style })
   if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection, area: data.selectionArea })
   if (step === 'hero') return JSON.stringify(heroUsesSketch(concept) ? { ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes } : { ...common, mode: 'free', renderNotes: data.renderNotes })
@@ -100,10 +105,17 @@ export function packagingContext(data: ProductWorkflow) {
   return JSON.stringify({ name: data.productName, brand: data.brand, brandColor: data.brandColor, hero: data.assets.hero, spec })
 }
 
-export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | 'pcb' | 'exploded' | 'package' | EngineeringView | EngineeringView) {
+export function englishPromptSource(concept: Concept) {
+  const data=workflowOf(concept)
+  return JSON.stringify({subject:visualSubjectOf(concept),name:data.productName,functions:data.functions,direction:data.direction,notes:data.renderNotes})
+}
+
+export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | 'presentation' | 'pcb' | 'exploded' | 'package' | EngineeringView | EngineeringView) {
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
+  const professional = data.useEnglishPrompt !== false && data.englishPrompt ? `ENGLISH DESIGN BRIEF (identity only; engineering constraints take priority): ${data.englishPrompt}` : ''
   if (step in engineeringViews) return [
+    professional,
     'COMPOSITION: Fit the COMPLETE drawing, every view, dimension, leader and title block within the central 80% of the canvas. Leave a blank safety margin of at least 10% on all four sides. Reduce the entire drawing scale to fit; never clip a part, annotation or frame.',
     'ROLE: Senior mechanical and mould engineer. Produce ONE independent black-and-white mechanical engineering drawing file. White background, black technical linework, clear line weights, orthographic proportions, legible annotations. No collage combining the five deliverables.',
     `VIEW: ${engineeringViews[step as EngineeringView]}. Orthographic sheet: aligned front/top/side views in this single file; axonometric: line-only isometric; assembly: assembly relationships; section: a labelled local cutaway; detail: critical joints and interfaces. Render only the selected VIEW.`,
@@ -113,6 +125,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
   ].join('\n').slice(0,13000)
   if (step === 'pcb') {
     const prompt = [
+    professional,
     'COMPOSITION: Fit the COMPLETE board outline, all dimension lines, labels and the bottom-right title block within the central 80% of the canvas. Leave a blank 10% safety margin on every side. Reduce scale to fit; no cropped edges or off-canvas annotations.',
     'ROLE: Senior electronics engineer. Generate a strictly orthographic TWO-DIMENSIONAL PCB top-view engineering assembly drawing. Vector-style technical linework, BLACK LINES ONLY on pure WHITE background. Absolutely NO 3D, perspective, shadows, gradients, photorealism, product hero rendering or decorative space-age styling.',
     `PRODUCT: ${data.productName}; exact brand/name: ${data.brand}. FUNCTIONS: ${data.functions}.`,
@@ -125,13 +138,19 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     if (prompt.length > 13000) throw new Error('PCB资料过长，请精简后生成示意图，完整图元可通过矢量线稿导出。')
     return prompt
   }
+  if(step === 'presentation') return [
+    'ROLE: Senior industrial designer and visual communication designer. Create ONE modern, minimal product concept presentation board inspired by international design-award editorial layouts. Not an official iF template or award submission guarantee. No iF logo, award badges or invented certification.',
+    'The reference is the APPROVED product. Preserve EXACT silhouette, structure, proportions, materials, colors, interfaces and identity. No redesign, no new features. The primary image must be a real-use hero scene occupying over 50% of the board; supporting close-ups show the same product.',
+    'Clean modular grid, generous white space, restrained accent color, consistent modern sans-serif typography. Explain Problem, Insight, Solution, Mechanism, Use Flow and Value with brief accurate captions. No unsupported claims. Keep all product edges and text inside a 10% safety margin.',
+    data.useEnglishPrompt !== false && data.englishPrompt ? data.englishPrompt : JSON.stringify(visualSubjectOf(concept)),
+  ].join('\n')
   const common = [
     step === 'sheet' ? 'COMPOSITION: Every product must be fully visible within its own equal grid cell, including base, accessories and annotations. Leave at least 10% empty space inside all four edges of EACH cell. Never let a product cross a cell boundary.' : 'COMPOSITION: Show the COMPLETE product or exploded assembly including every part, base, accessory, shadow and annotation. Fit the entire composition within the central 80% of the canvas, leaving at least 10% blank safety margin on all four sides. Zoom out and reduce subject scale rather than cutting anything off. No close-up, edge-to-edge framing or cropped product.',
     `ROLE: ${step === 'exploded' ? 'Senior product structure and mould engineer' : step === 'package' ? 'Senior brand and visual communication designer' : 'Senior industrial designer'}.`,
     `PRODUCT: ${data.productName}. ${step === 'sheet' || step === 'hero' ? 'No logos, brand marks or title logos anywhere on this industrial-design image.' : `BRAND / LOGO TEXT: ${data.brand || 'No brand mark supplied'}.`}`,
     `Shared brand accent color: ${data.brandColor}. Keep branding consistent across product and packaging.`,
-    `BRIEF: ${subject.sentences.idea}. USER: ${subject.sentences.audience}. SCENE: ${subject.sentences.scenario}.`,
-    `FUNCTIONS AND INTERACTION: ${data.functions}. DESIGN DIRECTION: ${data.direction}.`,
+    data.useEnglishPrompt !== false && data.englishPrompt ? `PROFESSIONAL DESIGN BRIEF: ${data.englishPrompt}` : `BRIEF: ${subject.sentences.idea}. USER: ${subject.sentences.audience}. SCENE: ${subject.sentences.scenario}.`,
+    data.useEnglishPrompt !== false && data.englishPrompt ? 'Follow the professional brief above; stage-specific constraints below take precedence.' : `FUNCTIONS AND INTERACTION: ${data.functions}. DESIGN DIRECTION: ${data.direction}.`,
     'Distinctive, youthful, fashionable, avant-garde, lightweight space-age design with emotional, humanistic and aesthetic value. Consider inclusive use, repairability, reduced material use, ethical production and environmental responsibility. Treat these as design goals, not certifications or proven claims.',
     'Do not invent technical specifications, performance, certifications, sustainability claims or verified originality. Preserve supplied product identity.',
   ]
