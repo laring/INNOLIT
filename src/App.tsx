@@ -1,6 +1,9 @@
 import { useModelConfig } from './useModelConfig'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import type { CSSProperties } from 'react'
+import {PanelResizeHandle} from './PanelResizeHandle'
+import {defaultPanels,fitPanelWidths,readPanelWidths,panelLayoutKey} from './panelLayout'
 import {
   Lightbulb, Plus, PanelRightClose,
   PanelRightOpen, FolderOpen, Trash2, Settings2
@@ -35,6 +38,13 @@ function App() {
   )
   const [input, setInput] = useState('')
   const [showResults, setShowResults] = useState(true)
+  const shell=useRef<HTMLDivElement>(null)
+  const [panelWidths,setPanelWidths]=useState(()=>readPanelWidths(localStorage))
+  const [shellWidth,setShellWidth]=useState(()=>window.innerWidth)
+  const fittedPanels=fitPanelWidths(panelWidths,shellWidth,showResults)
+  useEffect(()=>{const element=shell.current;if(!element)return;const observer=new ResizeObserver(entries=>setShellWidth(entries[0].contentRect.width));observer.observe(element);return()=>observer.disconnect()},[])
+  useEffect(()=>{try{localStorage.setItem(panelLayoutKey,JSON.stringify(panelWidths))}catch{/* Layout still works without persistence. */}},[panelWidths])
+
   const [view, setView] = useState<'workspace' | 'studio'>('workspace')
   const [saveFailed, setSaveFailed] = useState(false)
   const { modelSettings, setModelSettings, imageSettings, setImageSettings, workflowRouting, setWorkflowRouting, ready: modelConfigReady, remember, setRemember, notice: modelConfigNotice, saveNow: saveModelConfigNow, forget: forgetSavedModelConfig } = useModelConfig()
@@ -154,7 +164,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
     .find(message => message.role === 'user')
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" ref={shell} style={{'--left-panel-width':`${fittedPanels.left}px`,'--right-panel-width':`${fittedPanels.right}px`} as CSSProperties}>
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">
@@ -230,6 +240,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
         </div>
       </aside>
 
+      <PanelResizeHandle label="调整项目栏宽度" value={fittedPanels.left} min={180} max={Math.max(180,Math.min(480,shellWidth-320-(showResults?fittedPanels.right+16:8)))} direction={1} onChange={left=>setPanelWidths({...fittedPanels,left})} onReset={()=>setPanelWidths({...fittedPanels,left:defaultPanels.left})}/>
       <main className="workspace">
         <header className="topbar">
           <div className="breadcrumb">
@@ -367,7 +378,8 @@ function resetWorkflowSettings(task: WorkflowTask) {
         )}
       </main>
 
-      {showResults && (
+      {showResults && (<>
+        <PanelResizeHandle label="调整设计成果栏宽度" value={fittedPanels.right} min={200} max={Math.max(200,Math.min(600,shellWidth-fittedPanels.left-336))} direction={-1} onChange={right=>setPanelWidths({...fittedPanels,right})} onReset={()=>setPanelWidths({...fittedPanels,right:defaultPanels.right})}/>
         <aside className="results-panel">
           <div className="results-header">
             <h2>设计成果</h2>
@@ -410,7 +422,7 @@ function resetWorkflowSettings(task: WorkflowTask) {
           <div className="results-footer">
             项目内容保存在当前浏览器
           </div>
-        </aside>
+        </aside></>
       )}
     </div>
   )

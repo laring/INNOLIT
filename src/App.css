@@ -1104,3 +1104,14 @@ figcaption,
 .composer-model-status { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; max-width: 65%; }
 .composer-model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #526b58; font-size: .875rem; }
 .composer-model-status > button { flex-shrink: 0; }
+
+.panel-resize-handle { width: 8px; flex: 0 0 8px; position: relative; cursor: col-resize; touch-action: none; background: #f6f7f4; outline-offset: -2px; }
+.panel-resize-handle::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: #dce4d9; transition: background .15s; }
+.panel-resize-handle:hover::after, .panel-resize-handle:focus-visible::after, .panel-resize-handle[data-dragging="true"]::after { background: #688b70; }
+.app-shell:has(.panel-resize-handle[data-dragging="true"]) { cursor: col-resize; user-select: none; }
+@media (min-width: 801px) {
+  .sidebar { width: var(--left-panel-width, 248px); }
+  .results-panel { width: var(--right-panel-width, 290px); }
+  .workspace { min-width: 320px; }
+}
+@media (max-width: 800px) { .panel-resize-handle { display: none; } }
