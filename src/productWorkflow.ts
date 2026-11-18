@@ -126,7 +126,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     `VIEW: ${engineeringViews[step as EngineeringView]}. Orthographic sheet: aligned front/top/side views in this single file; axonometric: line-only isometric; assembly: assembly relationships; section: a labelled local cutaway; detail: critical joints and interfaces. Render only the selected VIEW.`,
     `PRODUCT: ${data.productName}. Reference is the exact approved exterior. Preserve shape, proportions, construction, interfaces and materials. No redesign.`,
     `Supplied dimensions, materials, tolerances: ${JSON.stringify(data.engineering)}. Components: ${data.components}. Additional drawing instructions: ${data.drawingNotes || 'Not supplied'}.`,
-    'Values marked AI recommendations or estimates are NOT verified dimensions: label them ESTIMATED / TO BE VERIFIED on the drawing and do not present them as manufacturing tolerances. Annotate supplied dimensions and materials only. Missing internal geometry and dimensions must be marked TO BE VERIFIED, not invented as measurements. High native resolution; actual 300dpi is checked against print width. ENGINEERING REVIEW DRAFT, not verified machining CAD.',
+    'Draw and annotate using the supplied dimensions, materials, tolerances and drawing notes as the current design parameters, regardless of whether they originated from AI or manual entry. Do not print recommendation/estimate/confirmation categories, review-status labels or warning watermarks. Omit unspecified dimensions instead of inventing values. High native resolution; actual 300dpi is checked against print width.',
   ].join('\n').slice(0,13000)
   if (step === 'pcb') {
     const prompt = [
@@ -136,8 +136,8 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     `PRODUCT: ${data.productName}; exact brand/name: ${data.brand}. FUNCTIONS: ${data.functions}.`,
     'The reference is the approved exterior product, used ONLY to maintain product identity, enclosure interfaces and plausible PCB fit. It is NOT an existing PCB, schematic, netlist or measured interior. Do not redraw the exterior product as the PCB. Do not invent verified circuit connections or manufacturing readiness.',
     'Show PCB outline and supplied dimensions/tolerances, separately identify PTH plated through holes and NPTH non-plated holes, pads, supplied TOP-layer traces, silkscreen reference designators and component polarity. Use different line weights for outline, copper, silkscreen and dimension lines, tidy leaders and no overlapping callouts. Equal X/Y scale, top orthographic projection only.',
-    'Place a clean engineering title block in the BOTTOM RIGHT with drawing number, revision, board thickness, copper thickness, surface finish and designer. Use only supplied values; unknown values must say TO BE CONFIRMED. Do not fabricate dimensions, tolerances, pads, tracks, component values or electrical validation.',
-    'High native resolution, legible fine linework. 300 dpi depends on native pixels and print size, not a text label. Mark incomplete input as ENGINEERING REVIEW DRAFT, NOT FOR FABRICATION. Final manufacturing requires verified EDA design, netlist, ERC/DRC, Gerber and drill data.',
+    'Place a clean engineering title block in the BOTTOM RIGHT with drawing number, revision, board thickness, copper thickness, surface finish and designer. Use only supplied values; leave unspecified fields blank. Do not print recommendation, estimate or confirmation-status labels. Do not fabricate dimensions, tolerances, pads, tracks, component values or electrical validation.',
+    'High native resolution, legible fine linework. 300 dpi depends on native pixels and print size, not a text label. Render supplied PCB parameters directly without review-status banners, disclaimers or warning watermarks. Do not invent missing electrical data or claim validation.',
     `Supplied PCB data (millimetres, x right/y down, rectangular board; only explicitly supplied entities are authoritative): ${JSON.stringify({ ...data.pcb, analysis: undefined })}`,
   ].join('\n')
     if (prompt.length > 13000) throw new Error('PCB资料过长，请精简后生成示意图，完整图元可通过矢量线稿导出。')
@@ -175,7 +175,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     exploded: [
       'Use the reference as the approved product appearance. Produce a rigorous, complex, detailed exploded assembly illustration of THE SAME PRODUCT. Preserve external shells, proportions, materials, colors, logo and interfaces exactly. Do not redesign.',
       `Numbered part list supplied by the user (do not invent measured dimensions): ${data.components || 'No verified BOM supplied. Show a conceptual decomposition only, mark all internal details as proposals.'}`,
-      `Known engineering inputs: ${JSON.stringify({ ...data.engineering, files: undefined, review: undefined, reviewer: undefined, confirmedContext: undefined })}`,
+      `Current design parameters (use provided values directly; no recommendation or confirmation-status labels): ${JSON.stringify({ ...data.engineering, files: undefined, review: undefined, reviewer: undefined, confirmedContext: undefined })}`,
       'Clear isometric exploded stack, non-overlapping parts, logical assembly axes, numbered callouts and leaders. No fabricated tolerances or machining dimensions. High native resolution, crisp edges. This is an assembly illustration, not production CAD or a verified engineering drawing.',
     ],
     package: [

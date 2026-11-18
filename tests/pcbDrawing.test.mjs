@@ -43,7 +43,7 @@ test('PCB vector exports explicit coordinates, distinct holes, pads, top copper,
   assert.equal(geometry.holes.length,2);assert.equal(geometry.pads.length,2);assert.equal(geometry.tracks.length,1)
   const svg=pcbSvg('测试产品',pcb(),size)
   for(const text of ['TEST-PCB-001','35 µm','ENIG','测试工程师','PTH','NPTH','data-net="VCC"','id="silk-U1"','id="pad-U1.1"','id="hole-H1"','±0.2'])assert.ok(svg.includes(text),text)
-  assert.match(svg,/未完成电气校核/)
+  assert.doesNotMatch(svg,/未完成电气校核|工程审查稿|公差待确认/)
   assert.doesNotMatch(svg,/<image|<script|linearGradient|filter=/)
   assert.ok(svg.includes('stroke-width="0.5"'))
   const escaped=pcbSvg('<script>&测试', {...pcb(),designer:'<img onerror="x">'},size)
