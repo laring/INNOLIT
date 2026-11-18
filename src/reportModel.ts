@@ -1,4 +1,4 @@
-import { planningPrompt } from './planningReport.ts'
+import { planningPrompt, planningInputsPrompt } from './planningReport.ts'
 import type { Concept, ConceptBatch } from './concepts.ts'
 import { synthesisContext, developmentOf } from './conceptDevelopment.ts'
 import { buildDesignReport } from './designWork.ts'
@@ -12,6 +12,7 @@ export function reportContext(concept: Concept) {
 
 export function reportPrompt(input: unknown, model: string) {
   const data = objectRecord(input)
+  if(data.stage==='report'&&data.kind==='planning-inputs')return planningInputsPrompt(data,model)
   if (data.kind === 'planning') return planningPrompt(data, model)
   if (data.stage !== 'report' || !Array.isArray(data.sections) || data.sections.length > 40) throw new Error('设计报告记录无效。')
   const sections = data.sections.map(item => {

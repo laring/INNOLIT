@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Concept } from './concepts'
 import type { ModelSettings } from './modelGeneration'
 import { hasModelSettings } from './modelGeneration'
-import { emptyPlanningInputs, planningFields, planningTitles, planningContext, planningTemplate, generatePlanning, officialReferences } from './planningReport'
+import { emptyPlanningInputs, planningFields, planningTitles, planningContext, planningTemplate, generatePlanning, officialReferences, planningInputSource, draftPlanningInputs, fillPlanningInputs } from './planningReport'
 import type { PlanningKind, PlanningDraft } from './planningReport'
 import { buildPlanningPptx, planningSlides } from './planningPptx'
 import type { ReportPicture } from './planningPptx'
@@ -20,13 +20,35 @@ export function PlanningReportPanel({ concept, settings, onChange, initialKind =
   const draft = state[kind]
   const contextKey = planningContext(concept, inputs)
   const stale = Boolean(draft && draft.contextKey !== contextKey)
+  const [inputNotice,setInputNotice]=useState('')
+  const [filling,setFilling]=useState(false)
+  const attempts=useRef(new Set<string>())
+  const touched=useRef(new Set<string>())
+  const inputSource=planningInputSource(concept)
+  useEffect(()=>{
+    if(!hasModelSettings(settings)||Object.values({...emptyPlanningInputs,...concept.planningReport?.inputs}).every(value=>value.trim()))return
+    const key=JSON.stringify([concept.id,inputSource,settings.model,settings.baseUrl]),seen=attempts.current
+    if(seen.has(key))return
+    const controller=new AbortController()
+    let finished=false
+    const timer=setTimeout(()=>{
+      seen.add(key);setFilling(true);setInputNotice('AI 正在根据前面的设计信息填写资料…')
+      void draftPlanningInputs(concept,settings,controller.signal).then(proposed=>{
+        if(controller.signal.aborted)return
+        onChange(current=>fillPlanningInputs(current,inputSource,proposed,[...touched.current]))
+        finished=true;setInputNotice('资料已填入，可直接修改。')
+      }).catch(error=>{if(!controller.signal.aborted){finished=true;setInputNotice(error instanceof Error?error.message:'自动填写失败。')}}).finally(()=>setFilling(false))
+    },1000)
+    return()=>{clearTimeout(timer);controller.abort();if(!finished)seen.delete(key)}
+  },[concept,settings,onChange,inputSource])
   function saveDraft(result: PlanningDraft) {
     onChange(current => planningContext(current, { ...emptyPlanningInputs, ...current.planningReport?.inputs }) === result.contextKey
       ? { ...current, planningReport: { ...(current.planningReport ?? { inputs }), [kind]: result } } : current)
   }
   function renderFields(keys: string[]) {return (
-<div className="studio-validation-fields">{Object.entries(planningFields).filter(([key])=>keys.includes(key)).map(([key, label]) => <label className="studio-field" key={key}>{label}<textarea rows={2} maxLength={4000} disabled={task.pending} value={inputs[key as keyof typeof inputs]} placeholder="未确定的内容可留空，报告会列为待确认。" onChange={event => {
+<div className="studio-validation-fields">{Object.entries(planningFields).filter(([key])=>keys.includes(key)).map(([key, label]) => <label className="studio-field" key={key}>{label}<textarea rows={2} maxLength={4000} disabled={task.pending} value={inputs[key as keyof typeof inputs]} placeholder="AI 自动填写后可直接修改" onChange={event => {
       const value = event.target.value
+      touched.current.add(key)
       onChange(current => ({ ...current, planningReport: { ...current.planningReport, inputs: { ...emptyPlanningInputs, ...current.planningReport?.inputs, [key]: value } } }))
     }} /></label>)}</div> )}
   async function exportPptx() {
@@ -65,12 +87,12 @@ export function PlanningReportPanel({ concept, settings, onChange, initialKind =
   }
   return <section aria-labelledby="planning-report-heading" className="studio-report-section">
     <h3 id="planning-report-heading">{onlyKind ? planningTitles[kind] : '产品策划与市场合规报告'}</h3>
-    <p>填写产品与目标地区，生成后可逐章修改。未确定的内容可留空。</p>
-    <div className="report-step"><h4>1 · 填写报告资料</h4>{renderFields(['product','markets','audience'])}<details><summary>补充技术、商业与证据资料（可选）</summary>{renderFields(['hardware','positioning','manufacturing','evidence'])}</details></div>
+    <p>根据已有设计信息自动填写，人工修正后生成报告。</p>
+    <div className="report-step"><h4>1 · 报告资料</h4><p role="status" className="studio-hint">{inputNotice||(!hasModelSettings(settings)?'配置设计报告模型后可自动填写。':'')}</p>{renderFields(['product','markets','audience'])}<details><summary>补充技术、商业与证据资料（可选）</summary>{renderFields(['hardware','positioning','manufacturing','evidence'])}</details></div>
     <div className="report-step"><h4>2 · 选择报告并生成</h4>
     {!onlyKind && <div className="studio-actions">{(['product', 'compliance'] as const).filter(value => !onlyKind || value === initialKind).map(value => <button type="button" className="studio-button" aria-pressed={kind === value} disabled={task.pending || exporting} key={value} onClick={() => { setKind(value); setExportNotice('') }}>{planningTitles[value]}</button>)}</div>}
     <div className="studio-actions">
-      <button type="button" className="studio-button primary" disabled={task.pending || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '报告已生成，请核对章节后导出。')}>{draft ? '重新生成报告' : 'AI 生成报告'}</button>
+      <button type="button" className="studio-button primary" disabled={task.pending || filling || !hasModelSettings(settings)} onClick={() => void task.run(signal => generatePlanning(kind, concept, inputs, settings, signal), saveDraft, '报告已生成，请核对章节后导出。')}>{draft ? '重新生成报告' : 'AI 生成报告'}</button>
       {!draft && <button type="button" className="studio-button" disabled={task.pending} onClick={() => saveDraft(planningTemplate(kind, contextKey))}>手动填写提纲</button>}
       {task.pending && <button type="button" className="studio-button" onClick={task.cancel}>取消</button>}
     </div>

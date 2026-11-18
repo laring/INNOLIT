@@ -80,3 +80,15 @@ test('packaging defaults fill blank fields while preserving user values and use 
  const payload=engineeringPrompt(engineeringInput(concept(),'packaging-spec'),'fixture')
  assert.match(JSON.stringify(payload),/一组适合当前产品/)
 })
+
+test('report input autofill preserves user edits, touched blank fields and existing reports',async()=>{
+ const {emptyPlanningInputs,planningInputSource,fillPlanningInputs,planningInputsPrompt,draftPlanningInputs}=await import('../src/planningReport.ts')
+ const c=concept(),source=planningInputSource(c),proposed={...emptyPlanningInputs,product:'产品说明',markets:'首发建议：中国大陆',audience:'学生',hardware:'机械结构',positioning:'定位建议',manufacturing:'量产计划',evidence:'未提供调研、测试或认证记录'}
+ c.planningReport={inputs:{...emptyPlanningInputs,product:'人工产品说明'},product:{source:'existing'}}
+ const result=fillPlanningInputs(c,source,proposed,['markets'])
+ assert.equal(result.planningReport.inputs.product,'人工产品说明');assert.equal(result.planningReport.inputs.markets,'');assert.equal(result.planningReport.inputs.hardware,'机械结构')
+ assert.equal(result.planningReport.product.source,'existing');assert.equal(c.planningReport.inputs.hardware,'')
+ c.notes='资料变化';assert.equal(fillPlanningInputs(c,source,proposed),c)
+ const prompt=planningInputsPrompt({context:source},'fixture');assert.match(JSON.stringify(prompt),/不得编造/)
+ assert.equal(typeof draftPlanningInputs,'function')
+})
