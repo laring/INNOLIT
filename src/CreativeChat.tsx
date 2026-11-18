@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowUp, Lightbulb, Sparkles, Square } from 'lucide-react'
 import { modelSourceLabel } from './concepts'
 import type { ChatIdea } from './concepts'
-import { ModelControls } from './ModelControls'
 import { replyWithModel } from './modelChat'
 import { canUseCustomModel, hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
@@ -18,30 +17,12 @@ type ChatProps = {
   onOpenModelCenter: () => void
 }
 
-function generateGuidance(input: string): string {
-  return `已记录你的设计想法：${input}
-
-我们可以从三个方向展开：
-
-01 · 用户与场景
-明确目标用户、使用环境和核心困难。
-
-02 · 产品与交互
-寻找一种简单、直观、可验证的产品解决方式。
-
-03 · 实现与价值
-考虑材料、结构、制造可行性与设计价值。
-
-下一步，请描述：这个产品最希望帮助哪一类人？`
-}
-
-export function CreativeChat({ messages, input, onInputChange, onAppend, onTransfer, settings, onOpenModelCenter }: ChatProps) {
-  const [customModel, setCustomModel] = useState(false)
+export function CreativeChat({ messages, input, onInputChange, onAppend, onTransfer, settings }: ChatProps) {
   const [pending, setPending] = useState(false)
   const [notice, setNotice] = useState('')
   const request = useRef<AbortController | null>(null)
   const conversation = useRef<HTMLDivElement>(null)
-  const canSend = input.trim() && !pending && (!customModel || hasModelSettings(settings))
+  const canSend = input.trim() && !pending && hasModelSettings(settings)
 
   useEffect(() => () => request.current?.abort(), [])
 
@@ -61,10 +42,6 @@ export function CreativeChat({ messages, input, onInputChange, onAppend, onTrans
       onInputChange('')
     }
 
-    if (!customModel) {
-      saveReply({ content: generateGuidance(text) })
-      return
-    }
     if (!canUseCustomModel(window.location.hostname)) return
 
     const controller = new AbortController()
@@ -153,19 +130,6 @@ export function CreativeChat({ messages, input, onInputChange, onAppend, onTrans
 
       <div className="composer-area">
         <div className="composer">
-          <div className="composer-model">
-            <ModelControls
-              settings={settings}
-              onOpenModelCenter={onOpenModelCenter}
-              customModel={customModel}
-              onModeChange={custom => {
-                setCustomModel(custom)
-                setNotice('')
-              }}
-              disabled={pending}
-              requestDescription="发送时会将本轮消息和当前项目的近期对话发送给所选服务。"
-            />
-          </div>
           <textarea
             value={input}
             onChange={event => onInputChange(event.target.value)}
@@ -181,16 +145,17 @@ export function CreativeChat({ messages, input, onInputChange, onAppend, onTrans
           />
           <div className="composer-bottom">
             <span>Shift + Enter 换行</span>
+            <div className="composer-model-status"><span className="composer-model-name" title={settings.model.trim() || '未配置模型'}>{settings.model.trim() || '未配置模型'}</span>
             {pending ? (
               <button type="button" onClick={cancelReply} aria-label="取消回复"><Square size={15} /></button>
             ) : (
               <button type="button" onClick={sendMessage} disabled={!canSend} aria-label="发送想法"><ArrowUp size={19} /></button>
-            )}
+            )}</div>
           </div>
         </div>
         <p className="composer-note" role="status">
           {pending ? `正在等待 ${settings.model.trim()} 回复…`
-            : notice || (customModel && !hasModelSettings(settings) ? '请完成 API 设置后发送。' : '')}
+            : notice || (!hasModelSettings(settings) ? '请在左侧 AI 模型中心完成配置。' : '')}
         </p>
       </div>
     </div>

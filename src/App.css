@@ -1100,3 +1100,7 @@ figcaption,
 .report-step > h4 { margin: 0 0 12px; }
 .report-chapter-group { margin: 18px 0; }
 .report-chapter-group > h5 { color: #526b58; font-size: 1rem; margin-bottom: 8px; }
+
+.composer-model-status { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; max-width: 65%; }
+.composer-model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #526b58; font-size: .875rem; }
+.composer-model-status > button { flex-shrink: 0; }
