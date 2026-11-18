@@ -55,6 +55,8 @@ test('drawing parameter recommendations include the real image and keep estimate
  const payload=engineeringPrompt(request,'vision-fixture')
  assert.equal(payload.messages[1].content[1].image_url.url,reference)
  assert.match(payload.messages[1].content[0].text,/输出仅为推荐参数/)
+ assert.match(payload.messages[1].content[0].text,/一组可直接出图的默认选值/)
+ assert.match(payload.messages[1].content[0].text,/不混用工艺精度/)
  assert.throws(()=>engineeringPrompt({...request,reference:'https://example.com/private.jpg'},'fixture'))
  assert.throws(()=>engineeringPrompt({...request,reference:reference+'A'.repeat(250000)},'fixture'))
  context.mock.method(globalThis,'fetch',async(_url,options)=>{

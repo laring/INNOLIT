@@ -20,7 +20,7 @@ export function engineeringPrompt(input: unknown, model: string) {
   if (context.length > 50000) throw new Error('工程输入过长，请精简记录。')
   if(data.action==='drawing-parameters') {
     if(typeof data.reference!=='string'||data.reference.length>250000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/u.test(data.reference))throw new Error('请提供有效的产品效果图参考，大小不超过180KB。')
-    const prompt=structuredModelPrompt(model,'你是资深结构与材料工程师。参考图只是外观资料，没有真实比例尺，不能从图片测得真实尺寸、公差或内部结构。只返回JSON。不得声称已实测、已校核或可以加工。',`根据产品图、使用场景和文字直接提出合适的初始设计参数，供用户自行修改。按“外形尺寸(mm)、材料与表面处理、制造工艺、壁厚(mm)、装配与配合公差(mm)、制图补充”分条输出，每项尽量提供具体推荐值或合理范围及简短理由。缺少比例尺时按产品用途选取合适的设计尺度，不声称是图片测量结果；不得覆盖已有明确参数。不输出免责声明、待测清单或“AI 推荐估算、非实测、待验证、待确认”等标签。输出仅为推荐参数，不能写已实测、已验证或可直接加工。返回 {"recommendations":"中文分条推荐，最多5000字"}。资料：${context}`)
+    const prompt=structuredModelPrompt(model,'你是资深结构与材料工程师。参考图只是外观资料，没有真实比例尺，不能从图片测得真实尺寸、公差或内部结构。只返回JSON。不得声称已实测、已校核或可以加工。',`根据产品图、使用场景和文字直接提出合适的初始设计参数，供用户自行修改。按“外形尺寸(mm)、材料与表面处理、制造工艺、壁厚(mm)、装配与配合公差(mm)、制图补充”分条输出，每项提供一组可直接出图的默认选值及简短理由，不仅给范围。未指定的参数，根据产品用途、体量、材料和工艺选用相匹配的常用设计默认值；优先沿用已有明确数值。塑料注塑、FDM打印、钣金和机加工分别选择合适的壁厚、公差和连接参数，不混用工艺精度。缺少比例尺时按产品用途选取合适的设计尺度，不声称是图片测量结果；不得覆盖已有明确参数。“制图补充”统一输出为【制图参数】，具体列出单位、视图、图幅、比例、尺寸标注、未注尺寸公差选值、连接件规格和表面处理；使用常用默认参数补齐，不输出“制图与待验证清单”或待办清单。默认值属于当前方案的设计选值，不虚构强制标准或未核实的标准编号。不输出免责声明、待测清单或“AI 推荐估算、非实测、待验证、待确认”等标签。输出仅为推荐参数，不能写已实测、已验证或可直接加工。返回 {"recommendations":"中文分条推荐，最多5000字"}。资料：${context}`)
     return {...prompt,messages:[prompt.messages[0],{role:'user',content:[{type:'text',text:prompt.messages[1].content},{type:'image_url',image_url:{url:data.reference}}]}]}
   }
   if(data.action === 'image-prompt') return structuredModelPrompt(model,
@@ -62,5 +62,5 @@ export async function recommendDrawingParameters(concept: Concept, reference: st
 }
 
 export function cleanDrawingRecommendations(text: string) {
-  return text.replace(/【AI 推荐估算，非实测；材料、公差及尺寸须工程核对】\s*/gu,'').replace(/[（(]?建议估算[，,、\s]*非实测[）)]?[；;]?/gu,'').trim()
+  return text.replace(/【制图与待验证清单】/gu,'【制图参数】').replace(/【AI 推荐估算，非实测；材料、公差及尺寸须工程核对】\s*/gu,'').replace(/[（(]?建议估算[，,、\s]*非实测[）)]?[；;]?/gu,'').trim()
 }
