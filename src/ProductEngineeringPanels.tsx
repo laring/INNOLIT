@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { Concept } from './concepts'
 import type { ModelSettings } from './modelGeneration'
 import { hasModelSettings } from './modelGeneration'
-import { analyzeEngineering } from './engineeringModel'
+import {fillPackagingDefaults} from './packagingDefaults'
+import { analyzeEngineering, recommendPackagingSpec } from './engineeringModel'
 import { engineeringContext, engineeringProblems, packagingContext, workflowOf } from './productWorkflow'
 import type { ProductWorkflow, EngineeringFile } from './productWorkflow'
 import type { SavedVisual } from './visualTypes'
@@ -77,20 +78,22 @@ export function PackagingPanel({ concept, settings, hero, heroReady, onEdit }: P
   const [compiled, setCompiled] = useState<{ context: string; files: BundleFile[] }>()
   const fresh = compiled?.context === context && heroReady
   function edit(change: Partial<ProductWorkflow['packaging']>) { onEdit(current => ({ ...current, packaging: { ...current.packaging, ...change } })) }
+  const filledDefaults=useRef(false)
+  useEffect(()=>{if(filledDefaults.current)return;const timer=setTimeout(()=>{filledDefaults.current=true;onEdit(current=>{const packaging=fillPackagingDefaults(current);return JSON.stringify(packaging)===JSON.stringify(current.packaging)?current:{...current,packaging}})},0);return()=>clearTimeout(timer)},[onEdit])
   return <div className="studio-refinement">
-    <p>填写盒型与文案，生成可编辑打样稿，沿用已确认的产品图。</p>
+    
     <fieldset className="development-fields workflow-parameter-grid" disabled={pending}>
       {(['length', 'width', 'height', 'glue', 'flap', 'bleed'] as const).map((key, index) => <label className="studio-field" key={key}>{['盒体内长（mm）', '盒体内深（mm）', '盒体内高（mm）', '粘口（mm）', '插舌（mm）', '出血（mm）'][index]}<input type="number" min={0} max={1200} step="any" value={spec[key] || ''} onChange={event => edit({ [key]: event.target.valueAsNumber || 0 })} /></label>)}
     </fieldset>
-    <p className="studio-hint">反插口盒模板；纸厚补偿与缓冲由印厂复核。</p>
+    
     <label className="studio-field">纸材、克重与厚度<input value={spec.stock} maxLength={300} disabled={pending} onChange={event => edit({ stock: event.target.value })} /></label>
-    <label className="studio-field">核对后的包装文案<textarea rows={4} maxLength={1500} value={spec.copy} disabled={pending} onChange={event => edit({ copy: event.target.value })} /></label>
-    <div className="studio-actions"><button type="button" className="studio-button" disabled={pending || !hasModelSettings(settings)} onClick={() => void run(signal => analyzeEngineering(concept, 'packaging', settings, signal), notes => edit({ notes: `模型建议（${settings.model}，待人工修正）：\n${notes}` }), '包装建议已保存，请核对实际文案。')}>AI 包装建议</button>{pending && <button type="button" className="studio-button" onClick={cancel}>取消</button>}</div>
+    <label className="studio-field">包装文案<textarea rows={4} maxLength={1500} value={spec.copy} disabled={pending} onChange={event => edit({ copy: event.target.value })} /></label>
+    <div className="studio-actions"><button type="button" className="studio-button" disabled={pending || !hasModelSettings(settings)} onClick={() => void run(signal => recommendPackagingSpec(concept,settings,signal), packaging=>edit(packaging), '包装参数已填入。')}>AI 填写包装参数</button>{pending && <button type="button" className="studio-button" onClick={cancel}>取消</button>}</div>
     <label className="studio-field">设计理念与打样备注<textarea rows={5} maxLength={12000} value={spec.notes} disabled={pending} onChange={event => edit({ notes: event.target.value })} /></label>
-    <label className="studio-field">包装核对人<input value={spec.reviewer} maxLength={100} disabled={pending} onChange={event => edit({ reviewer: event.target.value, confirmedContext: undefined })} /></label>
-    <div className="studio-actions"><button type="button" className="studio-button" disabled={pending || Boolean(problem) || !heroReady || !spec.reviewer.trim()} onClick={() => edit({ confirmedContext: context })}>{spec.confirmedContext === context ? '当前包装资料已人工核对' : '确认尺寸、名称和文案'}</button>
-      <button type="button" className="studio-button primary" disabled={pending || Boolean(problem) || !heroReady || !hero} onClick={() => void run(async () => ({ context, files: packagingFiles(data, await imageDataUrl(hero!.blob)) }), setCompiled, '可编辑包装文件已生成，可下载供印厂打样审查。')}>生成打样文件</button></div>
-    <p className="studio-hint" role="status">{notice || problem || (!heroReady ? '请先在第一步确认外观。' : '打样前请印厂复核刀线、字体与颜色。')}</p>
+    <details><summary>签署记录</summary><label className="studio-field">记录人<input value={spec.reviewer} maxLength={100} disabled={pending} onChange={event => edit({ reviewer: event.target.value, confirmedContext: undefined })} /></label>
+    <div className="studio-actions"><button type="button" className="studio-button" disabled={pending || Boolean(problem) || !heroReady || !spec.reviewer.trim()} onClick={() => edit({ confirmedContext: context })}>{spec.confirmedContext === context ? '记录已保存' : '保存记录'}</button></div></details><div className="studio-actions">
+      <button type="button" className="studio-button primary" disabled={pending || Boolean(problem) || !heroReady || !hero} onClick={() => void run(async () => ({ context, files: packagingFiles(data, await imageDataUrl(hero!.blob)) }), setCompiled, '打样文件已生成。')}>生成打样文件</button></div>
+    <p className="studio-hint" role="status">{notice || problem || (!heroReady ? '请先在第一步确认外观。' : '')}</p>
     {compiled && !fresh && <p className="studio-hint">产品或包装资料已变化，请重新排版后导出。</p>}
     {compiled && <><div className="studio-actions"><button type="button" className="studio-button primary" disabled={!fresh || pending} onClick={() => bundleDownload(compiled.files, 'INNO-LIT-包装打样资料.zip')}>下载打样资料 ZIP</button><details><summary>单独下载文件</summary>{compiled.files.filter(file => /\.(svg|dxf)$/u.test(file.name)).map(file => <button key={file.name} type="button" className="studio-button" disabled={!fresh || pending} onClick={() => downloadBlob(new Blob([file.data as string], { type: file.name.endsWith('.svg') ? 'image/svg+xml' : 'application/dxf' }), file.name)}>{file.name}</button>)}</details></div>
       <PackagingPreview key={compiled.context} file={compiled.files.find(file => file.name === 'artwork.svg')!} />

@@ -68,3 +68,15 @@ test('drawing parameter recommendations include the real image and keep estimate
  assert.match(result,/材料候选 PLA/)
  assert.equal(c.productWorkflow,undefined)
 })
+
+test('packaging defaults fill blank fields while preserving user values and use specific editable copy',async()=>{
+ const {fillPackagingDefaults}=await import('../src/packagingDefaults.ts')
+ const data=workflowOf(concept());data.engineering.length=200;data.packaging.width=180;data.packaging.copy='人工文案'
+ const defaults=fillPackagingDefaults(data)
+ assert.equal(defaults.length,220);assert.equal(defaults.width,180);assert.equal(defaults.copy,'人工文案');assert.ok(defaults.stock.includes('350'))
+ assert.doesNotMatch(defaults.notes,/待确认|待验证|待核对/)
+ assert.deepEqual(fillPackagingDefaults({...data,packaging:defaults}),defaults)
+ const {engineeringInput,engineeringPrompt}=await import('../src/engineeringModel.ts')
+ const payload=engineeringPrompt(engineeringInput(concept(),'packaging-spec'),'fixture')
+ assert.match(JSON.stringify(payload),/一组适合当前产品/)
+})
