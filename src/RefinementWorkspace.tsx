@@ -179,7 +179,6 @@ function ReportPanel({ projectName, round, roundNumber, concept, settings, onCha
 
 export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, settings, engineeringSettings, workflowSettings, imageConfiguration }: RefinementProps) {
   const [stage, setStage] = useState<Stage>('notes')
-  const locked = Boolean(developmentOf(concept).frozen)
   const currentModel = stage === 'notes' ? workflowSettings.notes : stage === 'validation' ? workflowSettings.feasibility : stage === 'research' ? workflowSettings.originality : stage === 'optimize' ? workflowSettings.optimization : stage === 'report' ? workflowSettings.report : settings
   function edit(update: (current: Concept) => Concept) {
     onChange(current => developmentOf(current).frozen ? current : update(current))
@@ -191,7 +190,6 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         当前环节模型：{currentModel.model.trim() || '未配置'}
         （在全局 AI 模型中心管理）
       </p>}
-      {locked && <p className="studio-badge">冻结 V{developmentOf(concept).frozen!.revision} · 设计内容已锁定，展示制作引用此版本</p>}
       <nav className="studio-refinement-nav" aria-label="深化工作区">
         {stageNames.map(key => (
           <button

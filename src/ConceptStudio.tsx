@@ -4,7 +4,6 @@ import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import {
   addChatConcept, appendConceptRound, conceptCounts, conceptSourceLabel, draftFromConcept, normalizeDraft, sentenceLabels,
   startingPointLimit,
-  modelSourceLabel,
 } from './concepts'
 import type {
   ChatIdea, Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
@@ -185,9 +184,6 @@ export function ConceptStudio({ projectId, projectName, state, onChange, setting
           <header className="studio-intro">
             <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.development?.frozen?.design.format ?? selected.format}</p>
             <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.development?.frozen?.design.title ?? selected.title}</h1>
-            <p>完善方案的分析记录，也可以直接用概念图表达想法，自由调整版式与尺寸。</p>
-            <span className="studio-badge">初始概念：{conceptSourceLabel(batch)}</span>
-            {selected.development?.frozen && <span className="studio-badge">完善模型：{modelSourceLabel(selected.development.frozen.source)}</span>}
           </header>
           <RefinementWorkspace
             key={`${activeRound}:${selected.id}`}
