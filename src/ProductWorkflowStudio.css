@@ -34,3 +34,7 @@
 .workflow-options { border: 1px solid #d3dcd2; border-radius: 12px; padding: 0 16px; }
 .workflow-download-options > summary { padding: 10px !important; }
 .product-workflow .studio-hint:empty { display: none; }
+
+.workflow-crop-canvas { position: relative; max-width: 900px; cursor: crosshair; touch-action: none; user-select: none; }
+.workflow-crop-canvas img { display: block; width: 100%; height: auto; pointer-events: none; }
+.workflow-crop-canvas > span { position: absolute; border: 3px solid #157649; background: #15764920; pointer-events: none; box-sizing: border-box; }

@@ -244,3 +244,17 @@ test('product rendering supports explicit free generation without a sketch and p
   concept.productWorkflow.heroMode = 'sketch'
   assert.equal(heroUsesSketch(concept), true)
 })
+
+// Model sheets may use a different grid; a manual crop must override cell splitting.
+test('manual sketch regions override the fixed grid and invalidate stale selected references', async()=>{
+ const {sketchAreaRect}=await import('../src/productWorkflow.ts')
+ const c=newConcept();c.productWorkflow={...workflowOf(c),assets:{sheet:'sheet-a',selected:'crop-a'},selection:1}
+ const old=workflowContext(c,'selected'),hero=workflowContext(c,'hero')
+ c.productWorkflow.selectionArea={left:25,top:10,width:25,height:30}
+ assert.deepEqual(sketchAreaRect(1,1600,1000,c.productWorkflow.selectionArea),{left:400,top:100,width:400,height:300})
+ assert.equal(selectedSketchMatches(c,old),false)
+ assert.notEqual(workflowContext(c,'hero'),hero)
+ assert.equal(selectedSketchMatches(c,workflowContext(c,'selected')),true)
+ for(const area of [{left:-1,top:0,width:20,height:20},{left:90,top:0,width:20,height:20},{left:0,top:0,width:0,height:20},{left:NaN,top:0,width:20,height:20}])assert.throws(()=>sketchAreaRect(1,1600,1000,area))
+ for(const role of ['sheet','hero','pcb','exploded','package','orthographic'])assert.match(workflowImagePrompt(c,role),/10%/)
+})

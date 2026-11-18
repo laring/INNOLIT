@@ -2,7 +2,8 @@ import { containProductImage } from './productImageLayout'
 import type { ProductOutputSize } from './productImageLayout'
 import { canvasBlob, wrapBoardText } from './conceptBoard'
 import { imageByteLimit, imageMime } from './imageGeneration'
-import { printResolution, sketchCell } from './productWorkflow'
+import { printResolution, sketchAreaRect } from './productWorkflow'
+import type { SketchArea } from './productWorkflow'
 import { pngDensity } from './productionFiles'
 
 export function imageDataUrl(blob: Blob): Promise<string> {
@@ -21,10 +22,10 @@ export async function validateProductImage(blob: Blob) {
   try { if (bitmap.width > 8192 || bitmap.height > 8192 || bitmap.width * bitmap.height > 24000000) throw new Error('图片应在 2400 万像素以内，边长不超过 8192。') } finally { bitmap.close() }
   return new Blob([blob], { type: mime })
 }
-export async function selectedSketch(blob: Blob, index: number) {
+export async function selectedSketch(blob: Blob, index: number, area?: SketchArea) {
   const bitmap = await createImageBitmap(blob)
   try {
-    const rect = sketchCell(index, bitmap.width, bitmap.height), canvas = document.createElement('canvas')
+    const rect = sketchAreaRect(index, bitmap.width, bitmap.height, area), canvas = document.createElement('canvas')
     canvas.width = rect.width; canvas.height = rect.height
     const context = canvas.getContext('2d'); if (!context) throw new Error('当前浏览器无法提取草图。')
     context.drawImage(bitmap, rect.left, rect.top, rect.width, rect.height, 0, 0, rect.width, rect.height)

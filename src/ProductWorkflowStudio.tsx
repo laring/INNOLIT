@@ -1,3 +1,4 @@
+import { SketchRegionEditor } from './SketchRegionEditor'
 import { FirmwarePanel, CostPanel } from './ProductionWorkflowPanels'
 import { PlanningReportPanel } from './PlanningReportPanel'
 import { PcbDrawingPanel } from './PcbDrawingPanel'
@@ -12,7 +13,7 @@ import { generateConceptImage, supportsImageReference } from './imageGeneration'
 import { hasModelSettings } from './modelGeneration'
 import type { ModelSettings } from './modelGeneration'
 import { productStages, workflowContext, workflowImagePrompt, workflowOf, printResolution, selectedSketchMatches, heroUsesSketch, activeProductStage, engineeringViews } from './productWorkflow'
-import type { ProductAsset, ProductStage, ProductWorkflow, EngineeringView } from './productWorkflow'
+import type { ProductAsset, ProductStage, ProductWorkflow, EngineeringView, SketchArea } from './productWorkflow'
 import { getVisual, projectVisuals, putVisual } from './visualStore'
 import type { SavedVisual } from './visualTypes'
 import { downloadBlob } from './conceptBoard'
@@ -64,11 +65,21 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     setRecords(current => ({ ...current, [record.id]: record }))
     return record
   }
-  function adoptAsset(role: ProductAsset, record: SavedVisual, selection?: number) {
-    edit(current => ({ ...current, ...(selection === undefined ? {} : { selection, heroMode: 'sketch' }), assets: { ...current.assets, [role]: record.id } }))
+  function adoptAsset(role: ProductAsset, record: SavedVisual, selection?: number, selectionArea?: SketchArea) {
+    edit(current => ({ ...current, ...(selection === undefined ? {} : { selection, selectionArea, heroMode: 'sketch' }), assets: { ...current.assets, [role]: record.id } }))
+  }
+  function chooseSketch(index: number, area?: SketchArea) {
+    const sheet=asset('sheet'); if(!sheet)return
+    const selectedConcept={...concept,productWorkflow:{...data,selection:index,selectionArea:area}}
+    void run(async signal=>storeImage('selected',await selectedSketch(sheet.blob,index,area),{kind:'upload'},`草图 ${index+1}`,workflowContext(selectedConcept,'selected'),signal),record=>{adoptAsset('selected',record,index,area);showFinalRender()},'选款已保存，请核对完整性后生成效果图。')
   }
   function upload(role: ProductAsset, file: File) {
     void run(signal => storeImage(role, file, { kind: 'upload' }, '用户上传', workflowContext(concept, role), signal), record => adoptAsset(role, record), '图片已保存。后续步骤会使用当前图片。')
+  }
+  function requestSettings() {
+    if(imageSettings.protocol !== 'openai')return imageSettings
+    const ratio=outputSize.width/outputSize.height
+    return {...imageSettings,size:(ratio>1.15?'1536x1024':ratio<0.87?'1024x1536':'1024x1024') as ImageSettings['size']}
   }
   function generate(role: 'sheet' | 'hero' | 'pcb' | 'exploded' | 'package' | EngineeringView) {
     setGenerationRole(role)
@@ -86,7 +97,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       }
       if (reference && !referenceSupported) throw new Error('当前图片模型不支持参考图输入。请切换支持参考图的模型；生成效果图也可以选择自由生成，不使用草图。')
       const prompt = workflowImagePrompt(concept, role).slice(0, 13400) + '\n' + productSizePrompt(outputSize)
-      const blob = await generateConceptImage(imageSettings, prompt, signal, { purpose: imageSettings.protocol === 'openrouter' ? 'master' : 'concept', ...(referenceSupported && reference ? { reference: await imageDataUrl(reference) } : {}) })
+      const blob = await generateConceptImage(requestSettings(), prompt, signal, { purpose: imageSettings.protocol === 'openrouter' ? 'master' : 'concept', ...(referenceSupported && reference ? { reference: await imageDataUrl(reference) } : {}) })
       return storeImage(role, blob, { kind: 'model', model: imageSettings.model.trim(), provider: new URL(imageSettings.baseUrl).hostname }, prompt, workflowContext(concept, role), signal)
     }, record => adoptAsset(role, record), '当前步骤的图片已生成并保存，请核对设计与标注。')
   }
@@ -145,9 +156,9 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       {asset('sheet') ? <><ProductImage key={asset('sheet')!.id} record={asset('sheet')!} label="十款设计草图" />{imageDownloads(asset('sheet')!)}<details><summary>印刷导出</summary><PcbPrint record={asset('sheet')!} widthMm={data.printWidth} fresh={current('sheet')} disabled={pending}/></details>
       {!current('sheet') && <p className="studio-hint">参考图或产品资料已改变，请重新生成当前十款草图后选款。</p>}
       <fieldset className="workflow-number-choice" disabled={pending || !current('sheet')}><legend>选择草图编号</legend><div className="workflow-number-buttons">{Array.from({ length: 10 }, (_, index) => <button type="button" className="studio-button" key={index} aria-label={`选择草图 ${String(index + 1).padStart(2, '0')}`} aria-pressed={data.selection === index} onClick={() => {
-        const selectedConcept = { ...concept, productWorkflow: { ...data, selection: index } }
-        void run(async signal => storeImage('selected', await selectedSketch(asset('sheet')!.blob, index), { kind: 'upload' }, `从十款图中提取 ${index + 1}`, workflowContext(selectedConcept, 'selected'), signal), record => { adoptAsset('selected', record, index); showFinalRender() }, `已选 ${String(index + 1).padStart(2, '0')}，请生成高清效果图。`)
+        chooseSketch(index)
       }}>{String(index + 1).padStart(2, '0')}</button>)}</div></fieldset>
+      {data.selection !== undefined && <SketchRegionEditor key={`${data.assets.sheet}-${data.selection}`} blob={asset('sheet')!.blob} index={data.selection} area={data.selectionArea} disabled={pending} onApply={area=>chooseSketch(data.selection!,area)}/>}
 </> : <p className="workflow-empty">AI 生成的 10 款产品草图将在这里显示。</p>}
     </section>}
     {active === 'design' && <section ref={heroSection} className="studio-refinement" aria-labelledby="hero-deliverable"><h3 id="hero-deliverable">1B · 最终高清效果图</h3><p>选款生成或自由生成，完成后确认外观。</p>
@@ -167,7 +178,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       {asset('exploded') && <details><summary>标注与印刷导出</summary><PrintExport key={asset('exploded')!.id} record={asset('exploded')!} data={data} fresh={current('exploded') && heroReady} disabled={pending} /></details>}
     </>}
     {active === 'structure' && <details><summary>模具 DFM 与已有工程附件</summary><EngineeringPanel concept={concept} settings={modelSettings} projectId={projectId} heroReady={heroReady} hero={asset('hero')} onEdit={edit} /></details>}
-    {active === 'drawings' && <><p>一键生成五张独立图，也可展开单张操作。尺寸与结构需工程核对。</p><label className="studio-field">真实尺寸、材料、公差与制图补充<textarea rows={3} maxLength={8000} disabled={pending} value={data.drawingNotes??''} onChange={event=>change({drawingNotes:event.target.value})}/></label><button className="studio-button primary" disabled={pending||loading||!heroReady||!configured||!referenceSupported||Boolean(sizeProblem)} onClick={()=>void run(async signal=>{for(const role of Object.keys(engineeringViews) as EngineeringView[]){setGenerationRole(role);const reference=asset('hero');if(!reference||!heroReady)throw new Error('请确认产品外观基准。');if(!referenceSupported)throw new Error('当前模型不支持产品参考图。');const prompt=workflowImagePrompt(concept,role)+'\n'+productSizePrompt(outputSize);const blob=await generateConceptImage(imageSettings,prompt,signal,{purpose:'master',reference:await imageDataUrl(reference.blob)});const record=await storeImage(role,blob,{kind:'model',model:imageSettings.model,provider:new URL(imageSettings.baseUrl).hostname},prompt,workflowContext(concept,role),signal);adoptAsset(role,record)}},()=>{},'五张独立工程图已生成，尺寸和结构仍需工程核对。')}>生成全部五张图</button>{(Object.keys(engineeringViews) as EngineeringView[]).map(role=><details key={role}><summary>{engineeringViews[role]} · {current(role)?'已生成':asset(role)?'待更新':'待生成'}</summary>{imageActions(role,`生成${engineeringViews[role]}`,heroReady)}{imagePreview(role,engineeringViews[role])}{asset(role)&&<PcbPrint record={asset(role)!} widthMm={data.printWidth} fresh={current(role)&&heroReady} disabled={pending}/>}</details>)}</>}
+    {active === 'drawings' && <><p>一键生成五张独立图，也可展开单张操作。尺寸与结构需工程核对。</p><label className="studio-field">真实尺寸、材料、公差与制图补充<textarea rows={3} maxLength={8000} disabled={pending} value={data.drawingNotes??''} onChange={event=>change({drawingNotes:event.target.value})}/></label><button className="studio-button primary" disabled={pending||loading||!heroReady||!configured||!referenceSupported||Boolean(sizeProblem)} onClick={()=>void run(async signal=>{for(const role of Object.keys(engineeringViews) as EngineeringView[]){setGenerationRole(role);const reference=asset('hero');if(!reference||!heroReady)throw new Error('请确认产品外观基准。');if(!referenceSupported)throw new Error('当前模型不支持产品参考图。');const prompt=workflowImagePrompt(concept,role)+'\n'+productSizePrompt(outputSize);const blob=await generateConceptImage(requestSettings(),prompt,signal,{purpose:'master',reference:await imageDataUrl(reference.blob)});const record=await storeImage(role,blob,{kind:'model',model:imageSettings.model,provider:new URL(imageSettings.baseUrl).hostname},prompt,workflowContext(concept,role),signal);adoptAsset(role,record)}},()=>{},'五张独立工程图已生成，尺寸和结构仍需工程核对。')}>生成全部五张图</button>{(Object.keys(engineeringViews) as EngineeringView[]).map(role=><details key={role}><summary>{engineeringViews[role]} · {current(role)?'已生成':asset(role)?'待更新':'待生成'}</summary>{imageActions(role,`生成${engineeringViews[role]}`,heroReady)}{imagePreview(role,engineeringViews[role])}{asset(role)&&<PcbPrint record={asset(role)!} widthMm={data.printWidth} fresh={current(role)&&heroReady} disabled={pending}/>}</details>)}</>}
     {active === 'firmware' && <FirmwarePanel concept={concept} settings={modelSettings} onChange={onChange}/>}
     {active === 'compliance' && <PlanningReportPanel concept={concept} settings={reportSettings ?? modelSettings} onChange={onChange} initialKind="compliance" onlyKind/>}
     {active === 'packaging' && <><h4>包装设计</h4>{imageActions('package', '生成外包装效果预览', heroReady)}{asset('package') && imagePreview('package', '外包装效果预览')}<details><summary>包装展开稿与打样文件</summary><PackagingPanel concept={concept} settings={modelSettings} projectId={projectId} heroReady={heroReady} hero={asset('hero')} onEdit={edit} /></details><details><summary>量产成本与评审 PPT</summary><CostPanel concept={concept} onChange={onChange}/></details></>}
@@ -176,9 +187,9 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   </section>
 }
 function ProductImage({ record, label }: { record: SavedVisual; label: string }) {
-  const [url] = useState(() => URL.createObjectURL(record.blob))
-  useEffect(() => () => URL.revokeObjectURL(url), [url])
-  return <img className="workflow-product-image" src={url} alt={label} />
+  const imageRef=useRef<HTMLImageElement>(null)
+  useEffect(() => {const value=URL.createObjectURL(record.blob);if(imageRef.current)imageRef.current.src=value;return()=>URL.revokeObjectURL(value)}, [record.blob])
+  return <img className="workflow-product-image" ref={imageRef} alt={label} />
 }
 function PrintExport({ record, data, fresh, disabled }: { record: SavedVisual; data: ProductWorkflow; fresh: boolean; disabled: boolean }) {
   const [width, setWidth] = useState(0)

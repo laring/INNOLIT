@@ -22,6 +22,7 @@ export function activeProductStage(stage: ProductStage | LegacyProductStage): Pr
 export type ProductStage = keyof typeof productStages
 export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'pcb' | 'exploded' | 'package' | EngineeringView
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
+export type SketchArea = { left: number; top: number; width: number; height: number }
 export type ProductWorkflow = {
   outputSizes?: Partial<Record<ProductStage | LegacyProductStage, { layout: PageLayout; width: number; height: number }>>
   stage: ProductStage | LegacyProductStage
@@ -39,6 +40,7 @@ export type ProductWorkflow = {
   renderNotes: string
   assets: Partial<Record<ProductAsset, string>>
   selection?: number
+  selectionArea?: SketchArea
   confirmedHero?: string
   components: string
   pcb: PcbSpec
@@ -71,7 +73,7 @@ export function workflowContext(concept: Concept, step: ProductAsset): string {
   const subject = visualSubjectOf(concept)
   const common = { concept: { title: subject.title, format: subject.format, sentences: subject.sentences, identity: subject.identity }, name: data.productName, brand: data.brand, brandColor: data.brandColor, functions: data.functions, direction: data.direction }
   if (step === 'sheet') return JSON.stringify({ ...common, styleImage: data.assets.style })
-  if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection })
+  if (step === 'selected') return JSON.stringify({ sheet: data.assets.sheet, selection: data.selection, area: data.selectionArea })
   if (step === 'hero') return JSON.stringify(heroUsesSketch(concept) ? { ...common, selected: data.assets.selected, selectionContext: workflowContext(concept, 'selected'), renderNotes: data.renderNotes } : { ...common, mode: 'free', renderNotes: data.renderNotes })
   if (step in engineeringViews) return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), drawingNotes: data.drawingNotes, engineering: data.engineering, view: step })
   if (step === 'pcb') return JSON.stringify({ ...common, hero: data.assets.hero, heroContext: workflowContext(concept, 'hero'), pcb: { ...data.pcb, analysis: undefined } })
@@ -83,9 +85,9 @@ export function workflowContext(concept: Concept, step: ProductAsset): string {
 export function selectedSketchMatches(concept: Concept, savedContext: string | undefined) {
   if (!savedContext) return false
   try {
-    const saved = JSON.parse(savedContext) as { sheet?: string; selection?: number }
+    const saved = JSON.parse(savedContext) as { sheet?: string; selection?: number; area?: SketchArea }
     const current = workflowOf(concept)
-    return saved.sheet === current.assets.sheet && saved.selection === current.selection
+    return saved.sheet === current.assets.sheet && saved.selection === current.selection && JSON.stringify(saved.area ?? null) === JSON.stringify(current.selectionArea ?? null)
   } catch { return false }
 }
 
@@ -102,6 +104,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
   const data = workflowOf(concept)
   const subject = visualSubjectOf(concept)
   if (step in engineeringViews) return [
+    'COMPOSITION: Fit the COMPLETE drawing, every view, dimension, leader and title block within the central 80% of the canvas. Leave a blank safety margin of at least 10% on all four sides. Reduce the entire drawing scale to fit; never clip a part, annotation or frame.',
     'ROLE: Senior mechanical and mould engineer. Produce ONE independent black-and-white mechanical engineering drawing file. White background, black technical linework, clear line weights, orthographic proportions, legible annotations. No collage combining the five deliverables.',
     `VIEW: ${engineeringViews[step as EngineeringView]}. Orthographic sheet: aligned front/top/side views in this single file; axonometric: line-only isometric; assembly: assembly relationships; section: a labelled local cutaway; detail: critical joints and interfaces. Render only the selected VIEW.`,
     `PRODUCT: ${data.productName}. Reference is the exact approved exterior. Preserve shape, proportions, construction, interfaces and materials. No redesign.`,
@@ -110,6 +113,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
   ].join('\n').slice(0,13000)
   if (step === 'pcb') {
     const prompt = [
+    'COMPOSITION: Fit the COMPLETE board outline, all dimension lines, labels and the bottom-right title block within the central 80% of the canvas. Leave a blank 10% safety margin on every side. Reduce scale to fit; no cropped edges or off-canvas annotations.',
     'ROLE: Senior electronics engineer. Generate a strictly orthographic TWO-DIMENSIONAL PCB top-view engineering assembly drawing. Vector-style technical linework, BLACK LINES ONLY on pure WHITE background. Absolutely NO 3D, perspective, shadows, gradients, photorealism, product hero rendering or decorative space-age styling.',
     `PRODUCT: ${data.productName}; exact brand/name: ${data.brand}. FUNCTIONS: ${data.functions}.`,
     'The reference is the approved exterior product, used ONLY to maintain product identity, enclosure interfaces and plausible PCB fit. It is NOT an existing PCB, schematic, netlist or measured interior. Do not redraw the exterior product as the PCB. Do not invent verified circuit connections or manufacturing readiness.',
@@ -122,6 +126,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     return prompt
   }
   const common = [
+    step === 'sheet' ? 'COMPOSITION: Every product must be fully visible within its own equal grid cell, including base, accessories and annotations. Leave at least 10% empty space inside all four edges of EACH cell. Never let a product cross a cell boundary.' : 'COMPOSITION: Show the COMPLETE product or exploded assembly including every part, base, accessory, shadow and annotation. Fit the entire composition within the central 80% of the canvas, leaving at least 10% blank safety margin on all four sides. Zoom out and reduce subject scale rather than cutting anything off. No close-up, edge-to-edge framing or cropped product.',
     `ROLE: ${step === 'exploded' ? 'Senior product structure and mould engineer' : step === 'package' ? 'Senior brand and visual communication designer' : 'Senior industrial designer'}.`,
     `PRODUCT: ${data.productName}. ${step === 'sheet' || step === 'hero' ? 'No logos, brand marks or title logos anywhere on this industrial-design image.' : `BRAND / LOGO TEXT: ${data.brand || 'No brand mark supplied'}.`}`,
     `Shared brand accent color: ${data.brandColor}. Keep branding consistent across product and packaging.`,
@@ -162,6 +167,16 @@ export function sketchCell(index: number, width: number, height: number) {
   if (!Number.isInteger(index) || index < 0 || index > 9 || !Number.isFinite(width) || !Number.isFinite(height) || width < 5 || height < 2) throw new Error('请选择 01–10 中的一款草图。')
   const left = Math.round(index % 5 * width / 5), right = Math.round((index % 5 + 1) * width / 5)
   const top = Math.round(Math.floor(index / 5) * height / 2), bottom = Math.round((Math.floor(index / 5) + 1) * height / 2)
+  return { left, top, width: right - left, height: bottom - top }
+}
+
+export function sketchAreaRect(index: number, width: number, height: number, area?: SketchArea) {
+  const fallback = sketchCell(index, width, height)
+  if (!area) return fallback
+  if (![area.left, area.top, area.width, area.height].every(Number.isFinite) || area.left < 0 || area.top < 0 || area.width < 1 || area.height < 1 || area.left + area.width > 100.001 || area.top + area.height > 100.001) throw new Error('请框选原图内的完整草图，宽高至少为原图的 1%。')
+  const left = Math.round(width * area.left / 100), top = Math.round(height * area.top / 100)
+  const right = Math.min(width, Math.round(width * (area.left + area.width) / 100)), bottom = Math.min(height, Math.round(height * (area.top + area.height) / 100))
+  if (right <= left || bottom <= top) throw new Error('框选区域过小，请重新选择。')
   return { left, top, width: right - left, height: bottom - top }
 }
 
