@@ -15,6 +15,7 @@ import type { ModelSettings } from './modelGeneration'
 import { productStages, workflowContext, workflowImagePrompt, workflowOf, selectedSketchMatches, heroUsesSketch, activeProductStage, engineeringViews, englishPromptSource, fillEnglishPrompt } from './productWorkflow'
 import type { ProductAsset, ProductStage, ProductWorkflow, EngineeringView, SketchArea } from './productWorkflow'
 import { getVisual, projectVisuals, putVisual } from './visualStore'
+import { savedProductImageEvent } from './iiinnowImages'
 import type { SavedVisual } from './visualTypes'
 import { downloadBlob } from './conceptBoard'
 import { imageDataUrl, imageDigest, selectedSketch, validateProductImage, sizedProductImage, engineeringReference } from './productWorkflowImages'
@@ -85,6 +86,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
     const record = await putVisual({ id: JSON.stringify([projectId, roundNumber, concept.id, 'product-workflow', role, crypto.randomUUID()]), projectId, blob: checked, source, prompt, digest, conceptKey: context, workflowKind: role }, signal)
     signal.throwIfAborted()
     setRecords(current => ({ ...current, [record.id]: record }))
+    if (source.kind === 'model') window.dispatchEvent(new CustomEvent(savedProductImageEvent, { detail: record }))
     return record
   }
   function adoptAsset(role: ProductAsset, record: SavedVisual, selection?: number, selectionArea?: SketchArea) {

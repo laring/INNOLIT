@@ -10,6 +10,7 @@ export type Message = {
 export type Project = {
   id: string
   name: string
+  iiinnowProjectId?: string
   messages: Message[]
   updatedAt: number
   conceptStudio?: ConceptStudioState | {

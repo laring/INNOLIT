@@ -15,9 +15,12 @@ import type { ChatIdea, ConceptStudioState } from './concepts'
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { createEmptyRouting } from './aiModelRouter'
-import { deleteProjectVisuals } from './visualStore'
+import { deleteProjectVisuals, projectVisuals } from './visualStore'
+import type { SavedVisual } from './visualTypes'
+import { productImageMessage, savedProductImageEvent } from './iiinnowImages'
 import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
 import type { Message } from './projects'
+import { readWorkbenchBrief, workbenchOrigin } from './iiinnowBridge'
 import './App.css'
 
 import {
@@ -85,6 +88,69 @@ function resetWorkflowSettings(task: WorkflowTask) {
   const activeProject =
     projects.find(project => project.id === activeId)
     ?? projects[0]
+
+  const parentOrigin = workbenchOrigin(window.location, window.parent !== window)
+  const [linkedId, setLinkedId] = useState<string>()
+  const [transferNotice, setTransferNotice] = useState('')
+  useEffect(() => {
+    if (!parentOrigin) return
+    const receive = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.origin !== parentOrigin) return
+      const brief = readWorkbenchBrief(event.data)
+      if (brief) {
+        const id = 'iiinnow-' + brief.id
+        const project = { ...createProject(), id, name: brief.name, iiinnowProjectId: brief.id }
+        const studio = getProjectStudio(project)
+        setProjects(current => current.some(item => item.id === id) ? current : [{
+          ...project, conceptStudio: { ...studio, draft: { ...studio.draft, problem: brief.intent, audience: brief.audience } },
+        }, ...current])
+        setActiveId(id)
+        setLinkedId(brief.id)
+        if (brief.view === 'creative') {
+          setInput(current => current || brief.creativePrompt || '')
+          setView('workspace')
+        } else {
+          setView('studio')
+        }
+      } else if (event.data?.type === 'iiinnow:concept-result') {
+        setTransferNotice(event.data.saved === true ? '已保存到 IIINNOW「工业造型与外观 → 交付物 → 文档」。' : 'IIINNOW 无法保存，请检查项目基线及浏览器存储。')
+      }
+    }
+    window.addEventListener('message', receive)
+    window.parent.postMessage({ type: 'inno-lit:ready' }, parentOrigin)
+    return () => window.removeEventListener('message', receive)
+  }, [parentOrigin])
+
+  useEffect(() => {
+    if (!parentOrigin || !linkedId) return
+    const projectId = 'iiinnow-' + linkedId
+    let listening = true
+    const publish = (visual: SavedVisual) => {
+      if (!listening) return
+      const message = productImageMessage(visual, projectId, linkedId)
+      if (message) window.parent.postMessage(message, parentOrigin)
+    }
+    const saved = (event: Event) => publish((event as CustomEvent<SavedVisual>).detail)
+    window.addEventListener(savedProductImageEvent, saved)
+    void projectVisuals(projectId).then(images => images.forEach(publish)).catch(() => {
+      if (listening) setTransferNotice('暂无法同步已有产品图片。')
+    })
+    return () => { listening = false; window.removeEventListener(savedProductImageEvent, saved) }
+  }, [parentOrigin, linkedId])
+
+  const studioForTransfer = getProjectStudio(activeProject)
+  const transferRound = studioForTransfer.rounds[studioForTransfer.activeRound]
+  const exportConcept = transferRound?.concepts.find(concept => concept.id === transferRound.selectedId)
+
+  function sendToWorkbench() {
+    if (!parentOrigin || !linkedId || activeProject.iiinnowProjectId !== linkedId || !exportConcept) return
+    setTransferNotice('正在发送到 IIINNOW…')
+    const { title, sentences } = exportConcept.development?.frozen?.design ?? exportConcept
+    window.parent.postMessage({
+      type: 'inno-lit:concept', projectId: linkedId, title,
+      fields: sentences,
+    }, parentOrigin)
+  }
 
   useEffect(() => {
     try {
@@ -267,6 +333,12 @@ function resetWorkflowSettings(task: WorkflowTask) {
         <nav className="workspace-nav" aria-label="项目工作区">
           <button type="button" aria-pressed={view === 'workspace'} onClick={() => setView('workspace')}>创意对话</button>
           <button type="button" aria-pressed={view === 'studio'} onClick={() => setView('studio')}>Concept Studio</button>
+          {linkedId && activeProject.iiinnowProjectId === linkedId && (
+            <button type="button" disabled={!exportConcept}
+              title={exportConcept ? '保存当前选中的方案' : '请先在 Concept Studio 选定一个方案'}
+              onClick={sendToWorkbench}>保存选中方案到工业设计交付物</button>
+          )}
+          {transferNotice && <span role="status">{transferNotice}</span>}
         </nav>
 
 
