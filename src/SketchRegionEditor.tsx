@@ -1,0 +1,11 @@
+import { useEffect, useRef, useState } from 'react'
+import type { SketchArea } from './productWorkflow'
+
+export function SketchRegionEditor({blob,area,disabled,onApply}:{blob:Blob;area?:SketchArea;disabled:boolean;onApply:(area:SketchArea)=>void}) {
+  const imageRef=useRef<HTMLImageElement>(null)
+  useEffect(()=>{const value=URL.createObjectURL(blob);if(imageRef.current)imageRef.current.src=value;return()=>URL.revokeObjectURL(value)},[blob])
+  const [rect,setRect]=useState<SketchArea>(area??{left:0,top:0,width:0,height:0})
+  const start=useRef<{x:number;y:number}> (null)
+  const valid=rect.width>=1&&rect.height>=1&&rect.left>=0&&rect.top>=0&&rect.left+rect.width<=100.001&&rect.top+rect.height<=100.001
+  return <section aria-label="框选草图方案"><p>直接在图上拖框选定完整方案，再确认。</p><div className="workflow-crop-canvas" onPointerDown={event=>{if(disabled)return;event.preventDefault();const box=event.currentTarget.getBoundingClientRect();start.current={x:(event.clientX-box.left)/box.width*100,y:(event.clientY-box.top)/box.height*100};event.currentTarget.setPointerCapture(event.pointerId)}} onPointerMove={event=>{if(!start.current||disabled)return;const box=event.currentTarget.getBoundingClientRect(),x=Math.max(0,Math.min(100,(event.clientX-box.left)/box.width*100)),y=Math.max(0,Math.min(100,(event.clientY-box.top)/box.height*100));setRect({left:Math.min(start.current.x,x),top:Math.min(start.current.y,y),width:Math.abs(x-start.current.x),height:Math.abs(y-start.current.y)})}} onPointerUp={()=>{start.current=null}} onPointerCancel={()=>{start.current=null}}><img ref={imageRef} alt="框选草图原图" draggable={false}/><span style={{left:rect.left+'%',top:rect.top+'%',width:rect.width+'%',height:rect.height+'%'}}/></div><details><summary>精确调整区域（%）</summary><div className="workflow-parameter-grid">{(['left','top','width','height'] as const).map((key,i)=><label className="studio-field" key={key}>{['左边距','上边距','宽度','高度'][i]}<input type="number" min={0} max={100} step="0.1" disabled={disabled} value={Number(rect[key].toFixed(2))} onChange={e=>setRect({...rect,[key]:e.target.valueAsNumber||0})}/></label>)}</div></details><button className="studio-button primary" disabled={disabled||!valid} onClick={()=>onApply(rect)}>确认选中方案</button>{!valid&&<p>请将完整区域框在原图内。</p>}</section>
+}

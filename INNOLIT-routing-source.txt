@@ -1,0 +1,1570 @@
+﻿
+========== src\App.tsx ==========
+
+
+import { useEffect, useState } from 'react'
+import {
+  Lightbulb, Plus, PanelRightClose,
+  PanelRightOpen, FolderOpen, Trash2
+} from 'lucide-react'
+import { ConceptStudio } from './ConceptStudio'
+import { CreativeChat } from './CreativeChat'
+import type { ChatIdea, ConceptStudioState } from './concepts'
+import type { ModelSettings } from './modelGeneration'
+import type { ImageSettings } from './imageGeneration'
+import { deleteProjectVisuals } from './visualStore'
+import { createProject, getProjectStudio, loadProjects, STORAGE_KEY } from './projects'
+import type { Message } from './projects'
+import './App.css'
+
+function App() {
+  const [projects, setProjects] = useState(loadProjects)
+  const [activeId, setActiveId] = useState(
+    () => projects[0].id
+  )
+  const [input, setInput] = useState('')
+  const [showResults, setShowResults] = useState(true)
+  const [view, setView] = useState<'workspace' | 'studio'>('workspace')
+  const [saveFailed, setSaveFailed] = useState(false)
+  const [modelSettings, setModelSettings] = useState<ModelSettings>({ baseUrl: '', model: '', apiKey: '' })
+  const [imageSettings, setImageSettings] = useState<ImageSettings>({ baseUrl: '', model: '', apiKey: '', protocol: 'siliconflow', size: '1024x1024' })
+  const [transfer, setTransfer] = useState<{ projectId: string; idea: ChatIdea } | null>(null)
+
+  const activeProject =
+    projects.find(project => project.id === activeId)
+    ?? projects[0]
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+      // Report the outcome of writing to browser storage.
+      // oxlint-disable-next-line react/set-state-in-effect
+      setSaveFailed(false)
+    } catch {
+      // oxlint-disable-next-line react/set-state-in-effect
+      setSaveFailed(true)
+    }
+  }, [projects])
+
+  function updateStudio(update: (current: ConceptStudioState) => ConceptStudioState) {
+    const updatedAt = Date.now()
+    setProjects(current => current.map(project => project.id === activeProject.id
+      ? { ...project, conceptStudio: update(getProjectStudio(project)), updatedAt }
+      : project))
+  }
+
+  function editModelSettings(change: Partial<ModelSettings>) {
+    setModelSettings(current => {
+      const next = { ...current, ...change }
+      if (next.baseUrl.trim() !== current.baseUrl.trim()) next.apiKey = ''
+      return next
+    })
+  }
+
+  function addProject() {
+    const project = createProject()
+    setProjects(current => [project, ...current])
+    setActiveId(project.id)
+    setInput('')
+  }
+
+  function editImageSettings(change: Partial<ImageSettings>) {
+    setImageSettings(current => {
+      const next = { ...current, ...change }
+      if (next.baseUrl.trim() !== current.baseUrl.trim()) next.apiKey = ''
+      return next
+    })
+  }
+
+  function deleteProject(id: string) {
+    // Removing a project must still work when browser image storage is unavailable.
+    void deleteProjectVisuals(id).catch(() => {})
+    const replacement = createProject()
+    setProjects(current => {
+      const remaining = current.filter(project => project.id !== id)
+      return remaining.length ? remaining : [replacement]
+    })
+
+    if (activeId === id) {
+      setActiveId(projects.find(project => project.id !== id)?.id ?? replacement.id)
+      setInput('')
+    }
+  }
+
+  function appendChat(projectId: string, user: Message, assistant: Message) {
+    const updatedAt = Date.now()
+    setProjects(current => current.map(project => {
+      if (project.id !== projectId) return project
+
+      return {
+        ...project,
+        name: project.messages.length === 0
+          ? user.content.slice(0, 24)
+          : project.name,
+        messages: [...project.messages, user, assistant],
+        updatedAt
+      }
+    }))
+  }
+
+  const latestIdea = [...activeProject.messages]
+    .reverse()
+    .find(message => message.role === 'user')
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">
+            <Lightbulb size={19} />
+          </span>
+          <span>INNO LIT</span>
+        </div>
+
+        <button
+          className="new-project"
+          onClick={addProject}
+          aria-label="新建设计项目"
+        >
+          <Plus size={17} />
+          新建设计项目
+        </button>
+
+        <div className="section-label">我的项目</div>
+
+        <div className="project-list">
+          {projects.map(project => (
+            <div
+              className={
+                'project-item ' +
+                (project.id === activeId ? 'active' : '')
+              }
+              key={project.id}
+            >
+              <button
+                className="project-select"
+                aria-label={project.name}
+                onClick={() => {
+                  setActiveId(project.id)
+                  setInput('')
+                }}
+              >
+                <FolderOpen size={16} />
+                <span>{project.name}</span>
+              </button>
+
+              <button
+                className="delete-project"
+                title="删除项目"
+                aria-label={`删除项目 ${project.name}`}
+                onClick={() => {
+                  if (window.confirm(
+                    `确定删除“${project.name}”吗？`
+                  )) {
+                    deleteProject(project.id)
+                  }
+                }}
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="sidebar-footer">
+          V0.2 · Local Workspace
+        </div>
+      </aside>
+
+      <main className="workspace">
+        <header className="topbar">
+          <div className="breadcrumb">
+            工作台 <span>/</span> {activeProject.name}
+          </div>
+
+          {view === 'workspace' && (
+            <button
+              className="icon-button"
+              title="切换成果面板"
+              aria-label="切换成果面板"
+              aria-expanded={showResults}
+              onClick={() => setShowResults(value => !value)}
+            >
+              {showResults
+                ? <PanelRightClose size={19} />
+                : <PanelRightOpen size={19} />}
+            </button>
+          )}
+        </header>
+
+        <nav className="workspace-nav" aria-label="项目工作区">
+          <button type="button" aria-pressed={view === 'workspace'} onClick={() => setView('workspace')}>创意对话</button>
+          <button type="button" aria-pressed={view === 'studio'} onClick={() => setView('studio')}>Concept Studio</button>
+        </nav>
+        {saveFailed && <p className="workspace-save-error" role="alert">当前浏览器无法保存项目，刷新可能丢失本次更改。</p>}
+
+        {view === 'studio' ? (
+          <ConceptStudio
+            key={activeProject.id}
+            projectId={activeProject.id}
+            projectName={activeProject.name}
+            state={getProjectStudio(activeProject)}
+            onChange={updateStudio}
+            settings={modelSettings}
+            onSettingsChange={editModelSettings}
+            imageSettings={imageSettings}
+            onImageSettingsChange={editImageSettings}
+            idea={transfer?.projectId === activeProject.id ? transfer.idea : undefined}
+            onDismissIdea={() => setTransfer(null)}
+          />
+        ) : (
+          <CreativeChat
+            key={activeProject.id}
+            messages={activeProject.messages}
+            input={input}
+            onInputChange={setInput}
+            onAppend={(user, assistant) => appendChat(activeProject.id, user, assistant)}
+            onTransfer={idea => {
+              setTransfer({ projectId: activeProject.id, idea })
+              setView('studio')
+            }}
+            settings={modelSettings}
+            onSettingsChange={editModelSettings}
+          />
+        )}
+      </main>
+
+      {view === 'workspace' && showResults && (
+        <aside className="results-panel">
+          <div className="results-header">
+            <h2>设计成果</h2>
+            <span>Workspace</span>
+          </div>
+
+          <div className="result-section">
+            <div className="section-label">当前概念</div>
+            {latestIdea ? (
+              <div className="concept-card">
+                <div className="concept-icon">
+                  <Lightbulb size={18} />
+                </div>
+                <h3>{activeProject.name}</h3>
+                <p>{latestIdea.content}</p>
+                <span className="concept-status">
+                  初步构思
+                </span>
+              </div>
+            ) : (
+              <div className="empty-result">
+                输入设计想法后，概念摘要将在这里出现。
+              </div>
+            )}
+          </div>
+
+          <div className="result-section">
+            <div className="section-label">设计流程</div>
+            <div className="process-list">
+              <div>01 · 问题与场景</div>
+              <div>02 · 创意方向</div>
+              <div>03 · 产品概念</div>
+              <div>04 · 可行性验证与原创性检索</div>
+              <div>05 · 设计报告</div>
+            </div>
+          </div>
+
+          <div className="results-footer">
+            项目内容保存在当前浏览器
+          </div>
+        </aside>
+      )}
+    </div>
+  )
+}
+
+export default App
+
+
+========== src\ConceptStudio.tsx ==========
+
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
+import {
+  addChatConcept, appendConceptRound, conceptCounts, conceptSourceLabel, draftFromConcept, normalizeDraft, sentenceLabels,
+  startingPointLimit,
+  modelSourceLabel,
+} from './concepts'
+import type {
+  ChatIdea, Concept, ConceptBatch, ConceptCount, ConceptDraft, ConceptStudioState, Score, ScoreDimension,
+} from './concepts'
+import { RefinementWorkspace } from './RefinementWorkspace'
+import { canUseCustomModel, generateWithModel, hasModelSettings } from './modelGeneration'
+import type { ModelSettings } from './modelGeneration'
+import type { ImageSettings } from './imageGeneration'
+import { ModelControls } from './ModelControls'
+import { ChatConceptImport } from './ChatConceptImport'
+import { ConceptComparison } from './ConceptComparison'
+import './ConceptStudio.css'
+
+type StudioProps = {
+  projectId: string
+  projectName: string
+  state: ConceptStudioState
+  onChange: (update: (current: ConceptStudioState) => ConceptStudioState) => void
+  settings: ModelSettings
+  onSettingsChange: (change: Partial<ModelSettings>) => void
+  imageSettings: ImageSettings
+  onImageSettingsChange: (change: Partial<ImageSettings>) => void
+  idea?: ChatIdea
+  onDismissIdea: () => void
+}
+
+const sentences = Object.keys(sentenceLabels) as (keyof typeof sentenceLabels)[]
+
+function ConceptFramework({ concept }: { concept: Concept }) {
+  return (
+    <ol className="concept-framework">
+      {sentences.map(key => (
+        <li key={key}>
+          <strong>{sentenceLabels[key]}</strong>
+          <span>{concept.sentences[key]}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function focusHeading(heading: HTMLHeadingElement | null) {
+  heading?.scrollIntoView({ block: 'start' })
+  heading?.focus({ preventScroll: true })
+}
+
+export function ConceptStudio({ projectId, projectName, state, onChange, settings, onSettingsChange, imageSettings, onImageSettingsChange, idea, onDismissIdea }: StudioProps) {
+  const [refining, setRefining] = useState(false)
+  const [customModel, setCustomModel] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [notice, setNotice] = useState('')
+  const request = useRef<AbortController | null>(null)
+  const briefHeading = useRef<HTMLHeadingElement>(null)
+  const conceptHeading = useRef<HTMLHeadingElement>(null)
+  const comparisonHeading = useRef<HTMLHeadingElement>(null)
+  const pendingFocus = useRef<'brief' | 'concepts' | 'comparison' | null>(null)
+  const { draft, rounds, activeRound } = state
+  const batch = rounds[activeRound]
+  const latest = rounds.at(-1)
+  const selected = batch?.concepts.find(concept => concept.id === batch.selectedId)
+  const normalized = normalizeDraft(draft)
+  const ready = normalized.problem && normalized.audience && normalized.scenario
+  const configured = hasModelSettings(settings)
+  const unchanged = latest && !latest.origin && !latest.generation && !customModel && (
+    latest.brief.problem === normalized.problem &&
+    latest.brief.audience === normalized.audience &&
+    latest.brief.scenario === normalized.scenario &&
+    latest.brief.count === normalized.count &&
+    latest.brief.startingPoint?.text === normalized.startingPoint?.text &&
+    latest.brief.startingPoint?.source?.conceptId === normalized.startingPoint?.source?.conceptId
+  )
+
+  useEffect(() => {
+    if (!pendingFocus.current) return
+    const heading = pendingFocus.current === 'brief' ? briefHeading
+      : pendingFocus.current === 'concepts' ? conceptHeading : comparisonHeading
+    pendingFocus.current = null
+    focusHeading(heading.current)
+  }, [rounds.length, batch?.concepts.length, activeRound, draft, refining, idea])
+
+  useEffect(() => () => request.current?.abort(), [])
+
+  function editDraft(fields: Partial<ConceptDraft>) {
+    setNotice('')
+    onChange(current => ({ ...current, draft: { ...current.draft, ...fields } }))
+  }
+
+  async function generate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!ready || unchanged || request.current) return
+    setNotice('')
+    if (!customModel) {
+      pendingFocus.current = 'concepts'
+      onChange(appendConceptRound)
+      return
+    }
+    if (!canUseCustomModel(window.location.hostname) || !configured) return
+
+    const controller = new AbortController()
+    request.current = controller
+    setGenerating(true)
+    try {
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(150000)])
+      const result = await generateWithModel(draft, settings, signal)
+      
+      if (controller.signal.aborted) return
+      pendingFocus.current = 'concepts'
+      onChange(current => appendConceptRound(current, result))
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setNotice(error instanceof DOMException && error.name === 'TimeoutError'
+          ? '等待模型服务超时。可减少概念数量后重试。'
+          : error instanceof Error && !(error instanceof TypeError)
+            ? error.message
+            : '无法连接模型服务。请检查配置，或选择本地规则。')
+      }
+    } finally {
+      if (request.current === controller) {
+        request.current = null
+        if (!controller.signal.aborted) setGenerating(false)
+      }
+    }
+  }
+
+  function cancelGeneration() {
+    request.current?.abort()
+    request.current = null
+    setGenerating(false)
+    setNotice('已取消本轮生成。')
+  }
+
+  function updateRound(update: (round: ConceptBatch) => ConceptBatch) {
+    onChange(current => ({
+      ...current,
+      rounds: current.rounds.map((round, index) => index === activeRound ? update(round) : round),
+    }))
+  }
+
+  function editConcept(id: Concept['id'], update: (concept: Concept) => Concept) {
+    updateRound(round => ({
+      ...round,
+      concepts: round.concepts.map(concept => concept.id === id ? update(concept) : concept),
+    }))
+  }
+
+  function setScore(id: Concept['id'], dimension: ScoreDimension, score: Score | null) {
+    editConcept(id, concept => ({ ...concept, scores: { ...concept.scores, [dimension]: score } }))
+  }
+
+  function selectConcept(id: Concept['id']) {
+    updateRound(round => ({ ...round, selectedId: id }))
+  }
+
+  if (refining && batch && selected) {
+    return (
+      <section className="studio-scroll" key="refinement" aria-labelledby="refinement-heading">
+        <div className="studio-content">
+          <button type="button" className="studio-button" onClick={() => {
+            pendingFocus.current = 'comparison'
+            setRefining(false)
+          }}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            返回概念比较
+          </button>
+          <header className="studio-intro">
+            <p className="studio-kicker">第 {activeRound + 1} 轮 · 已选方案 · {selected.development?.frozen?.design.format ?? selected.format}</p>
+            <h1 id="refinement-heading" ref={focusHeading} tabIndex={-1}>方案深化 · {selected.development?.frozen?.design.title ?? selected.title}</h1>
+            <p>AI 协助深化、验证与检索，经你修正后完善概念并冻结，再制作一致的三张展示图。</p>
+            <span className="studio-badge">初始概念：{conceptSourceLabel(batch)}</span>
+            {selected.development?.frozen && <span className="studio-badge">完善模型：{modelSourceLabel(selected.development.frozen.source)}</span>}
+          </header>
+          <RefinementWorkspace
+            key={`${activeRound}:${selected.id}`}
+            projectId={projectId}
+            projectName={projectName}
+            round={batch}
+            roundNumber={activeRound + 1}
+            concept={selected}
+            onChange={update => editConcept(selected.id, update)}
+            imageSettings={imageSettings}
+            onImageSettingsChange={onImageSettingsChange}
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+          >
+            <details>
+              <summary>查看完整九句话</summary>
+              <ConceptFramework concept={selected} />
+            </details>
+          </RefinementWorkspace>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="studio-scroll" key="studio" aria-labelledby="studio-heading">
+      <div className="studio-content">
+        <header className="studio-intro">
+          <p className="studio-kicker"><Layers size={15} aria-hidden="true" /> V0.2 · 创意方案</p>
+          <h1 id="studio-heading">Concept Studio</h1>
+          <p>从同一设计问题探索 3–6 个方向，再比较、评分并选定一个进行深化。</p>
+        </header>
+
+        {idea && (
+          <ChatConceptImport
+            key={idea.messageId}
+            idea={idea}
+            state={state}
+            settings={settings}
+            onDismiss={onDismissIdea}
+            onSave={(destination, brief, candidate, useAsDraft) => {
+              pendingFocus.current = useAsDraft ? 'brief' : 'concepts'
+              onChange(current => addChatConcept(current, destination, brief, candidate, useAsDraft))
+              if (useAsDraft) {
+                setNotice('已加入概念并填入简报草稿。核对设计起点、目标用户和使用场景后即可生成。')
+              }
+              onDismissIdea()
+            }}
+          />
+        )}
+
+        <form className="studio-surface studio-brief" onSubmit={generate}>
+          <h2 ref={briefHeading} tabIndex={-1}>生成设计方向</h2>
+          <label className="studio-field studio-problem">
+            你想设计什么？
+            <textarea
+              rows={2}
+              value={draft.problem}
+              onChange={event => editDraft({ problem: event.target.value })}
+              placeholder="例如，如何帮助学生在课间快速放松？"
+              disabled={generating}
+              required
+            />
+          </label>
+          <label className="studio-field">
+            目标用户
+            <input
+              value={draft.audience}
+              onChange={event => editDraft({ audience: event.target.value })}
+              placeholder="例如，备考的高中生"
+              disabled={generating}
+              required
+            />
+          </label>
+          <div className="studio-starting-point">
+            <label className="studio-field">
+              设计起点（可选）
+              <textarea
+                rows={3}
+                maxLength={startingPointLimit}
+                value={draft.startingPoint?.text ?? ''}
+                placeholder="填写希望延伸的创意、机制或原型方向"
+                disabled={generating}
+                aria-describedby={draft.startingPoint?.source ? 'starting-point-source' : undefined}
+                onChange={event => {
+                  const text = event.target.value
+                  editDraft({ startingPoint: text ? { text, source: draft.startingPoint?.source } : undefined })
+                }}
+              />
+            </label>
+            {draft.startingPoint?.source && (
+              <p className="studio-hint" id="starting-point-source">整理自「{draft.startingPoint.source.title}」</p>
+            )}
+          </div>
+          <label className="studio-field">
+            使用场景
+            <input
+              value={draft.scenario}
+              onChange={event => editDraft({ scenario: event.target.value })}
+              placeholder="例如，两节课之间的教室桌面"
+              disabled={generating}
+              required
+            />
+          </label>
+          <div className="studio-model">
+            <ModelControls
+              settings={settings}
+              onSettingsChange={change => {
+                onSettingsChange(change)
+                setNotice('')
+              }}
+              customModel={customModel}
+              onModeChange={custom => {
+                setCustomModel(custom)
+                setNotice('')
+              }}
+              disabled={generating}
+              requestDescription="生成时会将当前设计简报发送给所选服务。"
+            />
+          </div>
+          <div className="studio-actions">
+            <label className="studio-field">
+              生成数量
+              <select value={draft.count} disabled={generating} onChange={event => editDraft({ count: Number(event.target.value) as ConceptCount })}>
+                {conceptCounts.map(count => <option key={count} value={count}>{count} 个</option>)}
+              </select>
+            </label>
+            <button type="submit" className="studio-button primary" disabled={!ready || Boolean(unchanged) || generating || (customModel && !configured)}>
+              {generating ? '正在生成…' : normalized.startingPoint ? '基于简报生成概念' : latest ? '生成新一轮' : '生成概念'}
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
+            {generating && <button type="button" className="studio-button" onClick={cancelGeneration}>取消生成</button>}
+          </div>
+          <p className="studio-hint" role="status">
+            {generating
+              ? `正在使用 ${settings.model.trim()} 生成概念…`
+              : notice || (latest
+              ? unchanged
+                ? `最新的第 ${rounds.length} 轮有 ${latest.concepts.length} 个概念。可修改简报、数量或选择模型生成新一轮。`
+                : '生成新一轮会保留已有轮次及其评分和深化笔记。'
+              : '填写三个字段后即可生成概念。')}
+          </p>
+        </form>
+
+        {batch && (
+          <>
+            <section className="studio-section" aria-labelledby="concept-heading">
+              <h2 id="concept-heading" tabIndex={-1} ref={conceptHeading}>概念方向 <span>{batch.concepts.length} 个</span></h2>
+              <p className="studio-hint">{conceptSourceLabel(batch)}</p>
+              <div className="studio-round-bar">
+                <label className="studio-field">
+                  概念轮次
+                  <select value={activeRound} onChange={event => {
+                    const index = Number(event.target.value)
+                    onChange(current => ({ ...current, activeRound: index }))
+                  }}>
+                    {rounds.map((round, index) => (
+                      <option key={index} value={index}>
+                        第 {index + 1} 轮 · {round.concepts.length} 个概念{index === rounds.length - 1 ? '（最新）' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="studio-actions">
+                  <button type="button" className="studio-button" onClick={() => focusHeading(comparisonHeading.current)}>
+                    查看比较 <ArrowRight size={16} aria-hidden="true" />
+                  </button>
+                  {selected && (
+                    <button type="button" className="studio-button primary" disabled={generating} onClick={() => setRefining(true)}>继续深化</button>
+                  )}
+                </div>
+              </div>
+              <details className="studio-round-brief" key={`brief-${activeRound}`}>
+                <summary>查看本轮生成简报</summary>
+                <dl>
+                  <dt>设计问题</dt><dd>{batch.brief.problem}</dd>
+                  <dt>目标用户</dt><dd>{batch.brief.audience}</dd>
+                  <dt>使用场景</dt><dd>{batch.brief.scenario}</dd>
+                  {batch.brief.startingPoint && (
+                    <>
+                      <dt>设计起点</dt><dd>{batch.brief.startingPoint.text}</dd>
+                      {batch.brief.startingPoint.source && <><dt>起点概念</dt><dd>{batch.brief.startingPoint.source.title}</dd></>}
+                    </>
+                  )}
+                </dl>
+              </details>
+              <p className="studio-hint">展开卡片查看每个方向的完整九句话。</p>
+              <div className="studio-cards" key={`cards-${activeRound}`}>
+                {batch.concepts.map((concept, index) => (
+                  <article className="studio-surface studio-card" key={concept.id} data-selected={selected?.id === concept.id}>
+                    <p className="studio-kicker">{String(index + 1).padStart(2, '0')} · {concept.format}</p>
+                    <h3>{concept.title}</h3>
+                    {concept.chatOrigin && <span className="studio-badge">来自创意对话</span>}
+                    <p>{concept.sentences.idea}</p>
+                    <details>
+                      <summary>查看九句话</summary>
+                      <ConceptFramework concept={concept} />
+                    </details>
+                    {concept.chatOrigin && (
+                      <button type="button" className="studio-button studio-use-starting-point" disabled={generating} onClick={() => {
+                        pendingFocus.current = 'brief'
+                        onChange(current => ({ ...current, draft: draftFromConcept(current.draft, batch.brief, concept) }))
+                        setNotice('已用这张对话概念卡填入简报草稿。核对后可生成新的变体。')
+                      }}>
+                        填入简报草稿
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="studio-section" aria-labelledby="comparison-heading">
+              <h2 id="comparison-heading" tabIndex={-1} ref={comparisonHeading}>概念比较</h2>
+              <ConceptComparison
+                key={activeRound}
+                batch={batch}
+                settings={settings}
+                onScore={setScore}
+                onSelect={selectConcept}
+                onReviews={reviews => updateRound(round => ({
+                  ...round,
+                  concepts: round.concepts.map(concept => {
+                    const modelReview = reviews.get(concept.id)
+                    return modelReview ? { ...concept, modelReview } : concept
+                  }),
+                }))}
+                onRefine={() => setRefining(true)}
+                generating={generating}
+              />
+            </section>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
+
+
+========== src\RefinementWorkspace.tsx ==========
+
+import { useState } from 'react'
+import type { ReactNode } from 'react'
+import { Download } from 'lucide-react'
+import type { Concept, ConceptBatch } from './concepts'
+import {
+  buildDesignReport, emptyValidation, formatDesignReport, updateValidation, validationFields, validationOutcomes,
+} from './designWork'
+import type { ResearchLog, ValidationOutcome, ValidationPlan } from './designWork'
+import { EvidencePanel } from './EvidencePanel'
+import type { ImageSettings } from './imageGeneration'
+import { VisualStudio } from './VisualStudio'
+import { DevelopmentAssistant } from './DevelopmentAssistant'
+import { ConceptFreezePanel } from './ConceptFreezePanel'
+import { developmentOf } from './conceptDevelopment'
+import { ModelControls } from './ModelControls'
+import type { ModelSettings } from './modelGeneration'
+
+const stages = {
+  notes: '深化笔记',
+  validation: '可行性验证',
+  research: '原创性检索',
+  optimize: '完善与冻结',
+  visuals: '概念图与展板',
+  report: '设计报告',
+} as const
+
+type Stage = keyof typeof stages
+const stageNames = Object.keys(stages) as Stage[]
+const fields = Object.keys(validationFields) as (keyof typeof validationFields)[]
+const emptyResearch: ResearchLog = { keywords: '', evidence: [] }
+
+type RefinementProps = {
+  projectId: string
+  projectName: string
+  round: ConceptBatch
+  roundNumber: number
+  concept: Concept
+  onChange: (update: (current: Concept) => Concept) => void
+  children: ReactNode
+  imageSettings: ImageSettings
+  onImageSettingsChange: (change: Partial<ImageSettings>) => void
+  settings: ModelSettings
+  onSettingsChange: (change: Partial<ModelSettings>) => void
+}
+
+function ValidationPanel({ concept, onChange }: Pick<RefinementProps, 'concept' | 'onChange'>) {
+  const plan = concept.validation ?? emptyValidation
+  const ready = Boolean(plan.criteria.trim() && plan.observations.trim())
+
+  function save(change: Partial<ValidationPlan>) {
+    onChange(current => ({
+      ...current,
+      validation: updateValidation(current.validation ?? emptyValidation, change),
+    }))
+  }
+
+  return (
+    <section className="studio-surface studio-refinement" aria-labelledby="validation-heading">
+      <div>
+        <h2 id="validation-heading">可行性验证</h2>
+        <p><strong>关键风险</strong>　{concept.sentences.risk}</p>
+        <p><strong>建议验证方式</strong>　{concept.sentences.test}</p>
+      </div>
+      <div className="studio-validation-fields">
+        {fields.map(key => (
+          <label className="studio-field" key={key}>
+            {validationFields[key].label}
+            <textarea
+              rows={3}
+              maxLength={3000}
+              value={plan[key]}
+              placeholder={validationFields[key].hint}
+              onChange={event => save({ [key]: event.target.value })}
+            />
+          </label>
+        ))}
+      </div>
+      <label className="studio-field studio-validation-outcome">
+        人工判断
+        <select
+          value={plan.outcome}
+          disabled={!ready}
+          aria-describedby="validation-help"
+          onChange={event => save({ outcome: event.target.value as ValidationOutcome })}
+        >
+          {Object.entries(validationOutcomes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select>
+      </label>
+      <p id="validation-help" className="studio-hint">
+        {ready ? '对照通过标准和实测记录，由你填写验证结果。' : '填写通过标准与实测记录后，可给出验证结果。'}
+      </p>
+      <label className="studio-field">人工可行性分析结论
+        <textarea rows={4} maxLength={4000} value={developmentOf(concept).feasibilityConclusion} placeholder="修正 AI 分析，区分可行条件、剩余风险与未实测事项。"
+          onChange={event => {
+            const feasibilityConclusion = event.target.value
+            onChange(current => ({ ...current, development: { ...developmentOf(current), feasibilityConclusion } }))
+          }} />
+      </label>
+      <p className="studio-hint">AI 只提出分析和测试方案，不会填写实测记录或替你判定达到标准。概念冻结不代表实测通过。</p>
+    </section>
+  )
+}
+
+function ReportPanel({ projectName, round, roundNumber, concept }: Pick<RefinementProps, 'projectName' | 'round' | 'roundNumber' | 'concept'>) {
+  const report = buildDesignReport(projectName, round, roundNumber, concept)
+
+  function download() {
+    const file = new Blob([formatDesignReport(report)], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(file)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `INNO-LIT-第${roundNumber}轮-设计报告.md`
+    document.body.append(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  return (
+    <section className="studio-surface studio-refinement" aria-labelledby="report-heading">
+      <header className="studio-report-header">
+        <div>
+          <h2 id="report-heading">设计报告</h2>
+          <p>报告使用当前轮次和选定方案的最新记录。</p>
+        </div>
+        <button type="button" className="studio-button primary" onClick={download}>
+          <Download size={16} aria-hidden="true" /> 下载 Markdown
+        </button>
+      </header>
+      {report.sections.map(section => (
+        <section className="studio-report-section" key={section.heading}>
+          <h3>{section.heading}</h3>
+          <dl>
+            {section.entries.map(entry => (
+              <div key={entry.url ?? entry.label}>
+                <dt>{entry.label}</dt>
+                <dd>{entry.value.trim() || '未填写'}</dd>
+                {entry.url && <dd><a href={entry.url} target="_blank" rel="noreferrer">查看来源</a></dd>}
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+    </section>
+  )
+}
+
+export function RefinementWorkspace({ projectId, projectName, round, roundNumber, concept, onChange, children, imageSettings, onImageSettingsChange, settings, onSettingsChange }: RefinementProps) {
+  const [stage, setStage] = useState<Stage>('notes')
+  const locked = Boolean(developmentOf(concept).frozen)
+  function edit(update: (current: Concept) => Concept) {
+    onChange(current => developmentOf(current).frozen ? current : update(current))
+  }
+
+  return (
+    <>
+      <details className="studio-surface development-model-settings">
+        <summary>深化 AI 模型设置</summary>
+        <ModelControls settings={settings} onSettingsChange={onSettingsChange} settingsOnly customModel onModeChange={() => {}} disabled={false}
+          requestDescription="深化分析、检索比较和完善总结共用此文字模型。模型建议由你修正与确认。" />
+      </details>
+      {locked && <p className="studio-badge">冻结 V{developmentOf(concept).frozen!.revision} · 设计内容已锁定，展示制作引用此版本</p>}
+      <nav className="studio-refinement-nav" aria-label="深化工作区">
+        {stageNames.map(key => (
+          <button
+            type="button"
+            key={key}
+            className="studio-button"
+            aria-pressed={stage === key}
+            onClick={() => setStage(key)}
+          >
+            {stages[key]}
+          </button>
+        ))}
+      </nav>
+      {stage === 'notes' && (
+        <DevelopmentAssistant step="notes" concept={concept} settings={settings} onChange={edit}>
+        <section className="studio-surface studio-refinement" aria-labelledby="notes-heading">
+          <div>
+            <h2 id="notes-heading">首轮验证建议</h2>
+            <p><strong>关键风险</strong>　{concept.sentences.risk}</p>
+            <p><strong>验证方式</strong>　{concept.sentences.test}</p>
+          </div>
+          <label className="studio-field">
+            深化笔记
+            <textarea
+              rows={5}
+              maxLength={4000}
+              value={concept.notes}
+              onChange={event => {
+                const notes = event.target.value
+                edit(current => ({ ...current, notes }))
+              }}
+              placeholder="记录方案调整、待解决的问题与下一步"
+            />
+          </label>
+          {children}
+        </section>
+        </DevelopmentAssistant>
+      )}
+      {stage === 'validation' && <DevelopmentAssistant step="validation" concept={concept} settings={settings} onChange={edit}>
+        <ValidationPanel concept={concept} onChange={edit} />
+      </DevelopmentAssistant>}
+      {stage === 'research' && (
+        <DevelopmentAssistant step="research" concept={concept} settings={settings} onChange={edit}>
+        <EvidencePanel
+          research={concept.research ?? emptyResearch}
+          onChange={update => edit(current => ({ ...current, research: update(current.research ?? emptyResearch) }))}
+        />
+        <section className="studio-surface studio-refinement"><label className="studio-field">人工检索比较结论
+          <textarea rows={4} maxLength={4000} value={developmentOf(concept).researchConclusion} placeholder="阅读来源后修正相似与差异、检索范围和仍需调查的部分。"
+            onChange={event => { const researchConclusion = event.target.value; edit(current => ({ ...current, development: { ...developmentOf(current), researchConclusion } })) }} />
+        </label></section>
+        </DevelopmentAssistant>
+      )}
+      {stage === 'optimize' && <ConceptFreezePanel concept={concept} settings={settings} onChange={onChange} onFrozen={() => setStage('visuals')} />}
+      {stage === 'report' && <ReportPanel projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} />}
+      {stage === 'visuals' && <VisualStudio key={`${roundNumber}:${concept.id}`} projectId={projectId}
+        projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}
+        imageSettings={imageSettings}
+        modelSettings={settings} 
+        onImageSettingsChange={onImageSettingsChange} />}
+    </>
+  )
+}
+
+
+========== src\VisualStudio.tsx ==========
+
+
+import { useEffect, useState } from 'react'
+import { SimpleVisualGenerator } from './SimpleVisualGenerator'
+import type { Concept, ConceptBatch } from './concepts'
+import { developmentOf } from './conceptDevelopment'
+import {
+  consistencyChecks,
+  entryRoles,
+  entryVisualKey,
+  visualProblems,
+} from './entryVisuals'
+import type { EntryRole } from './entryVisuals'
+import { imageSizes } from './imageGeneration'
+import type { ImageSettings } from './imageGeneration'
+import type { ModelSettings } from './modelGeneration'
+import { getVisual, visualKey } from './visualStore'
+import type { SavedVisual } from './visualStore'
+import { downloadBlob } from './conceptBoard'
+import { EntryImageEditor } from './EntryImageEditor'
+import './VisualStudio.css'
+
+type VisualProps = {
+  projectId: string
+  projectName: string
+  round: ConceptBatch
+  roundNumber: number
+  concept: Concept
+  imageSettings: ImageSettings
+  modelSettings: ModelSettings
+  onImageSettingsChange: (
+    change: Partial<ImageSettings>,
+  ) => void
+  onChange: (
+    update: (current: Concept) => Concept,
+  ) => void
+}
+
+const roles = Object.keys(entryRoles) as EntryRole[]
+
+export function VisualStudio({
+  projectId,
+  round,
+  roundNumber,
+  concept,
+  imageSettings,
+  modelSettings,
+  onImageSettingsChange,
+  onChange,
+}: VisualProps) {
+  const [simpleMode, setSimpleMode] = useState(true)
+
+  const development = developmentOf(concept)
+
+  const versions = [
+    ...(development.frozen ? [development.frozen] : []),
+    ...development.history.slice().reverse(),
+  ]
+
+  const [selectedVersion, setSelectedVersion] =
+    useState(versions[0]?.id ?? '')
+
+  const frozen = versions.find(
+    item => item.id === selectedVersion,
+  )
+
+  const [role, setRole] = useState<EntryRole>(
+    concept.visualEntry ?? 'master',
+  )
+
+  const [records, setRecords] = useState<
+    Partial<Record<EntryRole, SavedVisual>>
+  >({})
+
+  const [legacy, setLegacy] = useState<SavedVisual>()
+  const [loadError, setLoadError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [imageBusy, setImageBusy] = useState(false)
+
+  const frozenId = frozen?.id
+
+  useEffect(() => {
+    let active = true
+
+    getVisual(
+      visualKey(projectId, roundNumber, concept.id),
+    )
+      .then(item => {
+        if (active) setLegacy(item)
+      })
+      .catch(() => {})
+
+    return () => {
+      active = false
+    }
+  }, [projectId, roundNumber, concept.id])
+
+  useEffect(() => {
+    if (!frozenId) return
+
+    let active = true
+
+    Promise.all(
+      roles.map(itemRole =>
+        getVisual(
+          entryVisualKey(
+            projectId,
+            roundNumber,
+            concept.id,
+            frozenId,
+            itemRole,
+          ),
+        ),
+      ),
+    )
+      .then(items => {
+        if (!active) return
+
+        setRecords(
+          Object.fromEntries(
+            roles.map((itemRole, index) => [
+              itemRole,
+              items[index],
+            ]),
+          ),
+        )
+
+        setLoading(false)
+        setLoadError('')
+      })
+      .catch(() => {
+        if (!active) return
+
+        setLoadError(
+          '图片存储读取失败，请检查浏览器存储权限。',
+        )
+        setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [
+    projectId,
+    roundNumber,
+    concept.id,
+    frozenId,
+  ])
+
+  const locked =
+    development.frozen?.id !== frozenId
+
+  const directionKey = `${frozenId}:${role}`
+
+  const complete =
+    frozen &&
+    (['landscape', 'portrait', 'poster'] as const)
+      .every(
+        itemRole =>
+          !visualProblems(
+            frozen,
+            itemRole,
+            records[itemRole],
+            records.master,
+            records,
+          ).length,
+      )
+
+  const masterBlob =
+    frozen &&
+    records.master &&
+    !visualProblems(
+      frozen,
+      'master',
+      records.master,
+      records.master,
+      records,
+    ).length
+      ? records.master.blob
+      : undefined
+
+  return (
+    <section className="studio-surface studio-refinement visual-studio">
+      <div className="studio-actions">
+        <button
+          type="button"
+          className="studio-button"
+          onClick={() =>
+            setSimpleMode(value => !value)
+          }
+        >
+          {simpleMode
+            ? '切换高级模式'
+            : '返回简洁模式'}
+        </button>
+      </div>
+
+      {simpleMode && (
+        <SimpleVisualGenerator
+          projectId={projectId}
+          roundNumber={roundNumber}
+          frozenId={frozen?.id}
+          concept={concept}
+          round={round}
+          settings={imageSettings}
+          textSettings={modelSettings}
+          masterBlob={masterBlob}
+        />
+      )}
+
+      {!simpleMode && (
+        <>
+          <h2>
+            概念图与展板 · 同一冻结产品的三个信息入口
+          </h2>
+
+          <p>
+            母版统一产品设计，三张图分别承担
+            WHY / WHAT、HOW 和完整设计叙事。
+            独立构图，逐项审核后才能导出。
+          </p>
+
+          {legacy && (
+            <p className="studio-hint">
+              旧版概念图仍保留。
+              <button
+                type="button"
+                className="studio-button"
+                onClick={() =>
+                  downloadBlob(
+                    legacy.blob,
+                    'INNO-LIT-旧版概念图.' +
+                      (
+                        legacy.blob.type === 'image/jpeg'
+                          ? 'jpg'
+                          : legacy.blob.type === 'image/webp'
+                            ? 'webp'
+                            : 'png'
+                      ),
+                  )
+                }
+              >
+                下载旧图留存
+              </button>
+            </p>
+          )}
+
+          {!frozen ? (
+            <p>
+              请先在「完善与冻结」完成 AI 深化、
+              人工确认和概念冻结。
+            </p>
+          ) : (
+            <>
+              <label className="studio-field">
+                展示版本
+                <select
+                  disabled={imageBusy}
+                  value={selectedVersion}
+                  onChange={event => {
+                    setSelectedVersion(event.target.value)
+                    setRecords({})
+                    setLoading(true)
+                  }}
+                >
+                  {versions.map(item => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                    >
+                      V{item.revision} · {item.design.title}
+                      {development.frozen?.id === item.id
+                        ? '（当前冻结版）'
+                        : '（历史只读）'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <p className="studio-badge">
+                {complete
+                  ? '三张入口均已审核完成'
+                  : '展示制作进行中'}
+                {' · '}
+                冻结 V{frozen.revision}
+                {' · '}
+                {frozen.id}
+              </p>
+
+              <details>
+                <summary>固定产品规范</summary>
+                <dl>
+                  {Object.entries(consistencyChecks).map(
+                    ([key, label]) => (
+                      <div key={key}>
+                        <dt>{label}</dt>
+                        <dd>
+                          {
+                            frozen.identity[
+                              key as keyof typeof frozen.identity
+                            ]
+                          }
+                        </dd>
+                      </div>
+                    ),
+                  )}
+                </dl>
+              </details>
+
+              <details className="visual-api-settings">
+                <summary>图片模型 API 设置</summary>
+
+                <p>
+                  产品母版可用 Kolors；
+                  延展图片必须传入母版参考。
+                  参考图和提示词会发送给配置的服务。
+                </p>
+
+                <div className="studio-validation-fields">
+                  <label className="studio-field">
+                    图片 API 地址
+                    <input
+                      value={imageSettings.baseUrl}
+                      maxLength={1000}
+                      onChange={event =>
+                        onImageSettingsChange({
+                          baseUrl: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="studio-field">
+                    图片模型 ID
+                    <input
+                      value={imageSettings.model}
+                      maxLength={200}
+                      onChange={event =>
+                        onImageSettingsChange({
+                          model: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="studio-field">
+                    图片 API 密钥
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      value={imageSettings.apiKey}
+                      maxLength={2048}
+                      onChange={event =>
+                        onImageSettingsChange({
+                          apiKey: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="studio-field">
+                    图片接口格式
+                    <select
+                      value={imageSettings.protocol}
+                      onChange={event =>
+                        onImageSettingsChange({
+                          protocol: event.target.value as ImageSettings['protocol'],
+                        })
+                      }
+                    >
+                      <option value="siliconflow">
+                        SiliconFlow
+                      </option>
+                      <option value="images">
+                        Images 兼容接口（母版）
+                      </option>
+                    </select>
+                  </label>
+
+                  <label className="studio-field">
+                    母版图片尺寸
+                    <select
+                      value={imageSettings.size}
+                      onChange={event =>
+                        onImageSettingsChange({
+                          size: event.target.value as ImageSettings['size'],
+                        })
+                      }
+                    >
+                      {imageSizes.map(item => (
+                        <option key={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="studio-actions">
+                  <button
+                    type="button"
+                    className="studio-button"
+                    onClick={() =>
+                      onImageSettingsChange({
+                        baseUrl:
+                          'https://api.siliconflow.cn/v1',
+                        model: 'Kwai-Kolors/Kolors',
+                        protocol: 'siliconflow',
+                        size: '1024x1024',
+                      })
+                    }
+                  >
+                    填入 Kolors 母版示例
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-button"
+                    onClick={() =>
+                      onImageSettingsChange({
+                        baseUrl:
+                          'https://api.siliconflow.cn/v1',
+                        model:
+                          'Qwen/Qwen-Image-Edit-2509',
+                        protocol: 'siliconflow',
+                      })
+                    }
+                  >
+                    填入参考图编辑示例
+                  </button>
+                </div>
+
+                <p className="studio-hint">
+                  示例不包含密钥，费用按所选服务规则计算。
+                  参考图编辑不发送 image_size，
+                  输出构图需人工核对。
+                  设置刷新后清除。
+                </p>
+              </details>
+
+              <nav
+                className="studio-refinement-nav"
+                aria-label="展示入口"
+              >
+                {roles.map(itemRole => (
+                  <button
+                    type="button"
+                    key={itemRole}
+                    disabled={imageBusy}
+                    className="studio-button"
+                    aria-pressed={role === itemRole}
+                    onClick={() => {
+                      setRole(itemRole)
+                      onChange(current => ({
+                        ...current,
+                        visualEntry: itemRole,
+                      }))
+                    }}
+                  >
+                    {entryRoles[itemRole]}
+                  </button>
+                ))}
+              </nav>
+
+              {loadError ? (
+                <p role="alert">{loadError}</p>
+              ) : loading ? (
+                <p>
+                  正在读取当前冻结版本的图片…
+                </p>
+              ) : (
+                <EntryImageEditor
+                  key={`${frozen.id}:${role}`}
+                  frozen={frozen}
+                  projectId={projectId}
+                  id={entryVisualKey(
+                    projectId,
+                    roundNumber,
+                    concept.id,
+                    frozen.id,
+                    role,
+                  )}
+                  role={role}
+                  record={records[role]}
+                  master={records.master}
+                  records={records}
+                  settings={imageSettings}
+                  direction={
+                    concept.visualDirections?.[
+                      directionKey
+                    ] ?? ''
+                  }
+                  locked={locked}
+                  onDirection={value =>
+                    onChange(current => ({
+                      ...current,
+                      visualDirections: {
+                        ...current.visualDirections,
+                        [directionKey]: value,
+                      },
+                    }))
+                  }
+                  onSaved={visual =>
+                    setRecords(current => ({
+                      ...current,
+                      [role]: visual,
+                    }))
+                  }
+                  onBusy={setImageBusy}
+                />
+              )}
+            </>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+
+========== src\aiModelRouter.ts ==========
+
+
+import type { ModelSettings } from './modelGeneration'
+import type { ImageSettings } from './imageGeneration'
+
+export const aiTasks = {
+  concept: '创意生成',
+  refinement: '方案深化',
+  translation: '视觉语言转译',
+  image: '图像生成',
+} as const
+
+export type AITask = keyof typeof aiTasks
+export type TextTask = Exclude<AITask, 'image'>
+
+export type AIModelRouting = {
+  concept: ModelSettings | null
+  refinement: ModelSettings | null
+  translation: ModelSettings | null
+  image: ImageSettings | null
+}
+
+export type ResolvedAIModel = {
+  task: AITask
+  source: 'dedicated' | 'fallback'
+  settings: ModelSettings | ImageSettings
+}
+
+export function createEmptyRouting(): AIModelRouting {
+  return {
+    concept: null,
+    refinement: null,
+    translation: null,
+    image: null,
+  }
+}
+
+export function resolveTextModel(
+  task: TextTask,
+  routing: AIModelRouting,
+  fallback: ModelSettings,
+): ModelSettings {
+  return routing[task] ?? fallback
+}
+
+export function resolveImageModel(
+  routing: AIModelRouting,
+  fallback: ImageSettings,
+): ImageSettings {
+  return routing.image ?? fallback
+}
+
+export function resolveAIModel(
+  task: AITask,
+  routing: AIModelRouting,
+  fallbackText: ModelSettings,
+  fallbackImage: ImageSettings,
+): ResolvedAIModel {
+  if (task === 'image') {
+    return {
+      task,
+      source: routing.image ? 'dedicated' : 'fallback',
+      settings: resolveImageModel(routing, fallbackImage),
+    }
+  }
+
+  return {
+    task,
+    source: routing[task] ? 'dedicated' : 'fallback',
+    settings: resolveTextModel(task, routing, fallbackText),
+  }
+}
+
+export function updateTaskModel<T extends AITask>(
+  routing: AIModelRouting,
+  task: T,
+  settings: AIModelRouting[T],
+): AIModelRouting {
+  return {
+    ...routing,
+    [task]: settings,
+  }
+}
+
+export function clearTaskModel(
+  routing: AIModelRouting,
+  task: AITask,
+): AIModelRouting {
+  return {
+    ...routing,
+    [task]: null,
+  }
+}
+
+export function taskModelLabel(
+  task: AITask,
+  routing: AIModelRouting,
+  fallbackText: ModelSettings,
+  fallbackImage: ImageSettings,
+): string {
+  const resolved = resolveAIModel(
+    task,
+    routing,
+    fallbackText,
+    fallbackImage,
+  )
+
+  const model = resolved.settings.model.trim() || '未配置'
+  const suffix =
+    resolved.source === 'fallback' ? '（默认配置）' : ''
+
+  return `${model}${suffix}`
+}
+

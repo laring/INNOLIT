@@ -1,0 +1,37 @@
+.product-workflow { gap: 16px; }
+.product-step-nav { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.product-step-nav button { display: grid; align-content: start; justify-items: start; gap: 10px; min-width: 0; text-align: left; padding: 14px 12px; }
+.product-step-nav button > span { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #b6c4b9; border-radius: 50%; }
+.product-step-nav button[aria-pressed="true"] { background: #e8f0e5; border-color: #6e8b74; }
+.workflow-role { border-left: 3px solid #6e8b74; padding: 4px 0 4px 16px; }
+.workflow-role h3 { margin: 8px 0; font-size: 1.3rem; }
+.workflow-role p { margin: 0; color: #607164; }
+.workflow-role > span { color: #607164; font-size: .9rem; }
+.workflow-parameter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.workflow-parameter-grid input { min-width: 0; width: 100%; }
+.workflow-parameter-grid input[type="color"] { height: 46px; padding: 5px; }
+.workflow-product-image { display: block; max-width: 100%; max-height: 740px; object-fit: contain; margin: auto; border-radius: 10px; background: #f1f3ed; }
+.workflow-artwork-preview { display: block; max-width: 100%; max-height: 720px; background: #fff; border: 1px solid #d3dcd2; }
+.workflow-empty { padding: 30px; border: 1px dashed #b7c8b8; border-radius: 12px; color: #6b7a6e; background: #f5f7f1; }
+.workflow-step-footer { justify-content: space-between; border-top: 1px solid #e3e9df; padding-top: 20px; }
+@media (max-width: 900px) {
+  .product-step-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .workflow-parameter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .product-step-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .product-step-nav button { padding: 10px; }
+  .workflow-parameter-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.workflow-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; background: #f1f5ed; border-radius: 12px; }
+.workflow-progress > span { padding: 4px 8px; }
+.workflow-progress > button { margin-left: auto; }
+.product-workflow details > summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+.workflow-options { border: 1px solid #d3dcd2; border-radius: 12px; padding: 0 16px; }
+.workflow-download-options > summary { padding: 10px !important; }
+.product-workflow .studio-hint:empty { display: none; }
+
+.workflow-crop-canvas { position: relative; max-width: 900px; cursor: crosshair; touch-action: none; user-select: none; }
+.workflow-crop-canvas img { display: block; width: 100%; height: auto; pointer-events: none; }
+.workflow-crop-canvas > span { position: absolute; border: 3px solid #157649; background: #15764920; pointer-events: none; box-sizing: border-box; }
