@@ -1,6 +1,6 @@
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 
 export function viteLaunch(root, args, environment, supportsProxy) {
@@ -29,6 +29,10 @@ function main() {
   process.on('SIGINT', () => child.kill('SIGINT'))
   process.on('SIGTERM', () => child.kill('SIGTERM'))
 }
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+export function isMainModule(url,entry) {
+  if(!entry)return false
+  try{return realpathSync(fileURLToPath(url))===realpathSync(resolve(entry))}catch{return false}
+}
+if (isMainModule(import.meta.url,process.argv[1])) {
   try { main() } catch (error) { process.stderr.write(error.message + '\n'); process.exitCode = 1 }
 }
