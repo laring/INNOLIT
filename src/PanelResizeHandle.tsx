@@ -1,0 +1,7 @@
+import {useRef,useState} from 'react'
+export function PanelResizeHandle({label,value,min,max,direction,onChange,onReset}:{label:string;value:number;min:number;max:number;direction:1|-1;onChange:(value:number)=>void;onReset:()=>void}) {
+  const start=useRef<{x:number;value:number}|null>(null)
+  const [dragging,setDragging]=useState(false)
+  function update(next:number){onChange(Math.max(min,Math.min(max,next)))}
+  return <div className="panel-resize-handle" role="separator" aria-label={label} aria-orientation="vertical" aria-valuemin={min} aria-valuemax={max} aria-valuenow={Math.round(value)} tabIndex={0} data-dragging={dragging} title="拖动调整宽度，双击恢复默认" onPointerDown={event=>{if(event.button!==0)return;event.preventDefault();start.current={x:event.clientX,value};setDragging(true);event.currentTarget.setPointerCapture(event.pointerId)}} onPointerMove={event=>{if(start.current)update(start.current.value+(event.clientX-start.current.x)*direction)}} onPointerUp={()=>{start.current=null;setDragging(false)}} onPointerCancel={()=>{start.current=null;setDragging(false)}} onLostPointerCapture={()=>{start.current=null;setDragging(false)}} onDoubleClick={onReset} onKeyDown={event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();update(value+(event.key==='ArrowRight'?1:-1)*direction*(event.shiftKey?40:10))}else if(event.key==='Home'){event.preventDefault();update(min)}else if(event.key==='End'){event.preventDefault();update(max)}}}/>
+}

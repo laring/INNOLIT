@@ -1,0 +1,27 @@
+name: 问题反馈
+description: 报告可复现的问题
+title: "[Bug] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题与预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤与截图
+      description: 不要提供 API 密钥、个人项目数据或完整请求头。
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 系统、浏览器与版本
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 修复验收条件
+    validations:
+      required: true
