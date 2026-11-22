@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test'
+import {STORAGE_KEY} from '../src/projects'
 import {readFile} from 'node:fs/promises'
 async function openStudio(page:any){await page.getByRole('button',{name:'Concept Studio',exact:true}).click();await page.getByRole('button',{name:'继续深化',exact:true}).first().click()}
 async function report(page:any){await page.getByRole('button',{name:'设计报告',exact:true}).click()}
@@ -14,10 +15,16 @@ test('AI report input editing survives refresh and does not leak to another proj
  await expect(product).toHaveValue('人工修正：保留此产品说明')
  await page.getByRole('button',{name:'演示 B · 隔离验证',exact:true}).click()
  await expect(page.getByText('人工修正：保留此产品说明',{exact:true})).toHaveCount(0)
+ const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),STORAGE_KEY)
+ expect(JSON.stringify(saved.find((project:any)=>project.id==='demo-main'))).toContain('人工修正：保留此产品说明')
+ expect(JSON.stringify(saved.find((project:any)=>project.id==='demo-other'))).not.toContain('人工修正：保留此产品说明')
  await page.getByRole('button',{name:'演示 A · 无声休息牌',exact:true}).click();await openStudio(page);await report(page)
  await expect(product).toHaveValue('人工修正：保留此产品说明')
 })
 test('sketch selection, hero confirmation, engineering and editable exports form a continuous workflow',async({page})=>{
+ await page.getByPlaceholder('描述你的设计问题或创意想法...').fill('把交互做得更安静')
+ await page.getByRole('button',{name:'发送想法',exact:true}).click()
+ await expect(page.getByText('演示模拟回复：建议采用翻面启动的无声休息牌，便于课间安静使用。',{exact:true})).toBeVisible()
  await openStudio(page);await page.getByRole('button',{name:'概念图与展板',exact:true}).click()
  await expect(page.getByRole('textbox',{name:'专业英文 Prompt',exact:true})).not.toHaveValue('')
  await page.getByRole('button',{name:'生成10款草图',exact:true}).click()
