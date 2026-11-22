@@ -9,4 +9,3 @@ export default defineConfig(({mode})=>({
   server: mode==='demo'?{headers:{'Content-Security-Policy':"connect-src 'self' ws://127.0.0.1:5190"}}:undefined,
   plugins: [react(), ...(mode==='demo'?[demoApi()]:[modelApi(), imageApi()])],
 }))
-
