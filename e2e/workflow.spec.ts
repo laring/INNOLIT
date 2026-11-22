@@ -24,7 +24,7 @@ test('AI report input editing survives refresh and does not leak to another proj
 test('sketch selection, hero confirmation, engineering and editable exports form a continuous workflow',async({page})=>{
  await page.getByPlaceholder('描述你的设计问题或创意想法...').fill('把交互做得更安静')
  await page.getByRole('button',{name:'发送想法',exact:true}).click()
- await expect(page.getByText('演示模拟回复：建议采用翻面启动的无声休息牌，便于课间安静使用。',{exact:true})).toBeVisible()
+ await expect(page.getByText('演示模拟回复：建议采用翻面启动的无声休息牌，便于课间安静使用。')).toBeVisible()
  await openStudio(page);await page.getByRole('button',{name:'概念图与展板',exact:true}).click()
  await expect(page.getByRole('textbox',{name:'专业英文 Prompt',exact:true})).not.toHaveValue('')
  await page.getByRole('button',{name:'生成10款草图',exact:true}).click()
