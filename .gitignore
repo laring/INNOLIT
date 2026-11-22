@@ -37,3 +37,6 @@ backup-model-language-*/
 /INNOLIT-*-source.txt
 /INNOLIT_V0233B_Stage2.ps1
 /INNOLIT_v0232_route_patch.py
+
+/playwright-report/
+/test-results/

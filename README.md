@@ -1,3 +1,5 @@
+本轮需求：[有序清单](docs/BACKLOG.md)；固定演示与浏览器回归：[操作说明](docs/DEMO.md)。
+
 # 开发入口
 
 环境：Node.js 24.22.1 / npm 11.19.1。首次安装 `npm ci`，开发 `npm run dev`，提交前 `npm run verify`。
