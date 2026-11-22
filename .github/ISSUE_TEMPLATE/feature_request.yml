@@ -1,0 +1,34 @@
+name: 功能需求
+description: 描述一个可独立验收的小改动
+title: "[Feature] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 用户问题与目标
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围与不做的内容
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 建议优先级
+      options: [P1-阻断使用, P2-主要功能, P3-体验优化]
+    validations:
+      required: true
+  - type: input
+    id: budget
+    attributes:
+      label: 工作量估算与时间预算
+      description: 由开发补齐；超预算优先缩小范围。

@@ -30,3 +30,10 @@ backup-model-language-*/
 
 # INNO LIT Stage 2 local backups
 .inno-lit-stage2-backup-*/
+
+# Archived manual patches and source snapshots
+/backup-*/
+/INNOLIT-*-Source.zip
+/INNOLIT-*-source.txt
+/INNOLIT_V0233B_Stage2.ps1
+/INNOLIT_v0232_route_patch.py

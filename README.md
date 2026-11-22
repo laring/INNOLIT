@@ -1,3 +1,9 @@
+# 开发入口
+
+环境：Node.js 24.22.1 / npm 11.19.1。首次安装 `npm ci`，开发 `npm run dev`，提交前 `npm run verify`。
+
+分支、需求、评审及发布流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。新流程合入 develop 后统一从 develop 开发，main 仅用于发布。下方部分功能说明为历史记录，以当前页面及开发约定为准。
+
 # INNO LIT
 
 运行 `npm ci` 和 `npm run dev`，打开终端显示的本地地址。创意对话和 Concept Studio 默认使用本地规则。

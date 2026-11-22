@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src server tests",
     "test": "node --test",
-    "preview": "node scripts/start-vite.mjs preview"
+    "preview": "node scripts/start-vite.mjs preview",
+    "verify": "npm run lint && npm test && npm run build"
   },
   "dependencies": {
     "lucide-react": "^1.70.0",
@@ -23,5 +24,10 @@
     "oxlint": "^1.90.0",
     "typescript": "~7.0.2",
     "vite": "^8.3.6"
-  }
+  },
+  "engines": {
+    "node": "24.22.1",
+    "npm": "11.19.1"
+  },
+  "packageManager": "npm@11.19.1"
 }
