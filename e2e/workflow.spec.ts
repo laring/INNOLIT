@@ -1,0 +1,41 @@
+import {test,expect} from '@playwright/test'
+import {readFile} from 'node:fs/promises'
+async function openStudio(page:any){await page.getByRole('button',{name:'Concept Studio',exact:true}).click();await page.getByRole('button',{name:'继续深化',exact:true}).first().click()}
+async function report(page:any){await page.getByRole('button',{name:'设计报告',exact:true}).click()}
+test.beforeEach(async({page})=>{
+ await page.route('**/*',route=>{const url=new URL(route.request().url());return ['127.0.0.1','localhost'].includes(url.hostname)||['data:','blob:'].includes(url.protocol)?route.continue():route.abort()})
+ await page.goto('/demo.html');await expect(page.getByRole('button',{name:'演示 A · 无声休息牌',exact:true})).toBeVisible()
+})
+test('AI report input editing survives refresh and does not leak to another project',async({page})=>{
+ await openStudio(page);await report(page)
+ const product=page.getByLabel('产品名称与主要功能',{exact:true});await expect(product).toHaveValue(/无声翻面/)
+ await product.fill('人工修正：保留此产品说明')
+ await page.reload();await openStudio(page);await report(page)
+ await expect(product).toHaveValue('人工修正：保留此产品说明')
+ await page.getByRole('button',{name:'演示 B · 隔离验证',exact:true}).click()
+ await expect(page.getByText('人工修正：保留此产品说明',{exact:true})).toHaveCount(0)
+ await page.getByRole('button',{name:'演示 A · 无声休息牌',exact:true}).click();await openStudio(page);await report(page)
+ await expect(product).toHaveValue('人工修正：保留此产品说明')
+})
+test('sketch selection, hero confirmation, engineering and editable exports form a continuous workflow',async({page})=>{
+ await openStudio(page);await page.getByRole('button',{name:'概念图与展板',exact:true}).click()
+ await expect(page.getByLabel('专业英文 Prompt',{exact:true})).not.toHaveValue('')
+ await page.getByRole('button',{name:'生成10款草图',exact:true}).click()
+ await page.getByText('精确调整区域（%）',{exact:true}).click()
+ await page.getByLabel('左边距',{exact:true}).fill('0');await page.getByLabel('上边距',{exact:true}).fill('0');await page.getByLabel('宽度',{exact:true}).fill('20');await page.getByLabel('高度',{exact:true}).fill('50')
+ await page.getByRole('button',{name:'确认选中方案',exact:true}).click()
+ await page.getByRole('button',{name:'生成选定产品高清效果图',exact:true}).click()
+ await page.getByRole('button',{name:'确认外观',exact:true}).click()
+ await page.getByRole('button',{name:'生成产品概念展示图',exact:true}).click();await expect(page.getByAltText('产品概念展示图',{exact:true})).toBeVisible()
+ await page.getByRole('button',{name:'3 结构工程图',exact:true}).click()
+ await page.getByRole('button',{name:'AI 根据产品图推荐参数',exact:true}).click()
+ await expect(page.getByLabel('真实尺寸、材料、公差与制图补充',{exact:true})).toHaveValue(/90/)
+ await page.getByRole('button',{name:'生成全部五张图',exact:true}).click();await expect(page.getByText('三视图 · 已生成',{exact:true})).toBeVisible()
+ await page.getByRole('button',{name:'6 包装与成本',exact:true}).click();await page.getByText('包装展开稿与打样文件',{exact:true}).click()
+ await page.getByLabel('包装文案',{exact:true}).fill('演示人工包装文案')
+ await page.getByRole('button',{name:'生成打样文件',exact:true}).click()
+ const zipWait=page.waitForEvent('download');await page.getByRole('button',{name:'下载打样资料 ZIP',exact:true}).click();const zip=await zipWait;const bytes=await readFile((await zip.path())!);expect(bytes.subarray(0,2).toString()).toBe('PK');expect(bytes.includes(Buffer.from('演示人工包装文案'))).toBeTruthy();expect(bytes.includes(Buffer.from('artwork.svg'))).toBeTruthy()
+ await report(page);await page.getByRole('button',{name:'AI 生成报告',exact:true}).click()
+ await page.getByText('1. 背景与产品设计概念',{exact:true}).click();await page.getByLabel('内容',{exact:true}).fill('人工修正报告内容，导出必须保留。')
+ const pptWait=page.waitForEvent('download');await page.getByRole('button',{name:'导出图文 PPTX',exact:true}).click();const ppt=await pptWait;const pptBytes=await readFile((await ppt.path())!);expect(pptBytes.subarray(0,2).toString()).toBe('PK');expect(pptBytes.includes(Buffer.from('人工修正报告内容'))).toBeTruthy();expect(pptBytes.includes(Buffer.from('ppt/slides/slide1.xml'))).toBeTruthy()
+})
