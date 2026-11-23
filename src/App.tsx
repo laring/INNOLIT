@@ -1,3 +1,4 @@
+import {isWorkflowImageTask} from './aiModelRouter'
 import {designProgress} from './designProgress'
 import { useModelConfig } from './useModelConfig'
 
@@ -60,7 +61,7 @@ function App() {
   ) {
     setWorkflowRouting(current => {
       const fallback =
-        task === 'visual' ? imageSettings : modelSettings
+        isWorkflowImageTask(task) ? (current.visual ?? imageSettings) : modelSettings
 
       const previous = current[task] ?? fallback
       const next = { ...previous, ...change }

@@ -77,7 +77,10 @@ export const workflowTasks = {
   feasibility: '可行性验证',
   originality: '原创性检索',
   optimization: '方案优化与定稿',
-  visual: '概念图与展板',
+  visual: '概念图与展板 · 默认图片模型',
+  sketchImage: '1A · 10款草图',
+  heroImage: '1B · 最终高清效果图',
+  presentationImage: '1C · 产品概念展示图',
   engineering: '七步产品设计 · 工程文字模型',
   report: '设计报告',
 } as const
@@ -133,7 +136,12 @@ export function taskModelLabel(
 
 
 
+export type WorkflowImageTask = 'visual' | 'sketchImage' | 'heroImage' | 'presentationImage'
+export function isWorkflowImageTask(task:WorkflowTask): task is WorkflowImageTask { return ['visual','sketchImage','heroImage','presentationImage'].includes(task) }
 export type WorkflowModelRouting = {
+  sketchImage?: ImageSettings | null
+  heroImage?: ImageSettings | null
+  presentationImage?: ImageSettings | null
   home: ModelSettings | null
   conceptStudio: ModelSettings | null
   notes: ModelSettings | null
@@ -160,7 +168,7 @@ export function createEmptyWorkflowRouting(): WorkflowModelRouting {
 }
 
 export function resolveWorkflowTextModel(
-  task: Exclude<WorkflowTask, 'visual'>,
+  task: Exclude<WorkflowTask, WorkflowImageTask>,
   routing: WorkflowModelRouting,
   fallback: ModelSettings,
 ): ModelSettings {
@@ -175,6 +183,7 @@ export function resolveWorkflowImageModel(
 }
 
 export function resolveWorkflowModels(workflow: WorkflowModelRouting, legacy: AIModelRouting, text: ModelSettings, image: ImageSettings) {
+  const visual=resolveWorkflowImageModel(workflow,resolveImageModel(legacy,image))
   const creative = resolveTextModel('concept', legacy, text)
   const refinement = resolveTextModel('refinement', legacy, text)
   return {
@@ -185,7 +194,10 @@ export function resolveWorkflowModels(workflow: WorkflowModelRouting, legacy: AI
     originality: resolveWorkflowTextModel('originality', workflow, refinement),
     optimization: resolveWorkflowTextModel('optimization', workflow, refinement),
     report: resolveWorkflowTextModel('report', workflow, refinement),
-    visual: resolveWorkflowImageModel(workflow, resolveImageModel(legacy, image)),
+    visual,
+    sketchImage: workflow.sketchImage ?? visual,
+    heroImage: workflow.heroImage ?? visual,
+    presentationImage: workflow.presentationImage ?? visual,
     engineering: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
     translation: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
   }

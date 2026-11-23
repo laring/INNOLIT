@@ -5,6 +5,7 @@ import type { ModelSettings } from './modelGeneration'
 import './VisualStudio.css'
 
 type VisualProps = {
+  imageModels?: {sketchImage:ImageSettings;heroImage:ImageSettings;presentationImage:ImageSettings}
   projectId: string; projectName: string; round: ConceptBatch; roundNumber: number
   concept: Concept; imageSettings: ImageSettings; imageConfiguration: string; modelSettings: ModelSettings; reportSettings?: ModelSettings
   onChange: (update: (current: Concept) => Concept) => void

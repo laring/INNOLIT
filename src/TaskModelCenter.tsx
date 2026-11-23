@@ -2,7 +2,7 @@
 import type { ModelSettings } from './modelGeneration'
 import type { ImageSettings } from './imageGeneration'
 import { imageSizes } from './imageGeneration'
-import { workflowTasks, resolveWorkflowModels } from './aiModelRouter'
+import { workflowTasks, resolveWorkflowModels, isWorkflowImageTask } from './aiModelRouter'
 import { imageConfigurationLabel } from './imageConfiguration'
 import type {
   AIModelRouting,
@@ -389,7 +389,7 @@ export function TaskModelCenter({
       </fieldset>
 
       {(Object.keys(workflowTasks) as WorkflowTask[]).map(task => {
-        const image = task === 'visual'
+        const image = isWorkflowImageTask(task)
         const dedicated = Boolean(workflowRouting[task])
         const active = models[task]
         return <fieldset key={task} className="global-model-defaults">
@@ -403,7 +403,7 @@ export function TaskModelCenter({
             {image && <ImageExtraFields settings={active as ImageSettings} onChange={change => onWorkflowChange(task, change)} />}
           </>}
           <p className="studio-hint">当前模型：{active.model || '未配置'}{dedicated ? '（独立配置）' : '（继承配置）'}</p>
-          {image && <p className="studio-hint">用于七步产品设计的草图、产品效果图、PCB 示意、爆炸图与包装生图。</p>}
+          {task === 'visual' && <p className="studio-hint">作为各绘图步骤的默认模型；1A、1B、1C 可以分别覆盖。</p>}
           {task === 'engineering' && <p className="studio-hint">用于七步设计中的功能与 CMF、PCB、结构、DFM 和包装文字分析，不用于图片生成。</p>}
         </fieldset>
       })}

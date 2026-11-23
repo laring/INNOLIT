@@ -27,8 +27,8 @@ import './ProductWorkflowStudio.css'
 
 const stepLabels: Record<ProductStage, string> = { design: '外观设计', structure: '结构爆炸图', drawings: '结构工程图', pcb: 'PCB 图纸', firmware: '软件与文档', packaging: '包装与成本', compliance: '推广与合规' }
 
-type Props = { projectId: string; roundNumber: number; concept: Concept; imageSettings: ImageSettings; modelSettings: ModelSettings; reportSettings?: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }
-export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSettings, modelSettings, reportSettings, onChange }: Props) {
+type Props = { imageModels?: {sketchImage:ImageSettings;heroImage:ImageSettings;presentationImage:ImageSettings}; projectId: string; roundNumber: number; concept: Concept; imageSettings: ImageSettings; modelSettings: ModelSettings; reportSettings?: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }
+export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSettings, imageModels, modelSettings, reportSettings, onChange }: Props) {
   const data = workflowOf(concept), active = activeProductStage(data.stage)
   const heroSection = useRef<HTMLElement | null>(null)
   function showFinalRender() { heroSection.current?.scrollIntoView({behavior:'smooth',block:'start'}) }
@@ -101,7 +101,8 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   function upload(role: ProductAsset, file: File) {
     void run(signal => storeImage(role, file, { kind: 'upload' }, '用户上传', workflowContext(concept, role), signal), record => adoptAsset(role, record), '图片已保存。后续步骤会使用当前图片。')
   }
-  function requestSettings() {
+  const roleSettings=(role:string)=>role==='sheet'?(imageModels?.sketchImage??imageSettings):role==='hero'?(imageModels?.heroImage??imageSettings):role==='presentation'?(imageModels?.presentationImage??imageSettings):imageSettings
+  function requestSettings(imageSettings:ImageSettings=roleSettings('other')) {
     if(imageSettings.protocol !== 'openai')return imageSettings
     const ratio=outputSize.width/outputSize.height
     return {...imageSettings,size:(ratio>1.15?'1536x1024':ratio<0.87?'1024x1536':'1024x1024') as ImageSettings['size']}
@@ -109,6 +110,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
   function generate(role: 'sheet' | 'hero' | 'presentation' | 'pcb' | 'exploded' | 'package' | EngineeringView) {
     setGenerationRole(role)
     void run(async signal => {
+      const imageSettings=roleSettings(role),configured=hasModelSettings(imageSettings),referenceSupported=supportsImageReference(imageSettings)
       if (!data.productName.trim()) throw new Error('请先填写产品名称。')
       if (!configured) throw new Error('请先在 AI 模型中心配置图片模型。')
       let reference: Blob | undefined
@@ -130,13 +132,13 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
         prepared={...concept,productWorkflow:{...data,...promptUpdate}}
       }
       const prompt = workflowImagePrompt(prepared, role).slice(0, 13400) + '\n' + productSizePrompt(outputSize)
-      const blob = await generateConceptImage(requestSettings(), prompt, signal, { purpose: imageSettings.protocol === 'openrouter' ? 'master' : 'concept', ...(referenceSupported && reference ? { reference: await imageDataUrl(reference) } : {}) })
+      const blob = await generateConceptImage(requestSettings(imageSettings), prompt, signal, { purpose: imageSettings.protocol === 'openrouter' ? 'master' : 'concept', ...(referenceSupported && reference ? { reference: await imageDataUrl(reference) } : {}) })
       const record=await storeImage(role, blob, { kind: 'model', model: imageSettings.model.trim(), provider: new URL(imageSettings.baseUrl).hostname }, prompt, workflowContext(prepared, role), signal)
       return {record,promptUpdate}
     }, ({record,promptUpdate}) => edit(current=>({...current,...promptUpdate,assets:{...current.assets,[role]:record.id}})), '当前步骤的图片已生成并保存，请核对设计与标注。')
   }
   function imageActions(role: 'sheet' | 'hero' | 'presentation' | 'pcb' | 'exploded' | 'package' | EngineeringView, label: string, ready = true) {
-    return <div className="studio-refinement"><div className="studio-actions">
+    return <div className="studio-refinement"><p className="studio-hint">图片模型：{roleSettings(role).model||'未配置'}</p><div className="studio-actions">
       <button type="button" className="studio-button primary" disabled={pending || autoPromptPending || loading || !ready || Boolean(sizeProblem)} onClick={() => generate(role)}>{pending && generationRole === role ? '正在生成…' : label}</button>
       {role !== 'sheet' && role !== 'hero' && role !== 'presentation' && <label className="studio-button visual-upload">上传{role in engineeringViews ? engineeringViews[role as EngineeringView] : role === 'pcb' ? 'PCB 工程参考图' : role === 'exploded' ? '结构爆炸图' : '包装效果图'}<input type="file" aria-label={`上传${role}`} accept="image/png,image/jpeg,image/webp" disabled={pending || loading || !ready} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) upload(role, file) }} /></label>}
     </div>{!ready && role === 'hero' && <p className="studio-hint">请先框选方案，或切换为自由生成。</p>}</div>
@@ -182,7 +184,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       {data.englishPrompt&&data.englishPromptSource!==englishPromptSource(concept)&&<p className="studio-hint">设计依据已变化，已保留当前 Prompt；可按通用模板重新生成，或重新翻译并优化。</p>}
     </fieldset></details>
     {configured && !referenceSupported && needsReference && <p className="studio-hint" role="alert">后续制图需要支持参考图的图片模型，请在 AI 模型中心切换。</p>}
-    <p className="studio-hint" role="status">{notice || loadError || (needsReference && !heroReady ? '请先在第一步确认外观。' : !visualStep ? `当前文字模型：${(active === 'compliance' ? (reportSettings ?? modelSettings).model : modelSettings.model) || '未配置'}` : configured ? `图片模型：${imageSettings.model}` : '请在 AI 模型中心配置图片模型。')}</p>
+    <p className="studio-hint" role="status">{notice || loadError || (needsReference && !heroReady ? '请先在第一步确认外观。' : !visualStep ? `当前文字模型：${(active === 'compliance' ? (reportSettings ?? modelSettings).model : modelSettings.model) || '未配置'}` : active==='design' ? `1A：${roleSettings('sheet').model||'未配置'} · 1B：${roleSettings('hero').model||'未配置'} · 1C：${roleSettings('presentation').model||'未配置'}` : configured ? `图片模型：${imageSettings.model}` : '请在 AI 模型中心配置图片模型。')}</p>
     {pending && <button type="button" className="studio-button" onClick={cancel}>取消当前操作</button>}
     {active === 'design' && <section className="studio-refinement" aria-labelledby="sketch-deliverable"><h3 id="sketch-deliverable">1A · 10款草图</h3>
       <p>生成后直接框选方案。草图与效果图均不含 Logo。</p>
@@ -204,7 +206,7 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
         <button className="studio-button" disabled={pending} aria-pressed={data.presentationMode!=='set'} onClick={()=>change({presentationMode:'single'})}>普通概念展示图</button>
         <button className="studio-button" disabled={pending} aria-pressed={data.presentationMode==='set'} onClick={()=>change({presentationMode:'set'})}>三件套</button>
       </div>
-      {data.presentationMode==='set'?<PresentationSetPanel key={concept.id} concept={concept} projectId={projectId} roundNumber={roundNumber} settings={imageSettings} hero={asset('hero')} onChange={onChange}/>:<>
+      {data.presentationMode==='set'?<PresentationSetPanel key={concept.id} concept={concept} projectId={projectId} roundNumber={roundNumber} settings={roleSettings('presentation')} hero={asset('hero')} onChange={onChange}/>:<>
         <p>现代简洁排版，沿用已确认的产品外观；按当前版式与尺寸生成一张展示图。</p>
         {!heroReady&&<p className="studio-hint">请先确认上方产品效果图。</p>}
         {imageActions('presentation','生成产品概念展示图',heroReady)}{imagePreview('presentation','产品概念展示图')}

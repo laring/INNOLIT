@@ -32,7 +32,7 @@ export function PresentationSetPanel({concept,projectId,roundNumber,settings,her
  }
  return result
  },result=>{setRecords(result);onChange(value=>presentationKey(value)===key?{...value,productWorkflow:{...workflowOf(value),presentationSet:{key,ids:result.map(item=>item.id),approved:false}}}:value);setProgress('')},'三件套已生成，请核对三张产品一致性后下载。')}
- return <section className="studio-refinement"><h4>三件套输出</h4><p>三件套 · 同一冻结概念与产品外观 · RGB JPG · 每张 ≤5 MB</p><p>横版 4750×3167；竖版 3167×4750；Poster Area 1：840×430 mm（254 dpi）。</p>
+ return <section className="studio-refinement"><h4>三件套输出</h4><p className="studio-hint">图片模型：{settings.model||'未配置'}</p><p>三件套 · 同一冻结概念与产品外观 · RGB JPG · 每张 ≤5 MB</p><p>横版 4750×3167；竖版 3167×4750；Poster Area 1：840×430 mm（254 dpi）。</p>
  {!ready&&<p>请先冻结概念并确认产品外观。</p>}
  <button className="studio-button primary" disabled={pending||!ready} onClick={generate}>生成三件套</button>{pending&&<button className="studio-button" onClick={cancel}>取消</button>}
  <p role="status">{pending?progress:notice}</p>
