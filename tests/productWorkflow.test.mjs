@@ -274,3 +274,13 @@ test('hero rendering overrides old multi-state briefs without changing sketch or
  assert.match(payload.messages[1].content,/No text, no logos, no cartoons/)
  assert.match(payload.messages[1].content,/--ar \[aspect ratio\] --v 6.0/)
 })
+
+test('prompt optimization preserves a separate flexible route and includes the editable current brief',()=>{
+ const input={...engineeringInput(newConcept(),'image-prompt'),promptMode:'optimize',currentPrompt:'Keep my matte wood finish.'}
+ const prompt=engineeringPrompt(input,'fixture').messages[1].content
+ assert.match(prompt,/flexible professional prose/)
+ assert.match(prompt,/Keep my matte wood finish/)
+ assert.match(prompt,/ONE complete assembled product in ONE static state/)
+ assert.doesNotMatch(prompt,/Fill ONLY the bracketed variables/)
+ assert.throws(()=>engineeringPrompt({...input,currentPrompt:'x'.repeat(6001)},'fixture'),/过长/)
+})

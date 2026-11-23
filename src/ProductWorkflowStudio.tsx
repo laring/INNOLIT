@@ -176,8 +176,9 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <label className="studio-field">专业英文 Prompt<textarea rows={6} maxLength={6000} placeholder="AI 按工业设计通用模板填写，可直接修改。" value={data.englishPrompt??''} onChange={event=>change({englishPrompt:event.target.value,englishPromptSource:englishPromptSource(concept)})}/></label>
       <label><input type="checkbox" checked={data.useEnglishPrompt!==false} onChange={event=>change({useEnglishPrompt:event.target.checked})}/> 默认使用英文 Prompt</label>
       <button type="button" className="studio-button" disabled={pending||autoPromptPending||!hasModelSettings(modelSettings)} onClick={()=>void run(signal=>translateImagePrompt(concept,modelSettings,signal),englishPrompt=>change({englishPrompt,englishPromptSource:englishPromptSource(concept)}),'英文 Prompt 已更新。')}>{autoPromptPending?'正在自动转译…':'按通用模板生成 Prompt'}</button>
+      <button type="button" className="studio-button" disabled={pending||autoPromptPending||!hasModelSettings(modelSettings)} onClick={()=>void run(signal=>translateImagePrompt(concept,modelSettings,signal,'optimize'),englishPrompt=>change({englishPrompt,englishPromptSource:englishPromptSource(concept)}),'英文 Prompt 已优化。')}>重新翻译并优化 Prompt</button>
       <p className="studio-hint" role="status">{promptStatus||(!hasModelSettings(modelSettings)?'请配置工程文字模型以自动转译，也可手动填写。':'')}</p>
-      {data.englishPrompt&&data.englishPromptSource!==englishPromptSource(concept)&&<p className="studio-hint">设计依据已变化，已保留当前 Prompt；如需更新，请点击重新翻译。</p>}
+      {data.englishPrompt&&data.englishPromptSource!==englishPromptSource(concept)&&<p className="studio-hint">设计依据已变化，已保留当前 Prompt；可按通用模板重新生成，或重新翻译并优化。</p>}
     </fieldset></details>
     {configured && !referenceSupported && needsReference && <p className="studio-hint" role="alert">后续制图需要支持参考图的图片模型，请在 AI 模型中心切换。</p>}
     <p className="studio-hint" role="status">{notice || loadError || (needsReference && !heroReady ? '请先在第一步确认外观。' : !visualStep ? `当前文字模型：${(active === 'compliance' ? (reportSettings ?? modelSettings).model : modelSettings.model) || '未配置'}` : configured ? `图片模型：${imageSettings.model}` : '请在 AI 模型中心配置图片模型。')}</p>
