@@ -24,6 +24,7 @@ export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'presentati
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
 export type SketchArea = { left: number; top: number; width: number; height: number }
 export type ProductWorkflow = {
+  presentationSet?: {key:string;ids:string[];approved:boolean}
   outputSizes?: Partial<Record<ProductStage | LegacyProductStage, { layout: PageLayout; width: number; height: number }>>
   stage: ProductStage | LegacyProductStage
   designPhase?: 'sketches' | 'render'
