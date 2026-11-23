@@ -6,6 +6,7 @@ async function report(page:any){await page.getByRole('button',{name:'设计报�
 test.beforeEach(async({page})=>{
  await page.route('**/*',route=>{const url=new URL(route.request().url());return ['127.0.0.1','localhost'].includes(url.hostname)||['data:','blob:'].includes(url.protocol)?route.continue():route.abort()})
  await page.goto('/demo.html');await expect(page.getByRole('button',{name:'演示 A · 无声休息牌',exact:true})).toBeVisible()
+ await expect(page.getByRole('list',{name:'设计流程完成情况'}).getByText('✓ 已完成',{exact:true})).toHaveCount(4)
 })
 test('AI report input editing survives refresh and does not leak to another project',async({page})=>{
  await openStudio(page);await report(page)
@@ -14,6 +15,7 @@ test('AI report input editing survives refresh and does not leak to another proj
  await page.reload();await openStudio(page);await report(page)
  await expect(product).toHaveValue('人工修正：保留此产品说明')
  await page.getByRole('button',{name:'演示 B · 隔离验证',exact:true}).click()
+ await expect(page.getByRole('list',{name:'设计流程完成情况'}).getByText('未完成',{exact:true})).toHaveCount(5)
  await expect(page.getByText('人工修正：保留此产品说明',{exact:true})).toHaveCount(0)
  const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),STORAGE_KEY)
  expect(JSON.stringify(saved.find((project:any)=>project.id==='demo-main'))).toContain('人工修正：保留此产品说明')
@@ -60,6 +62,7 @@ test('sketch selection, hero confirmation, engineering and editable exports form
  await page.getByRole('button',{name:'生成打样文件',exact:true}).click()
  const zipWait=page.waitForEvent('download');await page.getByRole('button',{name:'下载打样资料 ZIP',exact:true}).click();const zip=await zipWait;const bytes=await readFile((await zip.path())!);expect(bytes.subarray(0,2).toString()).toBe('PK');expect(bytes.includes(Buffer.from('演示人工包装文案'))).toBeTruthy();expect(bytes.includes(Buffer.from('artwork.svg'))).toBeTruthy()
  await report(page);await page.getByRole('button',{name:'AI 生成报告',exact:true}).click()
+ await expect(page.getByRole('list',{name:'设计流程完成情况'}).getByText('✓ 已完成',{exact:true})).toHaveCount(5)
  await page.getByText('1. 背景与产品设计概念',{exact:true}).click();await page.getByRole('textbox',{name:'内容',exact:true}).fill('人工修正报告内容，导出必须保留。')
  const pptWait=page.waitForEvent('download');await page.getByRole('button',{name:'导出图文 PPTX',exact:true}).click();const ppt=await pptWait;const pptBytes=await readFile((await ppt.path())!);expect(pptBytes.subarray(0,2).toString()).toBe('PK');expect(pptBytes.includes(Buffer.from('人工修正报告内容'))).toBeTruthy();expect(pptBytes.includes(Buffer.from('ppt/slides/slide1.xml'))).toBeTruthy()
 })

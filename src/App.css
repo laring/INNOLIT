@@ -1117,3 +1117,10 @@ figcaption,
 @media (max-width: 800px) { .panel-resize-handle { display: none; } }
 
 .sidebar .project-list { min-height: 0; }
+
+.process-list {list-style:none;margin:0;padding:8px 2px;color:#294333}
+.process-step {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;line-height:1.65}
+.process-step.is-complete {color:#747b75}
+.process-state {flex-shrink:0;font-size:.8rem;white-space:nowrap}
+.process-step[aria-current="step"] .process-state {font-weight:700}
+.process-summary {font-size:.875rem;color:#405b46;margin:10px 0}
