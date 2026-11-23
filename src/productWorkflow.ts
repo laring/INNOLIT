@@ -24,6 +24,8 @@ export type ProductAsset = 'style' | 'sheet' | 'selected' | 'hero' | 'presentati
 export type EngineeringFile = { id: string; name: string; size: number; digest: string; role: 'product' | 'mould' | 'drawing' | 'other' }
 export type SketchArea = { left: number; top: number; width: number; height: number }
 export type ProductWorkflow = {
+  presentationMode?: 'single' | 'set'
+  presentationSet?: {key:string;ids:string[];approved:boolean}
   outputSizes?: Partial<Record<ProductStage | LegacyProductStage, { layout: PageLayout; width: number; height: number }>>
   stage: ProductStage | LegacyProductStage
   designPhase?: 'sketches' | 'render'
@@ -107,7 +109,7 @@ export function packagingContext(data: ProductWorkflow) {
 
 export function englishPromptSource(concept: Concept) {
   const data=workflowOf(concept)
-  return JSON.stringify({subject:visualSubjectOf(concept),name:data.productName,functions:data.functions,direction:data.direction,notes:data.renderNotes})
+  return JSON.stringify({templateVersion:2,renderSize:data.outputSizes?.design??data.outputSizes?.render,subject:visualSubjectOf(concept),name:data.productName,functions:data.functions,direction:data.direction,notes:data.renderNotes})
 }
 
 export function fillEnglishPrompt(current: Concept, source: string, englishPrompt: string): Concept {
@@ -150,7 +152,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
     data.useEnglishPrompt !== false && data.englishPrompt ? data.englishPrompt : JSON.stringify(visualSubjectOf(concept)),
   ].join('\n')
   const common = [
-    step === 'sheet' ? 'COMPOSITION: Every product must be fully visible within its own equal grid cell, including base, accessories and annotations. Leave at least 10% empty space inside all four edges of EACH cell. Never let a product cross a cell boundary.' : 'COMPOSITION: Show the COMPLETE product or exploded assembly including every part, base, accessory, shadow and annotation. Fit the entire composition within the central 80% of the canvas, leaving at least 10% blank safety margin on all four sides. Zoom out and reduce subject scale rather than cutting anything off. No close-up, edge-to-edge framing or cropped product.',
+    step === 'sheet' ? 'COMPOSITION: Every product must be fully visible within its own equal grid cell, including base, accessories and annotations. Leave at least 10% empty space inside all four edges of EACH cell. Never let a product cross a cell boundary.' : step === 'hero' ? 'COMPOSITION: One intact assembled product only, with a 10% safety margin on all sides; no annotations or additional views.' : 'COMPOSITION: Show the COMPLETE product or exploded assembly including every part, base, accessory, shadow and annotation. Fit the entire composition within the central 80% of the canvas, leaving at least 10% blank safety margin on all four sides. Zoom out and reduce subject scale rather than cutting anything off. No close-up, edge-to-edge framing or cropped product.',
     `ROLE: ${step === 'exploded' ? 'Senior product structure and mould engineer' : step === 'package' ? 'Senior brand and visual communication designer' : 'Senior industrial designer'}.`,
     `PRODUCT: ${data.productName}. ${step === 'sheet' || step === 'hero' ? 'No logos, brand marks or title logos anywhere on this industrial-design image.' : `BRAND / LOGO TEXT: ${data.brand || 'No brand mark supplied'}.`}`,
     `Shared brand accent color: ${data.brandColor}. Keep branding consistent across product and packaging.`,
@@ -166,6 +168,7 @@ export function workflowImagePrompt(concept: Concept, step: 'sheet' | 'hero' | '
       data.assets.style ? 'Follow the uploaded style reference only. No built-in visual style is applied.' : 'Use professional, readable industrial design sketch linework. No built-in style preset is applied.',
     ],
     hero: [
+      'HIGHEST PRIORITY FOR THIS RENDER: Exactly ONE complete assembled product, ONE static state, ONE 3/4 perspective. Photorealistic materials, soft natural studio lighting and a clean light-colored background. No multiple products, alternate positions, before/after states, split screens, diagrams, cutaways, transparent housings, exploded parts, arrows, callouts, text or logos. If the brief or reference shows multiple states or internal mechanisms, use identity only and show just one intact product. Keep all edges inside the central 80% of the canvas.',
       'Deliver the FINAL selected smart-product HIGH-RESOLUTION hero rendering as a separate image, not a sketch sheet. Fine credible structural details and materials, complete product in frame. Target high industrial-design quality inspired by iF design ambitions without claiming an award, verified originality or production validation. Native pixel resolution must support the selected print size; do not merely print 300dpi as text.',
       `Development notes (proposals, not verified claims): ${data.renderNotes}`,
       heroUsesSketch(concept) ? 'The reference is ONE selected product sketch. Develop ONLY that chosen design into ONE polished realistic product rendering; do not create a collage or switch to another design.' : 'No sketch or reference image is supplied. Design ONE suitable product freely from the concept, actual functions, brand information and rendering notes. Create ONE polished realistic product rendering, not a collage. Do not claim to have read a sketch or image.',

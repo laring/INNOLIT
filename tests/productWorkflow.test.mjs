@@ -258,3 +258,29 @@ test('manual sketch regions override the fixed grid and invalidate stale selecte
  for(const area of [{left:-1,top:0,width:20,height:20},{left:90,top:0,width:20,height:20},{left:0,top:0,width:0,height:20},{left:NaN,top:0,width:20,height:20}])assert.throws(()=>sketchAreaRect(1,1600,1000,area))
  for(const role of ['sheet','hero','pcb','exploded','package','orthographic'])assert.match(workflowImagePrompt(c,role),/10%/)
 })
+
+test('hero rendering overrides old multi-state briefs without changing sketch or presentation composition',()=>{
+ const concept=newConcept();concept.productWorkflow={...workflowOf(concept),englishPrompt:'Show two products, cutaway and upright states with labels.'}
+ const hero=workflowImagePrompt(concept,'hero')
+ assert.match(hero,/Exactly ONE complete assembled product, ONE static state/)
+ assert.match(hero,/clean light-colored background/)
+ assert.match(hero,/No multiple products/)
+ assert.doesNotMatch(hero,/including every part, base, accessory, shadow and annotation/)
+ assert.match(workflowImagePrompt(concept,'sheet'),/EXACTLY TEN/)
+ assert.match(workflowImagePrompt(concept,'presentation'),/over 50%/)
+ const payload=engineeringPrompt(engineeringInput(concept,'image-prompt'),'fixture')
+ assert.match(payload.messages[1].content,/Fill ONLY the bracketed variables/)
+ assert.match(payload.messages[1].content,/Default aspect ratio is 4:3/)
+ assert.match(payload.messages[1].content,/No text, no logos, no cartoons/)
+ assert.match(payload.messages[1].content,/--ar \[aspect ratio\] --v 6.0/)
+})
+
+test('prompt optimization preserves a separate flexible route and includes the editable current brief',()=>{
+ const input={...engineeringInput(newConcept(),'image-prompt'),promptMode:'optimize',currentPrompt:'Keep my matte wood finish.'}
+ const prompt=engineeringPrompt(input,'fixture').messages[1].content
+ assert.match(prompt,/flexible professional prose/)
+ assert.match(prompt,/Keep my matte wood finish/)
+ assert.match(prompt,/ONE complete assembled product in ONE static state/)
+ assert.doesNotMatch(prompt,/Fill ONLY the bracketed variables/)
+ assert.throws(()=>engineeringPrompt({...input,currentPrompt:'x'.repeat(6001)},'fixture'),/过长/)
+})

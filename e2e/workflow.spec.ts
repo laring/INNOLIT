@@ -34,6 +34,23 @@ test('sketch selection, hero confirmation, engineering and editable exports form
  await page.getByRole('button',{name:'生成选定产品高清效果图',exact:true}).click()
  await page.getByRole('button',{name:'确认外观',exact:true}).click()
  await page.getByRole('button',{name:'生成产品概念展示图',exact:true}).click();await expect(page.getByAltText('产品概念展示图',{exact:true})).toBeVisible()
+ await page.getByRole('button',{name:'三件套',exact:true}).click()
+ await page.getByRole('button',{name:'生成三件套',exact:true}).click()
+ await expect(page.getByAltText('Poster Area 1',{exact:true})).toBeVisible()
+ await page.getByRole('checkbox',{name:/三张产品造型/}).check()
+ for(const [name,width,height] of [['Landscape Entry Image',4750,3167],['Portrait Entry Image',3167,4750],['Poster Area 1',8400,4300]] as const){
+  const downloadWait=page.waitForEvent('download');await page.getByRole('button',{name:'下载 '+name,exact:true}).click()
+  const downloaded=await downloadWait,bytes=await readFile((await downloaded.path())!)
+  expect(bytes.length).toBeLessThanOrEqual(5_000_000);expect(bytes[0]).toBe(255);expect(bytes[1]).toBe(216)
+  const dimensions=await page.getByAltText(name==='Landscape Entry Image'?'产品概念展示图':name,{exact:true}).evaluate(async(node:HTMLImageElement)=>{await node.decode();return [node.naturalWidth,node.naturalHeight]})
+  expect(dimensions).toEqual([width,height])
+ }
+
+ await page.getByRole('button',{name:'普通概念展示图',exact:true}).click()
+ await expect(page.getByAltText('产品概念展示图',{exact:true})).toBeVisible()
+ await expect(page.getByAltText('Poster Area 1',{exact:true})).toHaveCount(0)
+ await page.getByRole('button',{name:'三件套',exact:true}).click()
+ await expect(page.getByAltText('Poster Area 1',{exact:true})).toBeVisible()
  await page.getByRole('button',{name:'3 结构工程图',exact:true}).click()
  await page.getByRole('button',{name:'AI 根据产品图推荐参数',exact:true}).click()
  await expect(page.getByRole('textbox',{name:'真实尺寸、材料、公差与制图补充',exact:true})).toHaveValue(/90/)

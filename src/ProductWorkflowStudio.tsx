@@ -1,3 +1,4 @@
+import {PresentationSetPanel} from './PresentationSetPanel'
 import { SketchRegionEditor } from './SketchRegionEditor'
 import { FirmwarePanel, CostPanel } from './ProductionWorkflowPanels'
 import { PlanningReportPanel } from './PlanningReportPanel'
@@ -173,11 +174,12 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <div className="workflow-parameter-grid"><label className="studio-field">产品名称<input maxLength={100} value={data.productName} onChange={event => change({ productName: event.target.value })} /></label><label className="studio-field">品牌／Logo 文字<input maxLength={100} value={data.brand} onChange={event => change({ brand: event.target.value })} /></label><label className="studio-field">品牌主色<input type="color" value={data.brandColor} onChange={event => change({ brandColor: event.target.value })} /></label></div>
       <label className="studio-field">实际功能与关键交互<textarea rows={3} maxLength={2000} value={data.functions} onChange={event => change({ functions: event.target.value })} /></label>
       <label className="studio-field">设计方向与价值目标<textarea rows={3} maxLength={2000} value={data.direction} onChange={event => change({ direction: event.target.value })} /></label>
-      <label className="studio-field">专业英文 Prompt<textarea rows={6} maxLength={6000} placeholder="AI 将自动转译并填入，可直接修改或自行填写。" value={data.englishPrompt??''} onChange={event=>change({englishPrompt:event.target.value,englishPromptSource:englishPromptSource(concept)})}/></label>
+      <label className="studio-field">专业英文 Prompt<textarea rows={6} maxLength={6000} placeholder="AI 按工业设计通用模板填写，可直接修改。" value={data.englishPrompt??''} onChange={event=>change({englishPrompt:event.target.value,englishPromptSource:englishPromptSource(concept)})}/></label>
       <label><input type="checkbox" checked={data.useEnglishPrompt!==false} onChange={event=>change({useEnglishPrompt:event.target.checked})}/> 默认使用英文 Prompt</label>
-      <button type="button" className="studio-button" disabled={pending||autoPromptPending||!hasModelSettings(modelSettings)} onClick={()=>void run(signal=>translateImagePrompt(concept,modelSettings,signal),englishPrompt=>change({englishPrompt,englishPromptSource:englishPromptSource(concept)}),'英文 Prompt 已更新。')}>{autoPromptPending?'正在自动转译…':'重新翻译并优化 Prompt'}</button>
+      <button type="button" className="studio-button" disabled={pending||autoPromptPending||!hasModelSettings(modelSettings)} onClick={()=>void run(signal=>translateImagePrompt(concept,modelSettings,signal),englishPrompt=>change({englishPrompt,englishPromptSource:englishPromptSource(concept)}),'英文 Prompt 已更新。')}>{autoPromptPending?'正在自动转译…':'按通用模板生成 Prompt'}</button>
+      <button type="button" className="studio-button" disabled={pending||autoPromptPending||!hasModelSettings(modelSettings)} onClick={()=>void run(signal=>translateImagePrompt(concept,modelSettings,signal,'optimize'),englishPrompt=>change({englishPrompt,englishPromptSource:englishPromptSource(concept)}),'英文 Prompt 已优化。')}>重新翻译并优化 Prompt</button>
       <p className="studio-hint" role="status">{promptStatus||(!hasModelSettings(modelSettings)?'请配置工程文字模型以自动转译，也可手动填写。':'')}</p>
-      {data.englishPrompt&&data.englishPromptSource!==englishPromptSource(concept)&&<p className="studio-hint">设计依据已变化，已保留当前 Prompt；如需更新，请点击重新翻译。</p>}
+      {data.englishPrompt&&data.englishPromptSource!==englishPromptSource(concept)&&<p className="studio-hint">设计依据已变化，已保留当前 Prompt；可按通用模板重新生成，或重新翻译并优化。</p>}
     </fieldset></details>
     {configured && !referenceSupported && needsReference && <p className="studio-hint" role="alert">后续制图需要支持参考图的图片模型，请在 AI 模型中心切换。</p>}
     <p className="studio-hint" role="status">{notice || loadError || (needsReference && !heroReady ? '请先在第一步确认外观。' : !visualStep ? `当前文字模型：${(active === 'compliance' ? (reportSettings ?? modelSettings).model : modelSettings.model) || '未配置'}` : configured ? `图片模型：${imageSettings.model}` : '请在 AI 模型中心配置图片模型。')}</p>
@@ -197,7 +199,17 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <details><summary>深化效果图（可选）</summary><button type="button" className="studio-button" disabled={pending || !hasModelSettings(modelSettings)} onClick={() => void run(signal => analyzeEngineering(concept, 'industrial', modelSettings, signal), renderNotes => change({ renderNotes: `模型建议（${modelSettings.model}，基于文字，待人工核对）：\n${renderNotes}` }), '功能与 CMF 建议已保存，可修正后用于效果图。')}>AI 功能与材质建议</button>
       <label className="studio-field">效果图深化说明<textarea rows={5} maxLength={8000} value={data.renderNotes} disabled={pending} onChange={event => change({ renderNotes: event.target.value })} /></label></details>
       {imageActions('hero', useSketch ? '生成选定产品高清效果图' : '自由生成产品高清效果图', !useSketch || current('selected'))}{useSketch && <details><summary>查看选定的草图</summary>{imagePreview('selected', '选定的草图')}</details>}{imagePreview('hero', '产品效果图')}<button type="button" className="studio-button primary" disabled={pending || !current('hero')} onClick={() => change({ confirmedHero: data.assets.hero })}>{heroReady ? '外观已确认 ✓' : '确认外观'}</button><p className="studio-hint">后续步骤沿用此造型；产品资料变化后需更新。</p></section>}
-    {active === 'design' && <section className="studio-refinement"><h3>1C · 产品概念展示图</h3><p>现代简洁排版，沿用已确认的产品外观。</p>{!heroReady&&<p className="studio-hint">请先确认上方产品效果图。</p>}{imageActions('presentation','生成产品概念展示图',heroReady)}{imagePreview('presentation','产品概念展示图')}</section>}
+    {active === 'design' && <section className="studio-refinement"><h3>1C · 产品概念展示图</h3>
+      <div className="studio-actions" role="group" aria-label="概念展示图模式">
+        <button className="studio-button" disabled={pending} aria-pressed={data.presentationMode!=='set'} onClick={()=>change({presentationMode:'single'})}>普通概念展示图</button>
+        <button className="studio-button" disabled={pending} aria-pressed={data.presentationMode==='set'} onClick={()=>change({presentationMode:'set'})}>三件套</button>
+      </div>
+      {data.presentationMode==='set'?<PresentationSetPanel key={concept.id} concept={concept} projectId={projectId} roundNumber={roundNumber} settings={imageSettings} hero={asset('hero')} onChange={onChange}/>:<>
+        <p>现代简洁排版，沿用已确认的产品外观；按当前版式与尺寸生成一张展示图。</p>
+        {!heroReady&&<p className="studio-hint">请先确认上方产品效果图。</p>}
+        {imageActions('presentation','生成产品概念展示图',heroReady)}{imagePreview('presentation','产品概念展示图')}
+      </>}
+    </section>}
     {active === 'pcb' && <><p>生成黑白二维 PCB 示意，精确图纸可按真实数据绘制。</p>
       <details><summary>PCB 参数与精确矢量绘制</summary><PcbDrawingPanel concept={concept} settings={modelSettings} outputSize={outputSize} disabled={pending} heroReady={heroReady} onEdit={onChange}/></details>
       {imageActions('pcb', '生成 PCB 示意图', heroReady)}{imagePreview('pcb', '二维 PCB 工程示意图')}
