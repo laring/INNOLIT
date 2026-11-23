@@ -1,7 +1,7 @@
 import type { ModelSettings } from './modelGeneration.ts'
 import { imageSizes } from './imageGeneration.ts'
 import type { ImageSettings } from './imageGeneration.ts'
-import { createEmptyWorkflowRouting, workflowTasks } from './aiModelRouter.ts'
+import { createEmptyWorkflowRouting, workflowTasks, isWorkflowImageTask } from './aiModelRouter.ts'
 import type { WorkflowModelRouting, WorkflowTask } from './aiModelRouter.ts'
 export type ModelCenterConfig = { text: ModelSettings; image: ImageSettings; workflow: WorkflowModelRouting }
 export const modelConfigStorageKey = 'inno-lit-model-center-encrypted-v1'
@@ -23,7 +23,7 @@ export function validateModelConfig(value:unknown):ModelCenterConfig{
   const data=record(value),saved=record(data.workflow),workflow=createEmptyWorkflowRouting()
   for(const task of Object.keys(workflowTasks) as WorkflowTask[]) {
     if(saved[task]===undefined||saved[task]===null)continue
-    if(task==='visual')workflow.visual=imageSettings(saved[task]);else workflow[task]=textSettings(saved[task])
+    if(isWorkflowImageTask(task))workflow[task]=imageSettings(saved[task]);else workflow[task]=textSettings(saved[task])
   }
   return {text:textSettings(data.text),image:imageSettings(data.image),workflow}
 }

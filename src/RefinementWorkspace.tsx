@@ -248,6 +248,7 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
       {stage === 'visuals' && <VisualStudio key={`${roundNumber}:${concept.id}`} projectId={projectId}
         projectName={projectName} round={round} roundNumber={roundNumber} concept={concept} onChange={onChange}
         imageSettings={imageSettings}
+        imageModels={workflowSettings}
         imageConfiguration={imageConfiguration}
         reportSettings={workflowSettings.report}
         modelSettings={engineeringSettings}
