@@ -199,7 +199,17 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <details><summary>深化效果图（可选）</summary><button type="button" className="studio-button" disabled={pending || !hasModelSettings(modelSettings)} onClick={() => void run(signal => analyzeEngineering(concept, 'industrial', modelSettings, signal), renderNotes => change({ renderNotes: `模型建议（${modelSettings.model}，基于文字，待人工核对）：\n${renderNotes}` }), '功能与 CMF 建议已保存，可修正后用于效果图。')}>AI 功能与材质建议</button>
       <label className="studio-field">效果图深化说明<textarea rows={5} maxLength={8000} value={data.renderNotes} disabled={pending} onChange={event => change({ renderNotes: event.target.value })} /></label></details>
       {imageActions('hero', useSketch ? '生成选定产品高清效果图' : '自由生成产品高清效果图', !useSketch || current('selected'))}{useSketch && <details><summary>查看选定的草图</summary>{imagePreview('selected', '选定的草图')}</details>}{imagePreview('hero', '产品效果图')}<button type="button" className="studio-button primary" disabled={pending || !current('hero')} onClick={() => change({ confirmedHero: data.assets.hero })}>{heroReady ? '外观已确认 ✓' : '确认外观'}</button><p className="studio-hint">后续步骤沿用此造型；产品资料变化后需更新。</p></section>}
-    {active === 'design' && <PresentationSetPanel key={concept.id} concept={concept} projectId={projectId} roundNumber={roundNumber} settings={imageSettings} hero={asset('hero')} onChange={onChange}/>}
+    {active === 'design' && <section className="studio-refinement"><h3>1C · 产品概念展示图</h3>
+      <div className="studio-actions" role="group" aria-label="概念展示图模式">
+        <button className="studio-button" disabled={pending} aria-pressed={data.presentationMode!=='set'} onClick={()=>change({presentationMode:'single'})}>普通概念展示图</button>
+        <button className="studio-button" disabled={pending} aria-pressed={data.presentationMode==='set'} onClick={()=>change({presentationMode:'set'})}>三件套</button>
+      </div>
+      {data.presentationMode==='set'?<PresentationSetPanel key={concept.id} concept={concept} projectId={projectId} roundNumber={roundNumber} settings={imageSettings} hero={asset('hero')} onChange={onChange}/>:<>
+        <p>现代简洁排版，沿用已确认的产品外观；按当前版式与尺寸生成一张展示图。</p>
+        {!heroReady&&<p className="studio-hint">请先确认上方产品效果图。</p>}
+        {imageActions('presentation','生成产品概念展示图',heroReady)}{imagePreview('presentation','产品概念展示图')}
+      </>}
+    </section>}
     {active === 'pcb' && <><p>生成黑白二维 PCB 示意，精确图纸可按真实数据绘制。</p>
       <details><summary>PCB 参数与精确矢量绘制</summary><PcbDrawingPanel concept={concept} settings={modelSettings} outputSize={outputSize} disabled={pending} heroReady={heroReady} onEdit={onChange}/></details>
       {imageActions('pcb', '生成 PCB 示意图', heroReady)}{imagePreview('pcb', '二维 PCB 工程示意图')}
