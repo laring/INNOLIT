@@ -252,6 +252,7 @@ export function RefinementWorkspace({ projectId, projectName, round, roundNumber
         imageConfiguration={imageConfiguration}
         reportSettings={workflowSettings.report}
         modelSettings={engineeringSettings}
+        stepSettings={workflowSettings.stepParameters}
          />}
     </>
   )

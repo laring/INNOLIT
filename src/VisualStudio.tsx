@@ -7,7 +7,7 @@ import './VisualStudio.css'
 type VisualProps = {
   imageModels?: {sketchImage:ImageSettings;heroImage:ImageSettings;presentationImage:ImageSettings}
   projectId: string; projectName: string; round: ConceptBatch; roundNumber: number
-  concept: Concept; imageSettings: ImageSettings; imageConfiguration: string; modelSettings: ModelSettings; reportSettings?: ModelSettings
+  concept: Concept; imageSettings: ImageSettings; imageConfiguration: string; modelSettings: ModelSettings; reportSettings?: ModelSettings; stepSettings?: ModelSettings
   onChange: (update: (current: Concept) => Concept) => void
 }
 export function VisualStudio(props: VisualProps) {

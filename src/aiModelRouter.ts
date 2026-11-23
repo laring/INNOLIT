@@ -82,6 +82,7 @@ export const workflowTasks = {
   heroImage: '1B · 最终高清效果图',
   presentationImage: '1C · 产品概念展示图',
   engineering: '七步产品设计 · 工程文字模型',
+  stepParameters: '工业设计 · STEP 参数草稿',
   report: '设计报告',
 } as const
 
@@ -150,6 +151,7 @@ export type WorkflowModelRouting = {
   optimization: ModelSettings | null
   visual: ImageSettings | null
   engineering: ModelSettings | null
+  stepParameters?: ModelSettings | null
   report: ModelSettings | null
 }
 
@@ -163,6 +165,7 @@ export function createEmptyWorkflowRouting(): WorkflowModelRouting {
     optimization: null,
     visual: null,
     engineering: null,
+    stepParameters: null,
     report: null,
   }
 }
@@ -186,6 +189,7 @@ export function resolveWorkflowModels(workflow: WorkflowModelRouting, legacy: AI
   const visual=resolveWorkflowImageModel(workflow,resolveImageModel(legacy,image))
   const creative = resolveTextModel('concept', legacy, text)
   const refinement = resolveTextModel('refinement', legacy, text)
+  const engineering = resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text))
   return {
     home: resolveWorkflowTextModel('home', workflow, creative),
     conceptStudio: resolveWorkflowTextModel('conceptStudio', workflow, creative),
@@ -198,7 +202,8 @@ export function resolveWorkflowModels(workflow: WorkflowModelRouting, legacy: AI
     sketchImage: workflow.sketchImage ?? visual,
     heroImage: workflow.heroImage ?? visual,
     presentationImage: workflow.presentationImage ?? visual,
-    engineering: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
-    translation: resolveWorkflowTextModel('engineering', workflow, resolveTextModel('translation', legacy, text)),
+    engineering,
+    stepParameters: resolveWorkflowTextModel('stepParameters', workflow, engineering),
+    translation: engineering,
   }
 }

@@ -1,3 +1,4 @@
+import { AppearanceStepPanel } from './AppearanceStepPanel'
 import {PresentationSetPanel} from './PresentationSetPanel'
 import { SketchRegionEditor } from './SketchRegionEditor'
 import { FirmwarePanel, CostPanel } from './ProductionWorkflowPanels'
@@ -21,14 +22,14 @@ import type { SavedVisual } from './visualTypes'
 import { downloadBlob } from './conceptBoard'
 import { imageDataUrl, imageDigest, selectedSketch, validateProductImage, sizedProductImage, engineeringReference } from './productWorkflowImages'
 import { EngineeringPanel, PackagingPanel } from './ProductEngineeringPanels'
-import { analyzeEngineering, translateImagePrompt, recommendDrawingParameters, cleanDrawingRecommendations } from './engineeringModel'
+import { analyzeEngineering, translateImagePrompt, recommendDrawingParameters, recommendAppearanceParts, cleanDrawingRecommendations } from './engineeringModel'
 import { useModelTask } from './useModelTask'
 import './ProductWorkflowStudio.css'
 
 const stepLabels: Record<ProductStage, string> = { design: '外观设计', structure: '结构爆炸图', drawings: '结构工程图', pcb: 'PCB 图纸', firmware: '软件与文档', packaging: '包装与成本', compliance: '推广与合规' }
 
-type Props = { imageModels?: {sketchImage:ImageSettings;heroImage:ImageSettings;presentationImage:ImageSettings}; projectId: string; roundNumber: number; concept: Concept; imageSettings: ImageSettings; modelSettings: ModelSettings; reportSettings?: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }
-export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSettings, imageModels, modelSettings, reportSettings, onChange }: Props) {
+type Props = { imageModels?: {sketchImage:ImageSettings;heroImage:ImageSettings;presentationImage:ImageSettings}; projectId: string; roundNumber: number; concept: Concept; imageSettings: ImageSettings; modelSettings: ModelSettings; reportSettings?: ModelSettings; stepSettings?: ModelSettings; onChange: (update: (current: Concept) => Concept) => void }
+export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSettings, imageModels, modelSettings, reportSettings, stepSettings = modelSettings, onChange }: Props) {
   const data = workflowOf(concept), active = activeProductStage(data.stage)
   const heroSection = useRef<HTMLElement | null>(null)
   function showFinalRender() { heroSection.current?.scrollIntoView({behavior:'smooth',block:'start'}) }
@@ -221,6 +222,8 @@ export function ProductWorkflowStudio({ projectId, roundNumber, concept, imageSe
       <button type="button" className="studio-button" disabled={pending || !hasModelSettings(modelSettings)} onClick={() => void run(signal => analyzeEngineering(concept, 'structure', modelSettings, signal), components => change({ components: `模型结构建议（${modelSettings.model}，待人工核对）：\n${components}` }), '结构建议已保存，请核对组件与编号。')}>AI 补充组件建议</button>
       {imageActions('exploded', '生成结构爆炸图', heroReady)}{imagePreview('exploded', '结构爆炸图')}
     </>}
+    {(active === 'design' || active === 'structure') && heroReady && data.confirmedHero &&
+      <AppearanceStepPanel key={JSON.stringify([projectId,concept.id,data.confirmedHero])} appearanceId={data.confirmedHero} productName={data.productName} suggest={asset('hero') && hasModelSettings(stepSettings) ? async signal => recommendAppearanceParts(concept, await engineeringReference(asset('hero')!.blob), stepSettings, signal) : undefined} explodedId={current('exploded') ? data.assets.exploded : undefined} />}
     {active === 'structure' && <details><summary>模具 DFM 与已有工程附件</summary><EngineeringPanel concept={concept} settings={modelSettings} projectId={projectId} heroReady={heroReady} hero={asset('hero')} onEdit={edit} /></details>}
     {active === 'drawings' && <><p>一键生成五张独立图，也可展开单张操作。尺寸与结构需工程核对。</p><button className="studio-button" disabled={pending||!heroReady||!hasModelSettings(modelSettings)} onClick={()=>{
       const source=JSON.stringify([data.assets.hero,workflowContext(concept,'hero')]),heroId=data.assets.hero,previous=data.drawingNotes??''
