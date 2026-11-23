@@ -1,3 +1,4 @@
+import {designProgress} from './designProgress'
 import { useModelConfig } from './useModelConfig'
 
 import { useEffect, useState, useRef } from 'react'
@@ -225,6 +226,8 @@ function resetWorkflowSettings(task: WorkflowTask) {
     }))
   }
 
+  const progress=designProgress(activeProject)
+  const nextStep=progress.findIndex(step=>!step.done)
   const latestIdea = [...activeProject.messages]
     .reverse()
     .find(message => message.role === 'user')
@@ -484,13 +487,12 @@ function resetWorkflowSettings(task: WorkflowTask) {
 
           <div className="result-section">
             <div className="section-label">设计流程</div>
-            <div className="process-list">
-              <div>01 · 问题与场景</div>
-              <div>02 · 创意方向</div>
-              <div>03 · 产品概念</div>
-              <div>04 · 可行性验证与原创性检索</div>
-              <div>05 · 设计报告</div>
-            </div>
+            <p className="process-summary" role="status">已完成 {progress.filter(step=>step.done).length} / {progress.length} 项</p>
+            <ol className="process-list" aria-label="设计流程完成情况">
+              {progress.map((step,index)=><li key={step.title} className={step.done?'process-step is-complete':'process-step'} aria-current={index===nextStep?'step':undefined} title={step.detail}>
+                <span>{step.title}</span><span className="process-state">{step.done?'✓ 已完成':'未完成'}</span>
+              </li>)}
+            </ol>
           </div>
 
           <div className="results-footer">
